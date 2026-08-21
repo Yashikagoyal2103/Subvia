@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Build output
+dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Prisma generated client (only if you use a custom output path)
+src/generated/prisma/
+
+# AI agent tooling
+.agents/
+.claude/
+.windsurf/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
