@@ -1,5 +1,6 @@
 import express from "express";
-import { prisma } from "./config/prisma.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -14,5 +15,8 @@ app.get("/api/v1/health", (_req, res) => {
   });
 });
 
+app.use("/api/v1/auth", authRoutes);
+
+app.use(errorHandler);
 
 export default app;
