@@ -1,15 +1,8 @@
-import type {
-  ErrorRequestHandler,
-} from "express";
+import type { ErrorRequestHandler } from "express";
 
 import { ZodError } from "zod";
 
-export const errorHandler: ErrorRequestHandler = (
-  error,
-  _req,
-  res,
-  _next
-) => {
+export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => {
   if (error instanceof ZodError) {
     return res.status(400).json({
       success: false,
@@ -50,6 +43,34 @@ export const errorHandler: ErrorRequestHandler = (
       },
     });
   }
+  if (error.message === "BUSINESS_NOT_FOUND") {
+  return res.status(404).json({
+    success: false,
+    error: {
+      code: "BUSINESS_NOT_FOUND",
+      message: "Business not found or you don't have access.",
+      },
+    });
+  }
+  if (error.message === "CUSTOMER_ALREADY_EXISTS") {
+  return res.status(409).json({
+    success: false,
+    error: {
+      code: "CUSTOMER_ALREADY_EXISTS",
+      message: "You are already a customer of this business.",
+    },
+  });
+}
+
+if (error.message === "CUSTOMER_NOT_FOUND") {
+  return res.status(404).json({
+    success: false,
+    error: {
+      code: "CUSTOMER_NOT_FOUND",
+      message: "Customer profile not found.",
+    },
+  });
+}
 
   console.error(error);
 
@@ -60,4 +81,6 @@ export const errorHandler: ErrorRequestHandler = (
       message: "An unexpected error occurred.",
     },
   });
+  
 };
+

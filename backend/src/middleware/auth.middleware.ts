@@ -1,9 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-
 import { env } from "../config/env.js";
 
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest<
+  P = Record<string, string>
+> extends Request<P> {
   userId: string;
 }
 
@@ -24,23 +25,16 @@ export function authenticate(
     });
   }
 
-const token = header.split(" ")[1];
+  const token = header.split(" ")[1];
 
   try {
-    const payload = jwt.verify(
-      token,
-      env.JWT_SECRET
-    );
+    const payload = jwt.verify(token, env.JWT_SECRET);
 
-    if (
-      typeof payload === "string" ||
-      !payload.sub
-    ) {
+    if (typeof payload === "string" || !payload.sub) {
       throw new Error();
     }
 
-    (req as AuthenticatedRequest).userId =
-      payload.sub;
+    (req as AuthenticatedRequest).userId = payload.sub;
 
     next();
   } catch {

@@ -14,6 +14,8 @@ model User {
   createdAt     DateTime       @default(now())
 
   refreshTokens RefreshToken[]
+  businessMembers  BusinessMember[]
+  customerProfiles CustomerProfile[]
 }
 
 model RefreshToken {
@@ -27,4 +29,46 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum BusinessRole {
+  BUSINESS_ADMIN
+  CUSTOMER
+}
+
+model Business {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members         BusinessMember[]
+  customerProfiles CustomerProfile[]
+}
+
+model BusinessMember {
+  id         String       @id @default(uuid())
+  userId     String
+  businessId String
+  role       BusinessRole
+  createdAt  DateTime     @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+}
+
+model CustomerProfile {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
 }
