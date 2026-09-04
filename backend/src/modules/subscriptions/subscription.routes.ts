@@ -5,8 +5,22 @@ import { create, getById, list } from "./subscription.controller.js";
 
 const router = Router();
 
-router.post("/:businessId/subscriptions", authenticate, authRoute(create));
-router.get("/:businessId/subscriptions", authenticate, authRoute(list));
-router.get("/:businessId/subscriptions/:subscriptionId", authenticate, authRoute(getById));
+router.post(
+    "/:businessId/subscriptions", 
+    authenticate, 
+    authRoute(create)
+);
+
+router.get(
+    "/:businessId/subscriptions", 
+    authenticate, 
+    authRoute(list)
+);
+
+router.get(
+    "/:businessId/subscriptions/:subscriptionId", 
+    authenticate, 
+    authRoute(getById)
+);
 
 export default router;

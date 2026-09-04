@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateSubscriptionInput } from "./subscription.schema.js";
+import crypto from "node:crypto";
 
 function getBillingPeriod(interval: "MONTHLY" | "YEARLY", start: Date) {
   const end = new Date(start);
@@ -21,36 +22,24 @@ export async function createSubscription(
   const plan = await prisma.plan.findFirst({
     where: {
       id: input.planId,
-      service: {
-        businessId,
-      },
+      service: { businessId },
       isActive: true,
     },
   });
 
-  if (!plan) {
-    throw new Error("PLAN_NOT_FOUND");
-  }
+  if (!plan) throw new Error("PLAN_NOT_FOUND");
 
   if (plan.currency !== input.currency) {
     throw new Error("CURRENCY_NOT_SUPPORTED");
   }
 
   let customer = await prisma.customerProfile.findUnique({
-    where: {
-      userId_businessId: {
-        userId,
-        businessId,
-      },
-    },
+    where: { userId_businessId: { userId, businessId } },
   });
 
   if (!customer) {
     customer = await prisma.customerProfile.create({
-      data: {
-        userId,
-        businessId,
-      },
+      data: { userId, businessId },
     });
   }
 
@@ -58,9 +47,7 @@ export async function createSubscription(
     where: {
       customerProfileId: customer.id,
       status: "ACTIVE",
-      plan: {
-        serviceId: plan.serviceId,
-      },
+      plan: { serviceId: plan.serviceId },
     },
   });
 
@@ -70,18 +57,45 @@ export async function createSubscription(
 
   const start = new Date();
   const end = getBillingPeriod(plan.interval, start);
+  const invoiceNumber = `INV-${start.getFullYear()}-${crypto.randomUUID().slice(0, 8)}`;
 
-  return prisma.subscription.create({
+  return prisma.$transaction(async (tx) => {
+    const subscription = await tx.subscription.create({
+      data: {
+        customerProfileId: customer.id,
+        planId: plan.id,
+        status: "PENDING",
+        currency: plan.currency,
+        price: plan.price,
+        billingInterval: plan.interval,
+        billingPeriodStart: start,
+        billingPeriodEnd: end,
+      },
+    });
+
+   const invoice = await tx.invoice.create({
     data: {
+      invoiceNumber,
       customerProfileId: customer.id,
-      planId: plan.id,
-      status: "PENDING",
+      subscriptionId: subscription.id,
+      status: "OPEN",
       currency: plan.currency,
-      price: plan.price,
-      billingInterval: plan.interval,
-      billingPeriodStart: start,
-      billingPeriodEnd: end,
+      subtotal: plan.price,
+      total: plan.price,
+      items: {
+        create: {
+          description: `${plan.name} subscription`,
+          quantity: 1,
+          unitPrice: plan.price,
+          amount: plan.price,
+        },
+      },
     },
+    include: { items: true },
+  });
+
+  return { subscription, invoice };
+
   });
 }
 
