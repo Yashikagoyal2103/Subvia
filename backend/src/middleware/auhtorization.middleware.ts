@@ -6,24 +6,15 @@ type BusinessParams = {
   businessId: string;
 };
 
-export function requireBusinessRole(
-  ...allowedRoles: ("BUSINESS_ADMIN" | "CUSTOMER")[]
-) {
-  return async (
-    req: AuthenticatedRequest<BusinessParams>,
-    res: Response,
-    next: NextFunction
-  ) => {
-    const { businessId } = req.params;
-
-    const userId = req.userId;
+export function requireBusinessRole(...allowedRoles: "BUSINESS_ADMIN"[]) {
+  return async (req: Request<BusinessParams>, res: Response, next: NextFunction) => {
+    const authenticatedReq = req as AuthenticatedRequest<BusinessParams>;
+    const { businessId } = authenticatedReq.params;
+    const userId = authenticatedReq.userId;
 
     const membership = await prisma.businessMember.findUnique({
       where: {
-        userId_businessId: {
-          userId,
-          businessId,
-        },
+        userId_businessId: { userId, businessId },
       },
     });
 

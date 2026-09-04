@@ -7,18 +7,8 @@ type AuthHandler<P> = (
   next: NextFunction
 ) => Promise<unknown> | unknown;
 
-export function authRoute<P>(
-  handler: AuthHandler<P>
-) {
-  return (
-    req: Request<P>,
-    res: Response,
-    next: NextFunction
-  ) => {
-    return handler(
-      req as AuthenticatedRequest<P>,
-      res,
-      next
-    );
+export function authRoute<P>(handler: AuthHandler<P>) {
+  return (req: Request<P>, res: Response, next: NextFunction) => {
+    return handler(req as AuthenticatedRequest<P>, res, next);
   };
 }

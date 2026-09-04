@@ -71,6 +71,25 @@ if (error.message === "CUSTOMER_NOT_FOUND") {
     },
   });
 }
+if (error.message === "SERVICE_NOT_FOUND") {
+  return res.status(404).json({
+    success: false,
+    error: {
+      code: "SERVICE_NOT_FOUND",
+      message: "Service not found.",
+    },
+  });
+}
+
+if (error.message === "PLAN_NOT_FOUND") {
+  return res.status(404).json({
+    success: false,
+    error: {
+      code: "PLAN_NOT_FOUND",
+      message: "Plan not found.",
+    },
+  });
+}
 
   console.error(error);
 
