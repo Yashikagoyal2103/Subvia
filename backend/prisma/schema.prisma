@@ -71,6 +71,7 @@ model CustomerProfile {
 
   @@unique([userId, businessId])
   @@index([businessId])
+  subscriptions Subscription[]
 }
 
 model Service {
@@ -103,6 +104,7 @@ model Plan {
   service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@index([serviceId])
+  subscriptions Subscription[]
 }
 
 enum Currency {
@@ -113,4 +115,34 @@ enum Currency {
 enum BillingInterval {
   MONTHLY
   YEARLY
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+model Subscription {
+  id                String             @id @default(uuid())
+  customerProfileId String
+  planId            String
+  status            SubscriptionStatus @default(PENDING)
+  currency          Currency
+  price             Int
+  billingInterval   BillingInterval
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  cancelAtPeriodEnd Boolean            @default(false)
+  cancelledAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  plan            Plan            @relation(fields: [planId], references: [id])
+
+  @@index([customerProfileId])
+  @@index([planId])
+  @@index([status])
 }

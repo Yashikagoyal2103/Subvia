@@ -91,6 +91,36 @@ if (error.message === "PLAN_NOT_FOUND") {
   });
 }
 
+if (error.message === "CURRENCY_NOT_SUPPORTED") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "CURRENCY_NOT_SUPPORTED",
+      message: "This plan does not support the selected currency.",
+    },
+  });
+}
+
+if (error.message === "ACTIVE_SUBSCRIPTION_EXISTS") {
+  return res.status(409).json({
+    success: false,
+    error: {
+      code: "ACTIVE_SUBSCRIPTION_EXISTS",
+      message: "You already have an active subscription for this service.",
+    },
+  });
+}
+
+if (error.message === "SUBSCRIPTION_NOT_FOUND") {
+  return res.status(404).json({
+    success: false,
+    error: {
+      code: "SUBSCRIPTION_NOT_FOUND",
+      message: "Subscription not found.",
+    },
+  });
+}
+
   console.error(error);
 
   return res.status(500).json({
