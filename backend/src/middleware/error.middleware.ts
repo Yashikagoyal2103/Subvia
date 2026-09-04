@@ -130,6 +130,36 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
     });
   }
 
+  if (error.message === "INVOICE_ALREADY_PAID") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "INVOICE_ALREADY_PAID",
+        message: "This invoice has already been paid.",
+      },
+    });
+  }
+
+  if (error.message === "INVOICE_NOT_PAYABLE") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVOICE_NOT_PAYABLE",
+        message: "This invoice cannot be paid. It may be void or draft.",
+      },
+    });
+  }
+
+  if (error.message === "PAYMENT_NOT_FOUND") {
+    return res.status(404).json({
+      success: false,
+      error: {
+        code: "PAYMENT_NOT_FOUND",
+        message: "Payment not found.",
+      },
+    });
+  }
+
   console.error(error);
 
   return res.status(500).json({

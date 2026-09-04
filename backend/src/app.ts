@@ -5,6 +5,7 @@ import businessRoutes from "./modules/businesses/business.routes.js";
 import customerRoutes from "./modules/customers/customer.routes.js";
 import subscriptionRoutes from "./modules/subscriptions/subscription.routes.js";
 import invoiceRoutes from "./modules/invoices/invoice.routes.js";
+import paymentRoutes from "./modules/payments/payment.routes.js";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/v1/businesses", businessRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/businesses", subscriptionRoutes);
 app.use("/api/v1/businesses", invoiceRoutes);
+app.use("/api/v1/businesses", paymentRoutes);
 
 app.use(errorHandler);
 

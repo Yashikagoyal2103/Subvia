@@ -178,6 +178,7 @@ model Invoice {
   @@index([customerProfileId])
   @@index([subscriptionId])
   @@index([status])
+  payments Payment[]
 }
 
 model InvoiceItem {
@@ -192,4 +193,28 @@ model InvoiceItem {
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  invoiceId       String
+  amount          Int
+  currency        Currency
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String
+  transactionId   String?       @unique
+  failureReason   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([status])
 }
