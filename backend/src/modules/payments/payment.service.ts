@@ -39,19 +39,41 @@ export async function createPayment(
     });
 
     if (input.result === "SUCCESS") {
-      await tx.invoice.update({
-        where: { id: invoice.id },
+    await tx.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+      },
+    });
+
+    const subscription = await tx.subscription.findUnique({
+      where: { id: invoice.subscriptionId },
+      include: { pendingPlan: true },
+    });
+
+    if (!subscription) {
+      throw new Error("SUBSCRIPTION_NOT_FOUND");
+    }
+
+    if (subscription.pendingPlan) {
+      await tx.subscription.update({
+        where: { id: subscription.id },
         data: {
-          status: "PAID",
-          paidAt: new Date(),
+          planId: subscription.pendingPlan.id,
+          price: subscription.pendingPlan.price,
+          billingInterval: subscription.pendingPlan.interval,
+          pendingPlanId: null,
+          status: "ACTIVE",
         },
       });
-
+    } else {
       await tx.subscription.update({
-        where: { id: invoice.subscriptionId },
+        where: { id: subscription.id },
         data: { status: "ACTIVE" },
       });
     }
+  }
 
     return payment;
   });

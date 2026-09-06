@@ -178,6 +178,35 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
       },
     });
   }
+  if (error.message === "PENDING_PLAN_CHANGE_EXISTS") {
+  return res.status(409).json({
+    success: false,
+    error: {
+      code: "PENDING_PLAN_CHANGE_EXISTS",
+      message: "There is already a pending plan change. Please wait for it to complete.",
+    },
+  });
+}
+
+if (error.message === "NOT_AN_UPGRADE") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "NOT_AN_UPGRADE",
+      message: "The selected plan is not an upgrade. Downgrades are not supported at this time.",
+    },
+  });
+}
+
+if (error.message === "ALREADY_ON_PLAN") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "ALREADY_ON_PLAN",
+      message: "You are already subscribed to this plan.",
+    },
+  });
+}
 
   console.error(error);
 
