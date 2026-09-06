@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const planParamsSchema = z.object({
-  businessId: z.string().uuid(),
-  serviceId: z.string().uuid(),
-  planId: z.string().uuid().optional(),
+  businessId: z.uuid(),
+  serviceId: z.uuid(),
+  planId: z.uuid().optional(),
 });
 
 export const createPlanSchema = z.object({

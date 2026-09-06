@@ -9,5 +9,5 @@ export type CreateBusinessInput = z.infer<
 >;
 
 export const businessIdSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });

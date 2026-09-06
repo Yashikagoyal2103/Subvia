@@ -1,18 +1,9 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateSubscriptionInput } from "./subscription.schema.js";
 import crypto from "node:crypto";
-
-function getBillingPeriod(interval: "MONTHLY" | "YEARLY", start: Date) {
-  const end = new Date(start);
-
-  if (interval === "MONTHLY") {
-    end.setMonth(end.getMonth() + 1);
-  } else {
-    end.setFullYear(end.getFullYear() + 1);
-  }
-
-  return end;
-}
+import { getBillingPeriod } from "../../shared/utils/billing-period.js";
+import { calculateProration } from "../billing/proration/proration.service.js";
+import type { UpgradeSubscriptionInput } from "./subscription.schema.js";
 
 export async function createSubscription(
   userId: string,
@@ -150,4 +141,108 @@ export async function getSubscription(
   }
 
   return subscription;
+}
+
+export async function upgradeSubscription(
+  userId: string,
+  businessId: string,
+  subscriptionId: string,
+  input: UpgradeSubscriptionInput
+) {
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      id: subscriptionId,
+      status: "ACTIVE",
+      customerProfile: { userId, businessId },
+    },
+    include: { plan: true },
+  });
+
+  if (!subscription) {
+    throw new Error("SUBSCRIPTION_NOT_FOUND");
+  }
+
+  if (subscription.planId === input.planId) {
+    throw new Error("ALREADY_ON_PLAN");
+  }
+
+  if (subscription.pendingPlanId) {
+    throw new Error("PENDING_PLAN_CHANGE_EXISTS");
+  }
+
+  const newPlan = await prisma.plan.findFirst({
+    where: {
+      id: input.planId,
+      serviceId: subscription.plan.serviceId,
+      isActive: true,
+    },
+  });
+
+  if (!newPlan) {
+    throw new Error("PLAN_NOT_FOUND");
+  }
+
+  if (newPlan.currency !== subscription.currency) {
+    throw new Error("CURRENCY_NOT_SUPPORTED");
+  }
+
+  if (newPlan.price <= subscription.price) {
+    throw new Error("NOT_AN_UPGRADE");
+  }
+
+  const changeTime = new Date();
+
+  const proration = calculateProration({
+    oldPlanPrice: subscription.price,
+    newPlanPrice: newPlan.price,
+    billingPeriodStart: subscription.billingPeriodStart,
+    billingPeriodEnd: subscription.billingPeriodEnd,
+    changeTime,
+  });
+
+  const invoiceNumber = `INV-${changeTime.getFullYear()}-${crypto
+    .randomUUID()
+    .slice(0, 8)}`;
+
+  return prisma.$transaction(async (tx) => {
+    const updatedSubscription = await tx.subscription.update({
+      where: { id: subscription.id },
+      data: { pendingPlanId: newPlan.id },
+    });
+
+    const invoice = await tx.invoice.create({
+      data: {
+        invoiceNumber,
+        customerProfileId: subscription.customerProfileId,
+        subscriptionId: subscription.id,
+        status: "OPEN",
+        currency: subscription.currency,
+        subtotal: proration.netAmount,
+        total: proration.netAmount,
+        items: {
+          create: [
+            {
+              description: `${newPlan.name} upgrade charge`,
+              quantity: 1,
+              unitPrice: proration.newPlanCharge,
+              amount: proration.newPlanCharge,
+            },
+            {
+              description: `${subscription.plan.name} unused time credit`,
+              quantity: 1,
+              unitPrice: -proration.oldPlanCredit,
+              amount: -proration.oldPlanCredit,
+            },
+          ],
+        },
+      },
+      include: { items: true },
+    });
+
+    return {
+      subscription: updatedSubscription,
+      invoice,
+      proration,
+    };
+  });
 }

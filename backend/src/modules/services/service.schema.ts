@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const serviceParamsSchema = z.object({
-  businessId: z.string().uuid(),
-  serviceId: z.string().uuid().optional(),
+  businessId: z.uuid(),
+  serviceId: z.uuid().optional(),
 });
 
 export const createServiceSchema = z.object({

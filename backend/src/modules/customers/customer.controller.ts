@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-
 import { businessIdSchema } from "./customer.schema.js";
 import { getCustomerProfile } from "./customer.service.js";
 

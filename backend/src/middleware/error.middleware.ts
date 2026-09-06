@@ -159,6 +159,25 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
       },
     });
   }
+  if (error.message === "INVALID_BILLING_PERIOD") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "INVALID_BILLING_PERIOD",
+      message: "Invalid billing period configuration.",
+    },
+  });
+}
+
+  if (error.message === "INVALID_CHANGE_TIME") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_CHANGE_TIME",
+        message: "Plan change time must be within the billing period.",
+      },
+    });
+  }
 
   console.error(error);
 

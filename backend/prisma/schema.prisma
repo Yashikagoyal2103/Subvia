@@ -102,10 +102,12 @@ model Plan {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  subscriptions        Subscription[]
+  pendingSubscriptions Subscription[] @relation("PendingPlan")
 
   @@index([serviceId])
-  subscriptions Subscription[]
 }
 
 enum Currency {
@@ -129,6 +131,7 @@ model Subscription {
   id                String             @id @default(uuid())
   customerProfileId String
   planId            String
+  pendingPlanId     String?
   status            SubscriptionStatus @default(PENDING)
   currency          Currency
   price             Int
@@ -142,11 +145,14 @@ model Subscription {
 
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   plan            Plan            @relation(fields: [planId], references: [id])
+  pendingPlan     Plan?           @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+
+  invoices Invoice[]
 
   @@index([customerProfileId])
   @@index([planId])
+  @@index([pendingPlanId])
   @@index([status])
-  invoices Invoice[]
 }
 
 enum InvoiceStatus {
