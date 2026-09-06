@@ -3,6 +3,8 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import businessRoutes from "./modules/businesses/business.routes.js";
 import customerRoutes from "./modules/customers/customer.routes.js";
+import serviceRoutes from "./modules/services/service.routes.js";
+import planRoutes from "./modules/plans/plan.routes.js";
 import subscriptionRoutes from "./modules/subscriptions/subscription.routes.js";
 import invoiceRoutes from "./modules/invoices/invoice.routes.js";
 import paymentRoutes from "./modules/payments/payment.routes.js";
@@ -23,6 +25,8 @@ app.get("/api/v1/health", (_req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/businesses", businessRoutes);
 app.use("/api/v1/customers", customerRoutes);
+app.use("/api/v1/businesses", serviceRoutes);
+app.use("/api/v1/businesses", planRoutes);
 app.use("/api/v1/businesses", subscriptionRoutes);
 app.use("/api/v1/businesses", invoiceRoutes);
 app.use("/api/v1/businesses", paymentRoutes);
