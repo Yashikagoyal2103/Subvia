@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { createSubscriptionSchema, subscriptionParamsSchema ,upgradeSubscriptionSchema } from "./subscription.schema.js";
-import {createSubscription, getSubscription, getSubscriptions ,upgradeSubscription } from "./subscription.service.js";
+import { createSubscriptionSchema, subscriptionParamsSchema ,upgradeSubscriptionSchema, downgradeSubscriptionSchema } from "./subscription.schema.js";
+import {createSubscription, getSubscription, getSubscriptions ,upgradeSubscription , downgradeSubscription } from "./subscription.service.js";
 
 export async function create(req: AuthenticatedRequest, res: Response) {
   const { businessId } = subscriptionParamsSchema.parse(req.params);
@@ -62,6 +62,27 @@ export async function upgrade(
   );
 
   return res.status(201).json({
+    success: true,
+    data: result,
+  });
+}
+export async function downgrade(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const { businessId, subscriptionId } =
+    subscriptionParamsSchema.parse(req.params);
+
+  const input = downgradeSubscriptionSchema.parse(req.body);
+
+  const result = await downgradeSubscription(
+    req.userId,
+    businessId,
+    subscriptionId!,
+    input
+  );
+
+  return res.status(200).json({
     success: true,
     data: result,
   });

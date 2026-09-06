@@ -3,7 +3,7 @@ import type { CreateSubscriptionInput } from "./subscription.schema.js";
 import crypto from "node:crypto";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
-import type { UpgradeSubscriptionInput } from "./subscription.schema.js";
+import type { UpgradeSubscriptionInput, DowngradeSubscriptionInput } from "./subscription.schema.js";
 
 export async function createSubscription(
   userId: string,
@@ -244,5 +244,69 @@ export async function upgradeSubscription(
       invoice,
       proration,
     };
+  });
+}
+
+export async function downgradeSubscription(
+  userId: string,
+  businessId: string,
+  subscriptionId: string,
+  input: DowngradeSubscriptionInput
+) {
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      id: subscriptionId,
+      status: "ACTIVE",
+      customerProfile: {
+        userId,
+        businessId,
+      },
+    },
+    include: {
+      plan: true,
+    },
+  });
+
+  if (!subscription) {
+    throw new Error("SUBSCRIPTION_NOT_FOUND");
+  }
+
+  if (subscription.planId === input.planId) {
+    throw new Error("ALREADY_ON_PLAN");
+  }
+
+  if (subscription.pendingPlanId) {
+    throw new Error("PENDING_PLAN_CHANGE_EXISTS");
+  }
+
+  const newPlan = await prisma.plan.findFirst({
+    where: {
+      id: input.planId,
+      serviceId: subscription.plan.serviceId,
+      isActive: true,
+    },
+  });
+
+  if (!newPlan) {
+    throw new Error("PLAN_NOT_FOUND");
+  }
+
+  if (newPlan.currency !== subscription.currency) {
+    throw new Error("CURRENCY_NOT_SUPPORTED");
+  }
+
+  if (newPlan.price >= subscription.price) {
+    throw new Error("NOT_A_DOWNGRADE");
+  }
+
+  return prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      pendingPlanId: newPlan.id,
+    },
+    include: {
+      plan: true,
+      pendingPlan: true,
+    },
   });
 }

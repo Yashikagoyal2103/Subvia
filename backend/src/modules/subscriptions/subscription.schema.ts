@@ -12,7 +12,11 @@ export const subscriptionParamsSchema = z.object({
 export const upgradeSubscriptionSchema = z.object({
   planId: z.uuid(),
 });
+export const downgradeSubscriptionSchema = z.object({
+  planId: z.uuid(),
+});
 
+export type DowngradeSubscriptionInput = z.infer<typeof downgradeSubscriptionSchema>;
 export type UpgradeSubscriptionInput = z.infer<typeof upgradeSubscriptionSchema>;
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;
 export type SubscriptionParams = z.infer<typeof subscriptionParamsSchema>;
