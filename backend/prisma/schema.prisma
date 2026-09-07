@@ -73,6 +73,7 @@ model CustomerProfile {
   @@index([businessId])
   subscriptions Subscription[]
   invoices Invoice[]
+  creditLedger CreditLedger[]
 }
 
 model Service {
@@ -127,6 +128,12 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum CreditEntryType {
+  CREDIT
+  DEBIT
+}
+
+
 model Subscription {
   id                String             @id @default(uuid())
   customerProfileId String
@@ -180,11 +187,12 @@ model Invoice {
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
   items           InvoiceItem[]
+  payments Payment[]
+  creditLedger CreditLedger[]
 
   @@index([customerProfileId])
   @@index([subscriptionId])
   @@index([status])
-  payments Payment[]
 }
 
 model InvoiceItem {
@@ -223,4 +231,21 @@ model Payment {
 
   @@index([invoiceId])
   @@index([status])
+}
+
+model CreditLedger {
+  id                String          @id @default(uuid())
+  customerProfileId String
+  invoiceId         String?
+  amount            Int
+  currency          Currency
+  type              CreditEntryType
+  description       String
+  createdAt         DateTime        @default(now())
+
+  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  invoice         Invoice?        @relation(fields: [invoiceId], references: [id])
+
+  @@index([customerProfileId])
+  @@index([invoiceId])
 }

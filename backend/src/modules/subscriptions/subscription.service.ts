@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
 import type { UpgradeSubscriptionInput, DowngradeSubscriptionInput } from "./subscription.schema.js";
+import { createCredit } from "../credits/credit.service.js";
 
 export async function createSubscription(
   userId: string,
@@ -326,6 +327,10 @@ export async function cancelSubscription(
         businessId,
       },
     },
+    include: {
+      plan: true,
+      customerProfile: true,
+    },
   });
 
   if (!subscription) {
@@ -347,15 +352,42 @@ export async function cancelSubscription(
     });
   }
 
-  return prisma.subscription.update({
-    where: {
-      id: subscription.id,
-    },
-    data: {
-      status: "CANCELLED",
-      cancelledAt: new Date(),
-      cancelAtPeriodEnd: false,
-      pendingPlanId: null,
-    },
+  const now = new Date();
+
+  const totalPeriodMs =
+    subscription.billingPeriodEnd.getTime() -
+    subscription.billingPeriodStart.getTime();
+
+  const remainingMs =
+    Math.max(
+      subscription.billingPeriodEnd.getTime() - now.getTime(),
+      0
+    );
+
+  const unusedAmount = Math.floor(
+    (subscription.price * remainingMs) / totalPeriodMs
+  );
+
+  return prisma.$transaction(async (tx) => {
+    if (unusedAmount > 0) {
+      await createCredit(tx, {
+        customerProfileId: subscription.customerProfileId,
+        amount: unusedAmount,
+        currency: subscription.currency,
+        description: "Credit from immediate subscription cancellation.",
+      });
+    }
+
+    return tx.subscription.update({
+      where: {
+        id: subscription.id,
+      },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: now,
+        cancelAtPeriodEnd: false,
+        pendingPlanId: null,
+      },
+    });
   });
 }
