@@ -1,8 +1,9 @@
-import { BillingInterval, InvoiceStatus, SubscriptionStatus, } from "../../../generated/prisma/client.js";
+import { BillingInterval, SubscriptionStatus, } from "../../../generated/prisma/client.js";
 import { prisma } from "../../../config/prisma.js";
 import crypto from "node:crypto";
 import type { Prisma } from "../../../generated/prisma/client.js";
-import { processPayment, } from "../../payments/payment.service.js";
+import { processPayment } from "../../payments/payment.service.js";
+import { applyCredit } from "../../credits/credit.service.js";
 
 function addBillingInterval(
   date: Date,
@@ -37,7 +38,11 @@ export async function processDueSubscriptions(
   });
 
   for (const subscription of subscriptions) {
-    await processSubscriptionRenewal(subscription.id, now, paymentResult);
+    await processSubscriptionRenewal(
+      subscription.id,
+      now,
+      paymentResult
+    );
   }
 
   return {
@@ -72,6 +77,9 @@ async function processSubscriptionRenewal(
     if (subscription.billingPeriodEnd > now) {
       return;
     }
+
+    // Subscription is cancelled at the end of the current period.
+    // Do not create another invoice or attempt another payment.
     if (subscription.cancelAtPeriodEnd) {
       await tx.subscription.update({
         where: {
@@ -88,7 +96,8 @@ async function processSubscriptionRenewal(
       return;
     }
 
-    const renewalPlan = subscription.pendingPlan ?? subscription.plan;
+    const renewalPlan =
+      subscription.pendingPlan ?? subscription.plan;
 
     const nextPeriodStart = subscription.billingPeriodEnd;
 
@@ -97,19 +106,83 @@ async function processSubscriptionRenewal(
       renewalPlan.interval
     );
 
-    const invoice = await createRenewalInvoice(
-      tx,
-      subscription.id,
-      subscription.customerProfileId,
-      renewalPlan.name,
-      renewalPlan.price,
-      renewalPlan.currency,
-      nextPeriodStart
-    );
+    // Create the renewal invoice using the full plan price.
+    const invoice = await tx.invoice.create({
+      data: {
+        invoiceNumber: generateInvoiceNumber(),
+        customerProfileId: subscription.customerProfileId,
+        subscriptionId: subscription.id,
+        status: "OPEN",
+        currency: renewalPlan.currency,
+        subtotal: renewalPlan.price,
+        total: renewalPlan.price,
+        dueAt: now,
+        items: {
+          create: {
+            description: `${renewalPlan.name} subscription renewal`,
+            quantity: 1,
+            unitPrice: renewalPlan.price,
+            amount: renewalPlan.price,
+          },
+        },
+      },
+    });
+
+    // Apply any available customer credit to the renewal invoice.
+    const creditResult = await applyCredit(tx, {
+      customerProfileId: subscription.customerProfileId,
+      invoiceId: invoice.id,
+      amount: invoice.total,
+      currency: invoice.currency,
+    });
+
+    // Update invoice total to the amount that is still actually payable.
+    await tx.invoice.update({
+      where: {
+        id: invoice.id,
+      },
+      data: {
+        total: creditResult.remainingAmount,
+      },
+    });
+
+    // If credit completely covers the invoice,
+    // no payment attempt is necessary.
+    if (creditResult.remainingAmount === 0) {
+      await tx.invoice.update({
+        where: {
+          id: invoice.id,
+        },
+        data: {
+          status: "PAID",
+          paidAt: now,
+        },
+      });
+
+      await tx.subscription.update({
+        where: {
+          id: subscription.id,
+        },
+        data: {
+          billingPeriodStart: nextPeriodStart,
+          billingPeriodEnd: nextPeriodEnd,
+          planId: renewalPlan.id,
+          price: renewalPlan.price,
+          currency: renewalPlan.currency,
+          billingInterval: renewalPlan.interval,
+          pendingPlanId: null,
+          status: SubscriptionStatus.ACTIVE,
+        },
+      });
+
+      return;
+    }
+
+    // Only charge the amount remaining after credit.
     await processPayment(tx, {
       invoiceId: invoice.id,
       subscriptionId: subscription.id,
-      amount: renewalPlan.price,
+      amount: creditResult.remainingAmount,
       currency: renewalPlan.currency,
       paymentMethod: "DEMO",
       result: paymentResult,
@@ -128,6 +201,7 @@ async function processSubscriptionRenewal(
       return;
     }
 
+    // Payment succeeded, so move the subscription into its next period.
     await tx.subscription.update({
       where: {
         id: subscription.id,
@@ -142,47 +216,16 @@ async function processSubscriptionRenewal(
         pendingPlanId: null,
         status: SubscriptionStatus.ACTIVE,
       },
-  });
-  });
-}
-
-async function createRenewalInvoice(
-  tx: Prisma.TransactionClient,
-  subscriptionId: string,
-  customerProfileId: string,
-  planName: string,
-  price: number,
-  currency: "INR" | "USD",
-  periodStart: Date
-) {
-  const invoiceNumber = generateInvoiceNumber();
-
-  return tx.invoice.create({
-    data: {
-      invoiceNumber,
-      customerProfileId,
-      subscriptionId,
-      status: InvoiceStatus.OPEN,
-      currency,
-      subtotal: price,
-      total: price,
-      dueAt: periodStart,
-
-      items: {
-        create: {
-          description: `${planName} subscription renewal`,
-          quantity: 1,
-          unitPrice: price,
-          amount: price,
-        },
-      },
-    },
+    });
   });
 }
 
 function generateInvoiceNumber(): string {
   const year = new Date().getUTCFullYear();
-  const shortId = crypto.randomUUID().split("-")[0].toUpperCase();
+  const shortId = crypto
+    .randomUUID()
+    .split("-")[0]
+    .toUpperCase();
 
   return `INV-${year}-${shortId}`;
 }
