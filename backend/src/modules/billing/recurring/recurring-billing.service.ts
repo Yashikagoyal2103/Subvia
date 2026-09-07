@@ -72,12 +72,25 @@ async function processSubscriptionRenewal(
     if (subscription.billingPeriodEnd > now) {
       return;
     }
+    if (subscription.cancelAtPeriodEnd) {
+      await tx.subscription.update({
+        where: {
+          id: subscription.id,
+        },
+        data: {
+          status: SubscriptionStatus.CANCELLED,
+          cancelledAt: now,
+          cancelAtPeriodEnd: false,
+          pendingPlanId: null,
+        },
+      });
 
-    const renewalPlan =
-      subscription.pendingPlan ?? subscription.plan;
+      return;
+    }
 
-    const nextPeriodStart =
-      subscription.billingPeriodEnd;
+    const renewalPlan = subscription.pendingPlan ?? subscription.plan;
+
+    const nextPeriodStart = subscription.billingPeriodEnd;
 
     const nextPeriodEnd = addBillingInterval(
       nextPeriodStart,

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { authRoute } from "../../shared/utils/route-wrapper.js";
-import { create, getById, list, upgrade, downgrade } from "./subscription.controller.js";
+import { create, getById, list, upgrade, downgrade, cancel } from "./subscription.controller.js";
 
 const router = Router();
 
@@ -32,6 +32,11 @@ router.post(
   "/:businessId/subscriptions/:subscriptionId/downgrade",
   authenticate,
   authRoute(downgrade)
+);
+router.post(
+  "/:businessId/subscriptions/:subscriptionId/cancel",
+  authenticate,
+  authRoute(cancel)
 );
 
 export default router;

@@ -310,3 +310,52 @@ export async function downgradeSubscription(
     },
   });
 }
+
+export async function cancelSubscription(
+  userId: string,
+  businessId: string,
+  subscriptionId: string,
+  mode: "PERIOD_END" | "IMMEDIATE"
+) {
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      id: subscriptionId,
+      status: "ACTIVE",
+      customerProfile: {
+        userId,
+        businessId,
+      },
+    },
+  });
+
+  if (!subscription) {
+    throw new Error("SUBSCRIPTION_NOT_FOUND");
+  }
+
+  if (mode === "PERIOD_END") {
+    if (subscription.cancelAtPeriodEnd) {
+      throw new Error("CANCELLATION_ALREADY_SCHEDULED");
+    }
+
+    return prisma.subscription.update({
+      where: {
+        id: subscription.id,
+      },
+      data: {
+        cancelAtPeriodEnd: true,
+      },
+    });
+  }
+
+  return prisma.subscription.update({
+    where: {
+      id: subscription.id,
+    },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      cancelAtPeriodEnd: false,
+      pendingPlanId: null,
+    },
+  });
+}
