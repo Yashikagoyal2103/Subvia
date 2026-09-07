@@ -9,6 +9,7 @@ import subscriptionRoutes from "./modules/subscriptions/subscription.routes.js";
 import invoiceRoutes from "./modules/invoices/invoice.routes.js";
 import paymentRoutes from "./modules/payments/payment.routes.js";
 import recurringBillingRoutes from "./modules/billing/recurring/recurring-billing.routes.js";
+import creditRoutes from "./modules/credits/credit.routes.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/v1/businesses", subscriptionRoutes);
 app.use("/api/v1/businesses", invoiceRoutes);
 app.use("/api/v1/businesses", paymentRoutes);
 app.use("/api/v1/internal/billing", recurringBillingRoutes);
+app.use("/api/v1/businesses", creditRoutes);
 
 app.use(errorHandler);
 
