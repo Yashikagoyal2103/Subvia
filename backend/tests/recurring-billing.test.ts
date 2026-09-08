@@ -55,6 +55,7 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: { authorization: `Bearer ${auth.accessToken}` },
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -103,6 +104,7 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: { authorization: `Bearer ${auth.accessToken}` },
       body: JSON.stringify({ result: "FAILED" }),
     });
 
@@ -152,8 +154,10 @@ describe("Recurring billing", () => {
 
     const run = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: {authorization: `Bearer ${auth.accessToken}`,},
       body: JSON.stringify({ result: "SUCCESS" }),
     });
+
 
     expect(run.status).toBe(200);
 
@@ -195,6 +199,7 @@ describe("Recurring billing", () => {
 
     const run = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: {authorization: `Bearer ${auth.accessToken}`,},
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -225,6 +230,7 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: {authorization: `Bearer ${auth.accessToken}`,},
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -237,7 +243,7 @@ describe("Recurring billing", () => {
     expect(invoices).toBe(1);
   });
 
-  it.fails(
+  it(
     "must reject unauthenticated access to the internal billing trigger",
     async () => {
       const response = await request("/api/v1/internal/billing/run", {
@@ -249,7 +255,7 @@ describe("Recurring billing", () => {
     }
   );
 
-  it.fails(
+  it(
     "must not process the same due subscription twice concurrently",
     async () => {
       const { auth, business, starter } = await fixture();

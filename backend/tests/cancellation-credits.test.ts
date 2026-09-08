@@ -237,6 +237,7 @@ describe("Cancellation and credit ledger", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: {authorization: `Bearer ${auth.accessToken}`,},
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -290,6 +291,7 @@ describe("Cancellation and credit ledger", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
+      headers: {authorization: `Bearer ${auth.accessToken}`,},
       body: JSON.stringify({ result: "FAILED" }),
     });
 
