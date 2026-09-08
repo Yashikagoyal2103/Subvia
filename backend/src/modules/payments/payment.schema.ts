@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createPaymentSchema = z.object({
   invoiceId: z.uuid(),
-  paymentMethod: z.string().trim().min(2).max(50),
+  paymentMethod: z.enum(["DEMO", "CARD", "UPI"]),
   result: z.enum(["SUCCESS", "FAILED"]),
 });
 

@@ -1,8 +1,8 @@
 import type { ErrorRequestHandler } from "express";
-
 import { ZodError } from "zod";
 
-export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => {
+export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  // Zod validation errors
   if (error instanceof ZodError) {
     return res.status(400).json({
       success: false,
@@ -14,6 +14,7 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
     });
   }
 
+  // ─── Auth errors ───
   if (error.message === "USER_ALREADY_EXISTS") {
     return res.status(409).json({
       success: false,
@@ -43,24 +44,27 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
       },
     });
   }
+
+  // ─── Business & Customer ───
   if (error.message === "BUSINESS_NOT_FOUND") {
-  return res.status(404).json({
-    success: false,
-    error: {
-      code: "BUSINESS_NOT_FOUND",
-      message: "Business not found or you don't have access.",
+    return res.status(404).json({
+      success: false,
+      error: {
+        code: "BUSINESS_NOT_FOUND",
+        message: "Business not found or you don't have access.",
       },
     });
   }
+
   if (error.message === "CUSTOMER_ALREADY_EXISTS") {
-  return res.status(409).json({
-    success: false,
-    error: {
-      code: "CUSTOMER_ALREADY_EXISTS",
-      message: "You are already a customer of this business.",
-    },
-  });
-}
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "CUSTOMER_ALREADY_EXISTS",
+        message: "You are already a customer of this business.",
+      },
+    });
+  }
 
   if (error.message === "CUSTOMER_NOT_FOUND") {
     return res.status(404).json({
@@ -71,6 +75,8 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
       },
     });
   }
+
+  // ─── Service & Plan ───
   if (error.message === "SERVICE_NOT_FOUND") {
     return res.status(404).json({
       success: false,
@@ -91,12 +97,13 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
     });
   }
 
-  if (error.message === "CURRENCY_NOT_SUPPORTED") {
-    return res.status(400).json({
+  // ─── Subscription ───
+  if (error.message === "SUBSCRIPTION_NOT_FOUND") {
+    return res.status(404).json({
       success: false,
       error: {
-        code: "CURRENCY_NOT_SUPPORTED",
-        message: "This plan does not support the selected currency.",
+        code: "SUBSCRIPTION_NOT_FOUND",
+        message: "Subscription not found.",
       },
     });
   }
@@ -111,15 +118,90 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
     });
   }
 
-  if (error.message === "SUBSCRIPTION_NOT_FOUND") {
-    return res.status(404).json({
+  if (error.message === "CURRENCY_NOT_SUPPORTED") {
+    return res.status(400).json({
       success: false,
       error: {
-        code: "SUBSCRIPTION_NOT_FOUND",
-        message: "Subscription not found.",
+        code: "CURRENCY_NOT_SUPPORTED",
+        message: "This plan does not support the selected currency.",
       },
     });
   }
+
+  if (error.message === "ALREADY_ON_PLAN") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "ALREADY_ON_PLAN",
+        message: "You are already subscribed to this plan.",
+      },
+    });
+  }
+
+  if (error.message === "PENDING_PLAN_CHANGE_EXISTS") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "PENDING_PLAN_CHANGE_EXISTS",
+        message: "There is already a pending plan change. Please wait for it to complete.",
+      },
+    });
+  }
+
+  // ─── Upgrade / Downgrade ───
+  if (error.message === "NOT_AN_UPGRADE") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "NOT_AN_UPGRADE",
+        message: "The selected plan is not an upgrade.",
+      },
+    });
+  }
+
+  if (error.message === "NOT_A_DOWNGRADE") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "NOT_A_DOWNGRADE",
+        message: "The selected plan is not a downgrade. Upgrades should use the upgrade endpoint.",
+      },
+    });
+  }
+
+  // ─── Proration ───
+  if (error.message === "INVALID_BILLING_PERIOD") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_BILLING_PERIOD",
+        message: "Invalid billing period configuration.",
+      },
+    });
+  }
+
+  if (error.message === "INVALID_CHANGE_TIME") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "INVALID_CHANGE_TIME",
+        message: "Plan change time must be within the billing period.",
+      },
+    });
+  }
+
+  // ─── Cancellation ───
+  if (error.message === "CANCELLATION_ALREADY_SCHEDULED") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "CANCELLATION_ALREADY_SCHEDULED",
+        message: "Cancellation is already scheduled for the end of the billing period.",
+      },
+    });
+  }
+
+  // ─── Invoice & Payment ───
   if (error.message === "INVOICE_NOT_FOUND") {
     return res.status(404).json({
       success: false,
@@ -159,108 +241,19 @@ export const errorHandler: ErrorRequestHandler = ( error, _req, res, _next ) => 
       },
     });
   }
-  if (error.message === "INVALID_BILLING_PERIOD") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "INVALID_BILLING_PERIOD",
-      message: "Invalid billing period configuration.",
-    },
-  });
-}
 
-  if (error.message === "INVALID_CHANGE_TIME") {
+  // ─── Credits ───
+  if (error.message === "INVALID_CREDIT_AMOUNT") {
     return res.status(400).json({
       success: false,
       error: {
-        code: "INVALID_CHANGE_TIME",
-        message: "Plan change time must be within the billing period.",
+        code: "INVALID_CREDIT_AMOUNT",
+        message: "Credit amount must be greater than zero.",
       },
     });
   }
-  if (error.message === "PENDING_PLAN_CHANGE_EXISTS") {
-  return res.status(409).json({
-    success: false,
-    error: {
-      code: "PENDING_PLAN_CHANGE_EXISTS",
-      message: "There is already a pending plan change. Please wait for it to complete.",
-    },
-  });
-}
 
-if (error.message === "NOT_AN_UPGRADE") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "NOT_AN_UPGRADE",
-      message: "The selected plan is not an upgrade. Downgrades are not supported at this time.",
-    },
-  });
-}
-
-if (error.message === "ALREADY_ON_PLAN") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "ALREADY_ON_PLAN",
-      message: "You are already subscribed to this plan.",
-    },
-  });
-}
-// Proration errors
-if (error.message === "INVALID_BILLING_PERIOD") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "INVALID_BILLING_PERIOD",
-      message: "Invalid billing period configuration.",
-    },
-  });
-}
-
-if (error.message === "INVALID_CHANGE_TIME") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "INVALID_CHANGE_TIME",
-      message: "Plan change time must be within the billing period.",
-    },
-  });
-}
-
-// Downgrade errors
-if (error.message === "NOT_A_DOWNGRADE") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "NOT_A_DOWNGRADE",
-      message: "The selected plan is not a downgrade. Upgrades should use the upgrade endpoint.",
-    },
-  });
-}
-
-// Cancellation errors
-if (error.message === "CANCELLATION_ALREADY_SCHEDULED") {
-  return res.status(409).json({
-    success: false,
-    error: {
-      code: "CANCELLATION_ALREADY_SCHEDULED",
-      message: "Cancellation is already scheduled for the end of the billing period.",
-    },
-  });
-}
-
-// Credit errors
-if (error.message === "INVALID_CREDIT_AMOUNT") {
-  return res.status(400).json({
-    success: false,
-    error: {
-      code: "INVALID_CREDIT_AMOUNT",
-      message: "Credit amount must be greater than zero.",
-    },
-  });
-}
-
+  // ─── Fallback ───
   console.error(error);
 
   return res.status(500).json({
@@ -270,6 +263,4 @@ if (error.message === "INVALID_CREDIT_AMOUNT") {
       message: "An unexpected error occurred.",
     },
   });
-  
 };
-

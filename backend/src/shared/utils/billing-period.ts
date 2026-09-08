@@ -5,31 +5,34 @@ export function getBillingPeriod(
   const end = new Date(start);
 
   if (interval === "MONTHLY") {
-    const originalDay = end.getDate();
-    end.setDate(1);
-    end.setMonth(end.getMonth() + 1);
+    const originalDay = end.getUTCDate();
+
+    end.setUTCDate(1);
+    end.setUTCMonth(end.getUTCMonth() + 1);
 
     const lastDay = new Date(
-      end.getFullYear(),
-      end.getMonth() + 1,
-      0
-    ).getDate();
+      Date.UTC(
+        end.getUTCFullYear(),
+        end.getUTCMonth() + 1,
+        0
+      )
+    ).getUTCDate();
 
-    end.setDate(Math.min(originalDay, lastDay));
+    end.setUTCDate(Math.min(originalDay, lastDay));
   } else {
-    const originalMonth = end.getMonth();
-    const originalDay = end.getDate();
+    const originalMonth = end.getUTCMonth();
+    const originalDay = end.getUTCDate();
 
-    end.setFullYear(end.getFullYear() + 1);
+    end.setUTCFullYear(end.getUTCFullYear() + 1);
 
     // Handle Feb 29 → Feb 28 in a non-leap year.
     if (
       originalMonth === 1 &&
       originalDay === 29 &&
-      end.getMonth() !== 1
+      end.getUTCMonth() !== 1
     ) {
-      end.setMonth(1);
-      end.setDate(28);
+      end.setUTCMonth(1);
+      end.setUTCDate(28);
     }
   }
 
