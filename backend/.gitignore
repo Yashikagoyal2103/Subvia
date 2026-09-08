@@ -28,3 +28,4 @@ src/generated/prisma/
 # OS files
 .DS_Store
 Thumbs.db
+test-output.txt

@@ -207,6 +207,59 @@ if (error.message === "ALREADY_ON_PLAN") {
     },
   });
 }
+// Proration errors
+if (error.message === "INVALID_BILLING_PERIOD") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "INVALID_BILLING_PERIOD",
+      message: "Invalid billing period configuration.",
+    },
+  });
+}
+
+if (error.message === "INVALID_CHANGE_TIME") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "INVALID_CHANGE_TIME",
+      message: "Plan change time must be within the billing period.",
+    },
+  });
+}
+
+// Downgrade errors
+if (error.message === "NOT_A_DOWNGRADE") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "NOT_A_DOWNGRADE",
+      message: "The selected plan is not a downgrade. Upgrades should use the upgrade endpoint.",
+    },
+  });
+}
+
+// Cancellation errors
+if (error.message === "CANCELLATION_ALREADY_SCHEDULED") {
+  return res.status(409).json({
+    success: false,
+    error: {
+      code: "CANCELLATION_ALREADY_SCHEDULED",
+      message: "Cancellation is already scheduled for the end of the billing period.",
+    },
+  });
+}
+
+// Credit errors
+if (error.message === "INVALID_CREDIT_AMOUNT") {
+  return res.status(400).json({
+    success: false,
+    error: {
+      code: "INVALID_CREDIT_AMOUNT",
+      message: "Credit amount must be greater than zero.",
+    },
+  });
+}
 
   console.error(error);
 
