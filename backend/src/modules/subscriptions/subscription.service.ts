@@ -35,7 +35,9 @@ export async function createSubscription(
     const plan = await tx.plan.findFirst({
       where: {
         id: input.planId,
-        service: { businessId },
+        service: {
+          businessId,
+        },
         isActive: true,
       },
     });
@@ -48,28 +50,35 @@ export async function createSubscription(
       throw new Error("CURRENCY_NOT_SUPPORTED");
     }
 
-    let customer = await tx.customerProfile.findUnique({
+    const customer = await tx.customerProfile.upsert({
       where: {
         userId_businessId: {
           userId,
           businessId,
         },
       },
+      update: {},
+      create: {
+        userId,
+        businessId,
+      },
     });
 
-    if (!customer) {
-      customer = await tx.customerProfile.create({
-        data: {
-          userId,
-          businessId,
-        },
-      });
-    }
+    // Serialize subscription creation for the same customer + service.
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(
+          ${`subscription-create:${customer.id}:${plan.serviceId}`}
+        )
+      )
+    `;
 
     const existingSubscription = await tx.subscription.findFirst({
       where: {
         customerProfileId: customer.id,
-        status: "ACTIVE",
+        status: {
+          in: ["PENDING", "ACTIVE"],
+        },
         plan: {
           serviceId: plan.serviceId,
         },
@@ -135,9 +144,8 @@ export async function createSubscription(
     );
 
     return response;
-});
+  });
 }
-
 export async function getSubscriptions(
   userId: string,
   businessId: string

@@ -1,5 +1,6 @@
 import app from "../src/app.js";
 import { prisma } from "../src/config/prisma.js";
+import crypto from "node:crypto";
 
 let server: ReturnType<typeof app.listen> | undefined;
 let baseUrl = "";
@@ -157,7 +158,10 @@ export async function createActiveSubscription(
     `/api/v1/businesses/${businessId}/subscriptions`,
     {
       method: "POST",
-      headers: { authorization: `Bearer ${accessToken}` },
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "Idempotency-Key": `test-active-sub-${crypto.randomUUID()}`,
+      },
       body: JSON.stringify({ planId, currency }),
     }
   );
@@ -167,7 +171,10 @@ export async function createActiveSubscription(
 
   const pay = await request(`/api/v1/businesses/${businessId}/payments`, {
     method: "POST",
-    headers: { authorization: `Bearer ${accessToken}` },
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "Idempotency-Key": `test-active-sub-${crypto.randomUUID()}`,
+    },
     body: JSON.stringify({
       invoiceId: created.invoice.id,
       paymentMethod: "DEMO",

@@ -20,6 +20,7 @@ const { prisma } = await import("../src/config/prisma.js");
 async function resetDatabase() {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
+      "IdempotencyRecord",
       "CreditLedger",
       "Payment",
       "InvoiceItem",

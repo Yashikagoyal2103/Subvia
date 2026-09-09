@@ -56,6 +56,21 @@ async function processSubscriptionRenewal(
   paymentResult: "SUCCESS" | "FAILED"
 ) {
   await prisma.$transaction(async (tx) => {
+    // Lock this subscription row so only one billing
+    // transaction can process it at a time.
+    const lockedSubscriptions = await tx.$queryRaw<
+      Array<{ id: string }>
+    >`
+      SELECT "id"
+      FROM "Subscription"
+      WHERE "id" = ${subscriptionId}
+      FOR UPDATE
+    `;
+
+    if (lockedSubscriptions.length === 0) {
+      return;
+    }
+
     const subscription = await tx.subscription.findUnique({
       where: {
         id: subscriptionId,
