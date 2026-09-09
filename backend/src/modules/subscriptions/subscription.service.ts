@@ -1,11 +1,11 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateSubscriptionInput } from "./subscription.schema.js";
-import crypto from "node:crypto";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
 import type { UpgradeSubscriptionInput, DowngradeSubscriptionInput } from "./subscription.schema.js";
 import { createCredit } from "../credits/credit.service.js";
 import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
+import { generateInvoiceNumber } from "../invoices/invoice-number.service.js";
 
 export async function createSubscription(
   userId: string,
@@ -92,9 +92,6 @@ export async function createSubscription(
     const start = new Date();
     const end = getBillingPeriod(plan.interval, start);
 
-    const invoiceNumber =
-      `INV-${start.getFullYear()}-${crypto.randomUUID().slice(0, 8)}`;
-
     const subscription = await tx.subscription.create({
       data: {
         customerProfileId: customer.id,
@@ -107,6 +104,8 @@ export async function createSubscription(
         billingPeriodEnd: end,
       },
     });
+
+    const invoiceNumber = await generateInvoiceNumber(tx, start);
 
     const invoice = await tx.invoice.create({
       data: {
@@ -281,11 +280,6 @@ export async function upgradeSubscription(
       changeTime,
     });
 
-    const invoiceNumber =
-      `INV-${changeTime.getFullYear()}-${crypto
-        .randomUUID()
-        .slice(0, 8)}`;
-
     const updatedSubscription = await tx.subscription.update({
       where: {
         id: subscription.id,
@@ -295,6 +289,8 @@ export async function upgradeSubscription(
       },
     });
 
+    const invoiceNumber = await generateInvoiceNumber(tx, changeTime);
+    
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,

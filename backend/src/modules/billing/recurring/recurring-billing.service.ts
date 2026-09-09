@@ -1,9 +1,9 @@
 import { BillingInterval, SubscriptionStatus, } from "../../../generated/prisma/client.js";
 import { prisma } from "../../../config/prisma.js";
-import crypto from "node:crypto";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { processPayment } from "../../payments/payment.service.js";
 import { applyCredit } from "../../credits/credit.service.js";
+import { generateInvoiceNumber } from "../../invoices/invoice-number.service.js";
 
 function addBillingInterval(
   date: Date,
@@ -121,10 +121,13 @@ async function processSubscriptionRenewal(
       renewalPlan.interval
     );
 
+    // Generate a concurrency-safe, human-readable invoice number.
+    const invoiceNumber = await generateInvoiceNumber(tx, now);
+
     // Create the renewal invoice using the full plan price.
     const invoice = await tx.invoice.create({
       data: {
-        invoiceNumber: generateInvoiceNumber(),
+        invoiceNumber,
         customerProfileId: subscription.customerProfileId,
         subscriptionId: subscription.id,
         status: "OPEN",
@@ -233,14 +236,4 @@ async function processSubscriptionRenewal(
       },
     });
   });
-}
-
-function generateInvoiceNumber(): string {
-  const year = new Date().getUTCFullYear();
-  const shortId = crypto
-    .randomUUID()
-    .split("-")[0]
-    .toUpperCase();
-
-  return `INV-${year}-${shortId}`;
 }
