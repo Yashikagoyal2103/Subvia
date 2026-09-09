@@ -7,7 +7,18 @@ export async function create(req: AuthenticatedRequest, res: Response) {
   const { businessId } = subscriptionParamsSchema.parse(req.params);
   const input = createSubscriptionSchema.parse(req.body);
 
-  const subscription = await createSubscription( req.userId, businessId, input);
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
+  const subscription = await createSubscription(
+    req.userId,
+    businessId,
+    input,
+    idempotencyKey
+  );
 
   return res.status(201).json({
     success: true,
@@ -54,11 +65,18 @@ export async function upgrade(
 
   const input = upgradeSubscriptionSchema.parse(req.body);
 
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
   const result = await upgradeSubscription(
     req.userId,
     businessId,
     subscriptionId!,
-    input
+    input,
+    idempotencyKey
   );
 
   return res.status(201).json({
@@ -66,6 +84,7 @@ export async function upgrade(
     data: result,
   });
 }
+
 export async function downgrade(
   req: AuthenticatedRequest,
   res: Response
@@ -75,11 +94,18 @@ export async function downgrade(
 
   const input = downgradeSubscriptionSchema.parse(req.body);
 
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
   const result = await downgradeSubscription(
     req.userId,
     businessId,
     subscriptionId!,
-    input
+    input,
+    idempotencyKey
   );
 
   return res.status(200).json({
@@ -97,11 +123,18 @@ export async function cancel(
 
   const input = cancelSubscriptionSchema.parse(req.body);
 
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
   const result = await cancelSubscription(
     req.userId,
     businessId,
     subscriptionId!,
-    input.mode
+    input.mode,
+    idempotencyKey
   );
 
   return res.status(200).json({

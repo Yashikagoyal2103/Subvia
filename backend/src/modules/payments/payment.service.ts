@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { prisma } from "../../config/prisma.js";
 import type { CreatePaymentInput } from "./payment.schema.js";
 import type { Prisma, Currency } from "../../generated/prisma/client.js";
+import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
+
 
 type ProcessPaymentInput = {
   invoiceId: string;
@@ -85,29 +87,52 @@ export async function processPayment(
 export async function createPayment(
   userId: string,
   businessId: string,
-  input: CreatePaymentInput
+  input: CreatePaymentInput,
+  idempotencyKey: string
 ) {
-  const invoice = await prisma.invoice.findFirst({
-    where: {
-      id: input.invoiceId,
-      customerProfile: { userId, businessId },
-    },
+  const requestHash = createRequestHash({
+    invoiceId: input.invoiceId,
+    paymentMethod: input.paymentMethod,
+    result: input.result,
   });
 
-  if (!invoice) {
-    throw new Error("INVOICE_NOT_FOUND");
-  }
-
-  if (invoice.status === "PAID") {
-    throw new Error("INVOICE_ALREADY_PAID");
-  }
-
-  if (invoice.status !== "OPEN") {
-    throw new Error("INVOICE_NOT_PAYABLE");
-  }
-
   return prisma.$transaction(async (tx) => {
-    return processPayment(tx, {
+    const idempotency = await startIdempotency({
+      tx,
+      key: idempotencyKey,
+      userId,
+      businessId,
+      operation: "CREATE_PAYMENT",
+      requestHash,
+    });
+
+    if (!idempotency.isNew) {
+      return idempotency.record.responseBody;
+    }
+
+    const invoice = await tx.invoice.findFirst({
+      where: {
+        id: input.invoiceId,
+        customerProfile: {
+          userId,
+          businessId,
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new Error("INVOICE_NOT_FOUND");
+    }
+
+    if (invoice.status === "PAID") {
+      throw new Error("INVOICE_ALREADY_PAID");
+    }
+
+    if (invoice.status !== "OPEN") {
+      throw new Error("INVOICE_NOT_PAYABLE");
+    }
+
+    const result = await processPayment(tx, {
       invoiceId: invoice.id,
       subscriptionId: invoice.subscriptionId,
       amount: invoice.total,
@@ -115,6 +140,15 @@ export async function createPayment(
       paymentMethod: input.paymentMethod,
       result: input.result,
     });
+
+    await completeIdempotency(
+      tx,
+      idempotency.record.id,
+      201,
+      result
+    );
+
+    return result;
   });
 }
 

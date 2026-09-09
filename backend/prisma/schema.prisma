@@ -249,3 +249,18 @@ model CreditLedger {
   @@index([customerProfileId])
   @@index([invoiceId])
 }
+
+model IdempotencyRecord {
+  id           String   @id @default(uuid())
+  key          String
+  userId       String
+  businessId   String
+  operation    String
+  requestHash  String
+  statusCode   Int
+  responseBody Json
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, businessId, key, operation])
+  @@index([userId, businessId])
+}
