@@ -3,6 +3,7 @@ import { prisma } from "../../config/prisma.js";
 import type { CreatePaymentInput } from "./payment.schema.js";
 import type { Prisma, Currency } from "../../generated/prisma/client.js";
 import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
+import { addBillingInterval } from "../billing/billing-interval.js";
 
 
 type ProcessPaymentInput = {
@@ -48,6 +49,7 @@ export async function processPayment(
     const subscription = await tx.subscription.findUnique({
       where: { id: input.subscriptionId },
       include: {
+        plan: true,
         pendingPlan: true,
       },
     });
@@ -56,7 +58,34 @@ export async function processPayment(
       throw new Error("SUBSCRIPTION_NOT_FOUND");
     }
 
-    if (subscription.pendingPlan) {
+    // PAST_DUE means this payment is recovering
+    // a failed recurring renewal.
+    if (subscription.status === "PAST_DUE") {
+      const renewalPlan =
+        subscription.pendingPlan ?? subscription.plan;
+
+      const nextPeriodStart = subscription.billingPeriodEnd;
+
+      const nextPeriodEnd = addBillingInterval(
+        nextPeriodStart,
+        renewalPlan.interval
+      );
+
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          billingPeriodStart: nextPeriodStart,
+          billingPeriodEnd: nextPeriodEnd,
+          planId: renewalPlan.id,
+          price: renewalPlan.price,
+          currency: renewalPlan.currency,
+          billingInterval: renewalPlan.interval,
+          pendingPlanId: null,
+          status: "ACTIVE",
+        },
+      });
+    } else if (subscription.pendingPlan) {
+      // Existing upgrade/payment behaviour.
       await tx.subscription.update({
         where: { id: subscription.id },
         data: {
@@ -69,6 +98,7 @@ export async function processPayment(
         },
       });
     } else {
+      // Existing initial-payment behaviour.
       await tx.subscription.update({
         where: { id: subscription.id },
         data: {

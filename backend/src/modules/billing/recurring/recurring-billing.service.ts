@@ -1,54 +1,17 @@
-import { BillingInterval, SubscriptionStatus, } from "../../../generated/prisma/client.js";
+import { SubscriptionStatus } from "../../../generated/prisma/client.js";
 import { prisma } from "../../../config/prisma.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { processPayment } from "../../payments/payment.service.js";
 import { applyCredit } from "../../credits/credit.service.js";
 import { generateInvoiceNumber } from "../../invoices/invoice-number.service.js";
+import { addBillingInterval } from "../billing-interval.js";
 
-export function addBillingInterval(
-  date: Date,
-  interval: BillingInterval
-): Date {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  const day = date.getUTCDate();
+type RenewalResult =
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED"
+  | "SKIPPED";
 
-  if (interval === BillingInterval.MONTHLY) {
-    const targetMonth = month + 1;
-
-    const lastDayOfTargetMonth = new Date(
-      Date.UTC(year, targetMonth + 1, 0)
-    ).getUTCDate();
-
-    return new Date(
-      Date.UTC(
-        year,
-        targetMonth,
-        Math.min(day, lastDayOfTargetMonth),
-        date.getUTCHours(),
-        date.getUTCMinutes(),
-        date.getUTCSeconds(),
-        date.getUTCMilliseconds()
-      )
-    );
-  }
-
-  const lastDayOfTargetMonth = new Date(
-    Date.UTC(year + 1, month + 1, 0)
-  ).getUTCDate();
-
-  return new Date(
-    Date.UTC(
-      year + 1,
-      month,
-      Math.min(day, lastDayOfTargetMonth),
-      date.getUTCHours(),
-      date.getUTCMinutes(),
-      date.getUTCSeconds(),
-      date.getUTCMilliseconds()
-    )
-  );
-}
 export async function processDueSubscriptions(
   now: Date = new Date(),
   paymentResult: "SUCCESS" | "FAILED" = "SUCCESS"
@@ -66,16 +29,43 @@ export async function processDueSubscriptions(
     },
   });
 
+  let succeeded = 0;
+  let failed = 0;
+  let cancelled = 0;
+  let skipped = 0;
+
   for (const subscription of subscriptions) {
-    await processSubscriptionRenewal(
+    const result = await processSubscriptionRenewal(
       subscription.id,
       now,
       paymentResult
     );
+
+    switch (result) {
+      case "SUCCEEDED":
+        succeeded++;
+        break;
+
+      case "FAILED":
+        failed++;
+        break;
+
+      case "CANCELLED":
+        cancelled++;
+        break;
+
+      case "SKIPPED":
+        skipped++;
+        break;
+    }
   }
 
   return {
     processed: subscriptions.length,
+    succeeded,
+    failed,
+    cancelled,
+    skipped,
   };
 }
 
@@ -83,10 +73,10 @@ async function processSubscriptionRenewal(
   subscriptionId: string,
   now: Date,
   paymentResult: "SUCCESS" | "FAILED"
-) {
-  await prisma.$transaction(async (tx) => {
-    // Lock this subscription row so only one billing
-    // transaction can process it at a time.
+): Promise<RenewalResult> {
+  return prisma.$transaction(async (tx) => {
+    // Lock the subscription row so only one
+    // billing transaction can process it at a time.
     const lockedSubscriptions = await tx.$queryRaw<
       Array<{ id: string }>
     >`
@@ -98,7 +88,7 @@ async function processSubscriptionRenewal(
     `;
 
     if (lockedSubscriptions.length === 0) {
-      return;
+      return "SKIPPED";
     }
 
     const subscription = await tx.subscription.findUnique({
@@ -112,19 +102,19 @@ async function processSubscriptionRenewal(
     });
 
     if (!subscription) {
-      return;
+      return "SKIPPED";
     }
 
     if (subscription.status !== SubscriptionStatus.ACTIVE) {
-      return;
+      return "SKIPPED";
     }
 
     if (subscription.billingPeriodEnd > now) {
-      return;
+      return "SKIPPED";
     }
 
-    // Subscription is cancelled at the end of the current period.
-    // Do not create another invoice or attempt another payment.
+    // Subscription is cancelled at the end of the
+    // current billing period.
     if (subscription.cancelAtPeriodEnd) {
       await tx.subscription.update({
         where: {
@@ -138,7 +128,7 @@ async function processSubscriptionRenewal(
         },
       });
 
-      return;
+      return "CANCELLED";
     }
 
     const renewalPlan =
@@ -151,10 +141,14 @@ async function processSubscriptionRenewal(
       renewalPlan.interval
     );
 
-    // Generate a concurrency-safe, human-readable invoice number.
-    const invoiceNumber = await generateInvoiceNumber(tx, now);
+    // Generate a concurrency-safe human-readable
+    // invoice number.
+    const invoiceNumber = await generateInvoiceNumber(
+      tx,
+      now
+    );
 
-    // Create the renewal invoice using the full plan price.
+    // Create the renewal invoice.
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,
@@ -176,7 +170,7 @@ async function processSubscriptionRenewal(
       },
     });
 
-    // Apply any available customer credit to the renewal invoice.
+    // Apply available customer credit.
     const creditResult = await applyCredit(tx, {
       customerProfileId: subscription.customerProfileId,
       invoiceId: invoice.id,
@@ -184,7 +178,7 @@ async function processSubscriptionRenewal(
       currency: invoice.currency,
     });
 
-    // Update invoice total to the amount that is still actually payable.
+    // Store the amount that is actually payable.
     await tx.invoice.update({
       where: {
         id: invoice.id,
@@ -194,8 +188,7 @@ async function processSubscriptionRenewal(
       },
     });
 
-    // If credit completely covers the invoice,
-    // no payment attempt is necessary.
+    // Credit completely covered the invoice.
     if (creditResult.remainingAmount === 0) {
       await tx.invoice.update({
         where: {
@@ -223,10 +216,11 @@ async function processSubscriptionRenewal(
         },
       });
 
-      return;
+      return "SUCCEEDED";
     }
 
-    // Only charge the amount remaining after credit.
+    // Attempt payment for the amount remaining
+    // after customer credit.
     await processPayment(tx, {
       invoiceId: invoice.id,
       subscriptionId: subscription.id,
@@ -236,6 +230,7 @@ async function processSubscriptionRenewal(
       result: paymentResult,
     });
 
+    // Renewal payment failed.
     if (paymentResult === "FAILED") {
       await tx.subscription.update({
         where: {
@@ -246,10 +241,10 @@ async function processSubscriptionRenewal(
         },
       });
 
-      return;
+      return "FAILED";
     }
 
-    // Payment succeeded, so move the subscription into its next period.
+    // Renewal payment succeeded.
     await tx.subscription.update({
       where: {
         id: subscription.id,
@@ -265,5 +260,7 @@ async function processSubscriptionRenewal(
         status: SubscriptionStatus.ACTIVE,
       },
     });
+
+    return "SUCCEEDED";
   });
 }

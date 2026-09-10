@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
-import { addBillingInterval } from "../src/modules/billing/recurring/recurring-billing.service.js";
+import { addBillingInterval } from "../src/modules/billing/billing-interval.js";
 import {
   createActiveSubscription,
   createBusiness,
@@ -367,6 +367,7 @@ describe("Recurring billing", () => {
       method: "POST",
       headers: {
         authorization: `Bearer ${auth.accessToken}`,
+        "Idempotency-Key": `recovery-payment-${crypto.randomUUID()}`,
       },
       body: JSON.stringify({
         invoiceId: renewal.id,
@@ -374,6 +375,12 @@ describe("Recurring billing", () => {
         result: "SUCCESS",
       }),
     }
+  );
+
+  console.log(
+    "RECOVERY PAYMENT:",
+    recoveryPayment.status,
+    await recoveryPayment.text()
   );
 
   expect(recoveryPayment.status).toBe(201);
