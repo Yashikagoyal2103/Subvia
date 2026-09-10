@@ -5,21 +5,50 @@ import { processPayment } from "../../payments/payment.service.js";
 import { applyCredit } from "../../credits/credit.service.js";
 import { generateInvoiceNumber } from "../../invoices/invoice-number.service.js";
 
-function addBillingInterval(
+export function addBillingInterval(
   date: Date,
   interval: BillingInterval
 ): Date {
-  const nextDate = new Date(date);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
 
   if (interval === BillingInterval.MONTHLY) {
-    nextDate.setUTCMonth(nextDate.getUTCMonth() + 1);
-  } else {
-    nextDate.setUTCFullYear(nextDate.getUTCFullYear() + 1);
+    const targetMonth = month + 1;
+
+    const lastDayOfTargetMonth = new Date(
+      Date.UTC(year, targetMonth + 1, 0)
+    ).getUTCDate();
+
+    return new Date(
+      Date.UTC(
+        year,
+        targetMonth,
+        Math.min(day, lastDayOfTargetMonth),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getUTCMilliseconds()
+      )
+    );
   }
 
-  return nextDate;
-}
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(year + 1, month + 1, 0)
+  ).getUTCDate();
 
+  return new Date(
+    Date.UTC(
+      year + 1,
+      month,
+      Math.min(day, lastDayOfTargetMonth),
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds(),
+      date.getUTCMilliseconds()
+    )
+  );
+}
 export async function processDueSubscriptions(
   now: Date = new Date(),
   paymentResult: "SUCCESS" | "FAILED" = "SUCCESS"

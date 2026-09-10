@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
+import { addBillingInterval } from "../src/modules/billing/recurring/recurring-billing.service.js";
 import {
   createActiveSubscription,
   createBusiness,
@@ -58,6 +59,34 @@ async function makeCurrentlyDue(subscriptionId: string) {
       billingPeriodEnd,
     },
   });
+}
+async function makeDueForRecovery(subscriptionId: string) {
+  const billingPeriodEnd = new Date(
+    Date.now() - 24 * 60 * 60 * 1000
+  );
+
+  const billingPeriodStart = new Date(
+    billingPeriodEnd
+  );
+
+  billingPeriodStart.setUTCMonth(
+    billingPeriodStart.getUTCMonth() - 1
+  );
+
+  await prisma.subscription.update({
+    where: {
+      id: subscriptionId,
+    },
+    data: {
+      billingPeriodStart,
+      billingPeriodEnd,
+    },
+  });
+
+  return {
+    billingPeriodStart,
+    billingPeriodEnd,
+  };
 }
 
 describe("Recurring billing", () => {
@@ -279,6 +308,127 @@ describe("Recurring billing", () => {
       expect(response.status).toBe(401);
     }
   );
+  it("recovers a PAST_DUE subscription after a successful manual payment", async () => {
+  const { auth, business, starter } = await fixture();
+
+  const active = await createActiveSubscription(
+    auth.accessToken,
+    business.id,
+    starter.id
+  );
+
+  // Make the subscription due for renewal.
+  const duePeriod = await makeDueForRecovery(
+    active.subscription.id
+  );
+
+  // First attempt: renewal payment fails.
+  const failedRenewal = await request(
+    "/api/v1/internal/billing/run",
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({
+        result: "FAILED",
+      }),
+    }
+  );
+
+  expect(failedRenewal.status).toBe(200);
+
+  const pastDue =
+    await prisma.subscription.findUniqueOrThrow({
+      where: {
+        id: active.subscription.id,
+      },
+    });
+
+  expect(pastDue.status).toBe("PAST_DUE");
+
+  // Find the failed renewal invoice.
+  const renewal =
+    await prisma.invoice.findFirstOrThrow({
+      where: {
+        subscriptionId: active.subscription.id,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+  expect(renewal.status).toBe("OPEN");
+
+  // Manually retry the failed invoice.
+  const recoveryPayment = await request(
+    `/api/v1/businesses/${business.id}/payments`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({
+        invoiceId: renewal.id,
+        paymentMethod: "DEMO",
+        result: "SUCCESS",
+      }),
+    }
+  );
+
+  expect(recoveryPayment.status).toBe(201);
+
+  const recovered =
+    await prisma.subscription.findUniqueOrThrow({
+      where: {
+        id: active.subscription.id,
+      },
+    });
+
+  const paidInvoice =
+    await prisma.invoice.findUniqueOrThrow({
+      where: {
+        id: renewal.id,
+      },
+    });
+
+  expect(paidInvoice.status).toBe("PAID");
+  expect(paidInvoice.paidAt).not.toBeNull();
+
+  expect(recovered.status).toBe("ACTIVE");
+
+  // The failed period must become the next completed billing period.
+  expect(recovered.billingPeriodStart).toEqual(
+    duePeriod.billingPeriodEnd
+  );
+
+  expect(recovered.billingPeriodEnd).toEqual(
+    expect.any(Date)
+  );
+
+  expect(
+    recovered.billingPeriodEnd.getTime()
+  ).toBeGreaterThan(
+    recovered.billingPeriodStart.getTime()
+  );
+
+  // Two payment attempts should now exist:
+  // 1. FAILED renewal attempt
+  // 2. SUCCESS recovery attempt
+  const payments = await prisma.payment.findMany({
+    where: {
+      invoiceId: renewal.id,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  expect(payments).toHaveLength(2);
+
+  expect(payments[0].status).toBe("FAILED");
+  expect(payments[1].status).toBe("SUCCESS");
+});
 
   it(
     "must not process the same due subscription twice concurrently",
@@ -292,7 +442,7 @@ describe("Recurring billing", () => {
       );
 
       await makeCurrentlyDue(active.subscription.id);
-      
+
       const [first, second] = await Promise.all([
         request("/api/v1/internal/billing/run", {
           method: "POST",
@@ -314,8 +464,101 @@ describe("Recurring billing", () => {
           subscriptionId: active.subscription.id,
         },
       });
+      
 
       expect(renewalInvoices).toBe(2);
     }
   );
+});
+
+describe("Billing interval calculations", () => {
+  it("handles monthly billing from January 31 without overflowing into March", () => {
+    const date = new Date(
+      "2025-01-31T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "MONTHLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2025-02-28T00:00:00.000Z")
+    );
+  });
+
+  it("handles February 29 correctly in a leap year", () => {
+    const date = new Date(
+      "2024-02-29T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "MONTHLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2024-03-29T00:00:00.000Z")
+    );
+  });
+
+  it("handles December 31 when adding one month", () => {
+    const date = new Date(
+      "2025-12-31T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "MONTHLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2026-01-31T00:00:00.000Z")
+    );
+  });
+
+  it("handles February 29 when adding one year", () => {
+    const date = new Date(
+      "2024-02-29T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "YEARLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2025-02-28T00:00:00.000Z")
+    );
+  });
+
+  it("adds one normal monthly interval correctly", () => {
+    const date = new Date(
+      "2025-05-15T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "MONTHLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2025-06-15T00:00:00.000Z")
+    );
+  });
+
+  it("adds one normal yearly interval correctly", () => {
+    const date = new Date(
+      "2025-05-15T00:00:00.000Z"
+    );
+
+    const result = addBillingInterval(
+      date,
+      "YEARLY"
+    );
+
+    expect(result).toEqual(
+      new Date("2026-05-15T00:00:00.000Z")
+    );
+  });
 });
