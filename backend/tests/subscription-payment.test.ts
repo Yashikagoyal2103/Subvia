@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import {
@@ -46,7 +47,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: starter.id,
           currency: "INR",
@@ -70,7 +74,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: starter.id,
           currency: "USD",
@@ -91,7 +98,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: starter.id,
           currency: "INR",
@@ -105,7 +115,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: data.invoice.id,
           paymentMethod: "DEMO",
@@ -136,7 +149,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: starter.id,
           currency: "INR",
@@ -150,7 +166,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: data.invoice.id,
           paymentMethod: "DEMO",
@@ -182,7 +201,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: starter.id,
           currency: "INR",
@@ -197,7 +219,10 @@ describe("Subscription and payment lifecycle", () => {
         `/api/v1/businesses/${business.id}/payments`,
         {
           method: "POST",
-          headers: { authorization: `Bearer ${auth.accessToken}` },
+          headers: {
+            authorization: `Bearer ${auth.accessToken}`,
+            "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+          },
           body: JSON.stringify({
             invoiceId: data.invoice.id,
             paymentMethod: "DEMO",
@@ -238,7 +263,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: active.invoice.id,
           paymentMethod: "DEMO",
@@ -275,7 +303,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${attacker.accessToken}` },
+        headers: {
+          authorization: `Bearer ${attacker.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: active.invoice.id,
           paymentMethod: "DEMO",
@@ -303,7 +334,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `sub-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           planId: pro.id,
           currency: "INR",
@@ -330,7 +364,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/upgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: starter.id }),
       }
     );
@@ -360,7 +397,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${updated.id}/upgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: pro.id }),
       }
     );
@@ -404,7 +444,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/upgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: pro.id }),
       }
     );
@@ -415,7 +458,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: data.invoice.id,
           paymentMethod: "DEMO",
@@ -437,7 +483,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/payments`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `payment-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({
           invoiceId: data.invoice.id,
           paymentMethod: "DEMO",
@@ -470,7 +519,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/downgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: starter.id }),
       }
     );
@@ -498,7 +550,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/downgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: starter.id }),
       }
     );
@@ -509,7 +564,10 @@ describe("Subscription and payment lifecycle", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/downgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: cheap.id }),
       }
     );
@@ -519,4 +577,164 @@ describe("Subscription and payment lifecycle", () => {
       "PENDING_PLAN_CHANGE_EXISTS"
     );
   });
+
+  it("allows only one concurrent subscription creation for the same service", async () => {
+    const { auth, business, starter } = await fixture();
+
+    const payload = JSON.stringify({
+      planId: starter.id,
+      currency: "INR",
+    });
+
+    const [first, second] = await Promise.all([
+      request(`/api/v1/businesses/${business.id}/subscriptions`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": "concurrent-subscription-a",
+        },
+        body: payload,
+      }),
+      request(`/api/v1/businesses/${business.id}/subscriptions`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": "concurrent-subscription-b",
+        },
+        body: payload,
+      }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([201, 409]);
+    expect(await prisma.subscription.count()).toBe(1);
+    expect(await prisma.invoice.count()).toBe(1);
+  });
+
+  it("generates unique human-readable invoice numbers", async () => {
+    const { auth, business, starter } = await fixture();
+
+    const secondService = await createService(
+      auth.accessToken,
+      business.id,
+      "Reporting"
+    );
+    const secondPlan = await createPlan(
+      auth.accessToken,
+      business.id,
+      secondService.id,
+      { name: "Reporting Starter", price: 2000 }
+    );
+
+    await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      starter.id
+    );
+    await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      secondPlan.id
+    );
+
+    const invoices = await prisma.invoice.findMany({
+      orderBy: { invoiceNumber: "asc" },
+    });
+
+    expect(invoices).toHaveLength(2);
+    expect(new Set(invoices.map((invoice) => invoice.invoiceNumber)).size).toBe(2);
+    for (const invoice of invoices) {
+      expect(invoice.invoiceNumber).toMatch(/^INV-\d{4}-\d{6}$/);
+    }
+  });
+
+  it("preserves historical invoice amounts when a plan price changes", async () => {
+    const { auth, business, starter } = await fixture();
+
+    const active = await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      starter.id
+    );
+
+    await prisma.plan.update({
+      where: { id: starter.id },
+      data: { price: 9999 },
+    });
+
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: active.invoice.id },
+    });
+
+    expect(invoice.subtotal).toBe(3000);
+    expect(invoice.total).toBe(3000);
+
+    const item = await prisma.invoiceItem.findFirstOrThrow({
+      where: { invoiceId: invoice.id },
+    });
+
+    expect(item.unitPrice).toBe(3000);
+    expect(item.amount).toBe(3000);
+  });
+
+
+  it("prevents two concurrent successful payments from charging one invoice twice", async () => {
+    const { auth, business, starter } = await fixture();
+
+    const pending = await request(
+      `/api/v1/businesses/${business.id}/subscriptions`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": "concurrent-payment-sub",
+        },
+        body: JSON.stringify({
+          planId: starter.id,
+          currency: "INR",
+        }),
+      }
+    );
+
+    expect(pending.status).toBe(201);
+    const data = (await pending.json()).data;
+
+    const payload = JSON.stringify({
+      invoiceId: data.invoice.id,
+      paymentMethod: "DEMO",
+      result: "SUCCESS",
+    });
+
+    const [first, second] = await Promise.all([
+      request(`/api/v1/businesses/${business.id}/payments`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": "concurrent-payment-a",
+        },
+        body: payload,
+      }),
+      request(`/api/v1/businesses/${business.id}/payments`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": "concurrent-payment-b",
+        },
+        body: payload,
+      }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([201, 409]);
+    expect(
+      await prisma.payment.count({
+        where: { invoiceId: data.invoice.id },
+      })
+    ).toBe(1);
+
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: data.invoice.id },
+    });
+
+    expect(invoice.status).toBe("PAID");
+  });
+
 });

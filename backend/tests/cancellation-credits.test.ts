@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import {
@@ -38,7 +39,10 @@ describe("Cancellation and credit ledger", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/cancel`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `cancel-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ mode: "PERIOD_END" }),
       }
     );
@@ -65,13 +69,22 @@ describe("Cancellation and credit ledger", () => {
     const path = `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/cancel`;
     const options = {
       method: "POST",
-      headers: { authorization: `Bearer ${auth.accessToken}` },
+      headers: {
+        authorization: `Bearer ${auth.accessToken}`,
+        "Idempotency-Key": `cancel-first-${crypto.randomUUID()}`,
+      },
       body: JSON.stringify({ mode: "PERIOD_END" }),
     };
 
     expect((await request(path, options)).status).toBe(200);
 
-    const second = await request(path, options);
+    const second = await request(path, {
+      ...options,
+      headers: {
+        ...options.headers,
+        "Idempotency-Key": `cancel-second-${crypto.randomUUID()}`,
+      },
+    });
 
     expect(second.status).toBe(409);
     expect((await second.json()).error.code).toBe(
@@ -103,7 +116,10 @@ describe("Cancellation and credit ledger", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/cancel`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `cancel-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ mode: "IMMEDIATE" }),
       }
     );
@@ -261,6 +277,59 @@ describe("Cancellation and credit ledger", () => {
     expect(debits).toHaveLength(1);
     expect(debits[0].amount).toBe(1000);
     expect(debits[0].invoiceId).toBe(invoice.id);
+  });
+
+  it("does not apply credit from a different currency to a renewal", async () => {
+    const { auth, business, plan } = await fixture();
+
+    const active = await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      plan.id
+    );
+
+    await prisma.creditLedger.create({
+      data: {
+        customerProfileId: active.subscription.customerProfileId,
+        amount: 500,
+        currency: "USD",
+        type: "CREDIT",
+        description: "Wrong-currency credit",
+      },
+    });
+
+    await prisma.subscription.update({
+      where: { id: active.subscription.id },
+      data: {
+        billingPeriodEnd: new Date("2020-02-01T00:00:00Z"),
+      },
+    });
+
+    const response = await request("/api/v1/internal/billing/run", {
+      method: "POST",
+      headers: { authorization: `Bearer ${auth.accessToken}` },
+      body: JSON.stringify({ result: "SUCCESS" }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const invoice = await prisma.invoice.findFirstOrThrow({
+      where: { subscriptionId: active.subscription.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    expect(invoice.currency).toBe("INR");
+    expect(invoice.total).toBe(3000);
+
+    const wrongCurrencyDebits = await prisma.creditLedger.count({
+      where: {
+        customerProfileId: active.subscription.customerProfileId,
+        currency: "USD",
+        type: "DEBIT",
+      },
+    });
+
+    expect(wrongCurrencyDebits).toBe(0);
   });
 
   it("does not create a payment when credit fully covers a renewal", async () => {

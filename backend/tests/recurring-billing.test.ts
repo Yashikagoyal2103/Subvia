@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import {
@@ -37,6 +38,24 @@ async function makeDue(subscriptionId: string) {
     data: {
       billingPeriodStart: new Date("2020-01-01T00:00:00Z"),
       billingPeriodEnd: new Date("2020-02-01T00:00:00Z"),
+    },
+  });
+}
+async function makeCurrentlyDue(subscriptionId: string) {
+  const billingPeriodEnd = new Date(
+    Date.now() - 24 * 60 * 60 * 1000
+  );
+
+  const billingPeriodStart = new Date(billingPeriodEnd);
+  billingPeriodStart.setUTCMonth(
+    billingPeriodStart.getUTCMonth() - 1
+  );
+
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      billingPeriodStart,
+      billingPeriodEnd,
     },
   });
 }
@@ -143,7 +162,10 @@ describe("Recurring billing", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/downgrade`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `plan-change-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ planId: starter.id }),
       }
     );
@@ -184,7 +206,10 @@ describe("Recurring billing", () => {
       `/api/v1/businesses/${business.id}/subscriptions/${active.subscription.id}/cancel`,
       {
         method: "POST",
-        headers: { authorization: `Bearer ${auth.accessToken}` },
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `cancel-${crypto.randomUUID()}`,
+        },
         body: JSON.stringify({ mode: "PERIOD_END" }),
       }
     );
@@ -266,15 +291,17 @@ describe("Recurring billing", () => {
         starter.id
       );
 
-      await makeDue(active.subscription.id);
-
+      await makeCurrentlyDue(active.subscription.id);
+      
       const [first, second] = await Promise.all([
         request("/api/v1/internal/billing/run", {
           method: "POST",
+          headers: { authorization: `Bearer ${auth.accessToken}` },
           body: JSON.stringify({ result: "SUCCESS" }),
         }),
         request("/api/v1/internal/billing/run", {
           method: "POST",
+          headers: { authorization: `Bearer ${auth.accessToken}` },
           body: JSON.stringify({ result: "SUCCESS" }),
         }),
       ]);

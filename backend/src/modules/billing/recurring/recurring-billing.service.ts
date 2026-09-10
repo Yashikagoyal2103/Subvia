@@ -64,6 +64,7 @@ async function processSubscriptionRenewal(
       SELECT "id"
       FROM "Subscription"
       WHERE "id" = ${subscriptionId}
+        AND "billingPeriodEnd" <= ${now}
       FOR UPDATE
     `;
 

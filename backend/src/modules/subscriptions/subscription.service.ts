@@ -65,11 +65,9 @@ export async function createSubscription(
     });
 
     // Serialize subscription creation for the same customer + service.
-    await tx.$queryRaw`
+    await tx.$executeRaw`
       SELECT pg_advisory_xact_lock(
-        hashtext(
-          ${`subscription-create:${customer.id}:${plan.serviceId}`}
-        )
+        hashtext(${`subscription-create:${customer.id}:${plan.serviceId}`})
       )
     `;
 

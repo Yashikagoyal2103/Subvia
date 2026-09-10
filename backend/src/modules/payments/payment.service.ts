@@ -110,13 +110,24 @@ export async function createPayment(
       return idempotency.record.responseBody;
     }
 
-    const invoice = await tx.invoice.findFirst({
+    const lockedInvoices = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "Invoice"."id"
+      FROM "Invoice"
+      INNER JOIN "CustomerProfile"
+        ON "CustomerProfile"."id" = "Invoice"."customerProfileId"
+      WHERE "Invoice"."id" = ${input.invoiceId}
+        AND "CustomerProfile"."userId" = ${userId}
+        AND "CustomerProfile"."businessId" = ${businessId}
+      FOR UPDATE
+    `;
+
+    if (lockedInvoices.length === 0) {
+      throw new Error("INVOICE_NOT_FOUND");
+    }
+
+    const invoice = await tx.invoice.findUnique({
       where: {
         id: input.invoiceId,
-        customerProfile: {
-          userId,
-          businessId,
-        },
       },
     });
 

@@ -33,7 +33,7 @@ async function resetDatabase() {
       "Business",
       "RefreshToken",
       "User"
-    RESTART IDENTITY CASCADE;
+    CASCADE;
   `);
 }
 

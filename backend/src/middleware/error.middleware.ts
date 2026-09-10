@@ -255,13 +255,20 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error.message === "IDEMPOTENCY_KEY_REUSED") {
     return res.status(409).json({
       success: false,
-      message: "Idempotency key has already been used with a different request.",
+      error: {
+        code: "IDEMPOTENCY_KEY_REUSED",
+        message: "Idempotency key has already been used with a different request.",
+      },
     });
   }
+
   if (error.message === "IDEMPOTENCY_KEY_REQUIRED") {
     return res.status(400).json({
       success: false,
-      message: "Idempotency-Key header is required.",
+      error: {
+        code: "IDEMPOTENCY_KEY_REQUIRED",
+        message: "Idempotency-Key header is required.",
+      },
     });
   }
 

@@ -173,7 +173,7 @@ export async function createActiveSubscription(
     method: "POST",
     headers: {
       authorization: `Bearer ${accessToken}`,
-      "Idempotency-Key": `test-active-sub-${crypto.randomUUID()}`,
+      "Idempotency-Key": `test-active-pay-${crypto.randomUUID()}`,
     },
     body: JSON.stringify({
       invoiceId: created.invoice.id,
