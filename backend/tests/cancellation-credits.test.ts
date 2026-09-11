@@ -1,14 +1,16 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
-import {
-  createActiveSubscription,
-  createBusiness,
-  createPlan,
-  createService,
-  registerAndLogin,
-  request,
-} from "./helpers.js";
+import { createActiveSubscription, createBusiness, createPlan, createService, registerAndLogin, request, } from "./helpers.js";
+
+const INTERNAL_BILLING_SECRET =
+  process.env.INTERNAL_BILLING_SECRET;
+
+if (!INTERNAL_BILLING_SECRET) {
+  throw new Error(
+    "INTERNAL_BILLING_SECRET is not configured for tests"
+  );
+}
 
 async function fixture() {
   const auth = await registerAndLogin("credits@example.com");
@@ -253,7 +255,7 @@ describe("Cancellation and credit ledger", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: {authorization: `Bearer ${auth.accessToken}`,},
+      headers: {"X-Internal-Token": INTERNAL_BILLING_SECRET} ,
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -307,7 +309,7 @@ describe("Cancellation and credit ledger", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: { authorization: `Bearer ${auth.accessToken}` },
+      headers: {"X-Internal-Token": INTERNAL_BILLING_SECRET},
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -360,7 +362,9 @@ describe("Cancellation and credit ledger", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: {authorization: `Bearer ${auth.accessToken}`,},
+      headers: {
+        "X-Internal-Token": INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "FAILED" }),
     });
 

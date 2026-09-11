@@ -2,14 +2,16 @@ import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import { addBillingInterval } from "../src/modules/billing/billing-interval.js";
-import {
-  createActiveSubscription,
-  createBusiness,
-  createPlan,
-  createService,
-  registerAndLogin,
-  request,
-} from "./helpers.js";
+import { createActiveSubscription,createBusiness, createPlan, createService, registerAndLogin, request } from "./helpers.js";
+
+const INTERNAL_BILLING_SECRET =
+  process.env.INTERNAL_BILLING_SECRET;
+
+if (!INTERNAL_BILLING_SECRET) {
+  throw new Error(
+    "INTERNAL_BILLING_SECRET is not configured for tests"
+  );
+}
 
 async function fixture() {
   const auth = await registerAndLogin("recurring@example.com");
@@ -103,7 +105,9 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: { authorization: `Bearer ${auth.accessToken}` },
+      headers: {
+        "X-Internal-Token":INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -152,7 +156,9 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: { authorization: `Bearer ${auth.accessToken}` },
+      headers: {
+        "X-Internal-Token":INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "FAILED" }),
     });
 
@@ -205,7 +211,9 @@ describe("Recurring billing", () => {
 
     const run = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: {authorization: `Bearer ${auth.accessToken}`,},
+      headers: {
+        "X-Internal-Token":INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -253,7 +261,9 @@ describe("Recurring billing", () => {
 
     const run = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: {authorization: `Bearer ${auth.accessToken}`,},
+      headers: {
+        "X-Internal-Token":INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -284,7 +294,9 @@ describe("Recurring billing", () => {
 
     const response = await request("/api/v1/internal/billing/run", {
       method: "POST",
-      headers: {authorization: `Bearer ${auth.accessToken}`,},
+      headers: {
+        "X-Internal-Token":INTERNAL_BILLING_SECRET,
+      },
       body: JSON.stringify({ result: "SUCCESS" }),
     });
 
@@ -328,8 +340,8 @@ describe("Recurring billing", () => {
     {
       method: "POST",
       headers: {
-        authorization: `Bearer ${auth.accessToken}`,
-      },
+      "X-Internal-Token":INTERNAL_BILLING_SECRET,
+    },
       body: JSON.stringify({
         result: "FAILED",
       }),
@@ -453,12 +465,16 @@ describe("Recurring billing", () => {
       const [first, second] = await Promise.all([
         request("/api/v1/internal/billing/run", {
           method: "POST",
-          headers: { authorization: `Bearer ${auth.accessToken}` },
+          headers: {
+            "X-Internal-Token":INTERNAL_BILLING_SECRET,
+          },
           body: JSON.stringify({ result: "SUCCESS" }),
         }),
         request("/api/v1/internal/billing/run", {
           method: "POST",
-          headers: { authorization: `Bearer ${auth.accessToken}` },
+          headers: {
+            "X-Internal-Token":INTERNAL_BILLING_SECRET,
+          },
           body: JSON.stringify({ result: "SUCCESS" }),
         }),
       ]);
@@ -536,6 +552,47 @@ describe("Billing interval calculations", () => {
 
     expect(result).toEqual(
       new Date("2025-02-28T00:00:00.000Z")
+    );
+  });
+  it("rejects requests without the internal billing secret", async () => {
+    const response = await request(
+      "/api/v1/internal/billing/run",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          result: "SUCCESS",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(401);
+
+    const body = await response.json();
+
+    expect(body.error.code).toBe(
+      "INTERNAL_AUTHENTICATION_FAILED"
+    );
+  });
+  it("rejects requests with an invalid internal billing secret", async () => {
+    const response = await request(
+      "/api/v1/internal/billing/run",
+      {
+        method: "POST",
+        headers: {
+          "X-Internal-Token": "wrong-secret",
+        },
+        body: JSON.stringify({
+          result: "SUCCESS",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(401);
+
+    const body = await response.json();
+
+    expect(body.error.code).toBe(
+      "INTERNAL_AUTHENTICATION_FAILED"
     );
   });
 

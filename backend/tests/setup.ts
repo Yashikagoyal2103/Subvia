@@ -1,9 +1,12 @@
 import { config } from "dotenv";
 import { beforeAll, afterAll, beforeEach } from "vitest";
+
 process.env.NODE_ENV = "test";
-import { startTestServer, stopTestServer } from "./helpers.js";
 
 config({ path: ".env.test", override: true });
+
+const { startTestServer, stopTestServer } =
+  await import("./helpers.js");
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 

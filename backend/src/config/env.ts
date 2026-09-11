@@ -12,7 +12,12 @@ const requiredEnv = (name: string): string => {
 
 export const env = {
   JWT_SECRET: requiredEnv("JWT_SECRET"),
-  ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN ?? "15m",
-  REFRESH_TOKEN_EXPIRES_DAYS: Number( process.env.REFRESH_TOKEN_EXPIRES_DAYS ?? 7
+  INTERNAL_BILLING_SECRET: requiredEnv(
+    "INTERNAL_BILLING_SECRET"
+  ),
+  ACCESS_TOKEN_EXPIRES_IN:
+    process.env.ACCESS_TOKEN_EXPIRES_IN ?? "15m",
+  REFRESH_TOKEN_EXPIRES_DAYS: Number(
+    process.env.REFRESH_TOKEN_EXPIRES_DAYS ?? 7
   ),
 };
