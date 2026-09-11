@@ -2,6 +2,7 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { createSubscriptionSchema, subscriptionParamsSchema ,upgradeSubscriptionSchema, downgradeSubscriptionSchema, cancelSubscriptionSchema } from "./subscription.schema.js";
 import {createSubscription, getSubscription, getSubscriptions ,upgradeSubscription , downgradeSubscription, cancelSubscription } from "./subscription.service.js";
+import { paginationSchema } from "../../shared/utils/pagination.js";
 
 export async function create(req: AuthenticatedRequest, res: Response) {
   const { businessId } = subscriptionParamsSchema.parse(req.params);
@@ -26,14 +27,25 @@ export async function create(req: AuthenticatedRequest, res: Response) {
   });
 }
 
-export async function list(req: AuthenticatedRequest, res: Response) {
-  const { businessId } = subscriptionParamsSchema.parse(req.params);
+export async function list(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const { businessId } =
+    subscriptionParamsSchema.parse(req.params);
 
-  const subscriptions = await getSubscriptions( req.userId, businessId );
+  const pagination = paginationSchema.parse(req.query);
+
+  const result = await getSubscriptions(
+    req.userId,
+    businessId,
+    pagination
+  );
 
   return res.status(200).json({
     success: true,
-    data: subscriptions,
+    data: result.items,
+    pagination: result.pagination,
   });
 }
 

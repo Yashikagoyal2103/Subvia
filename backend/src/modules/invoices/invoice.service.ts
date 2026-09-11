@@ -1,13 +1,43 @@
 import { prisma } from "../../config/prisma.js";
+import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
 
-export async function getInvoices(userId: string, businessId: string) {
-  return prisma.invoice.findMany({
+export async function getInvoices(
+  userId: string,
+  businessId: string,
+  pagination: PaginationInput
+) {
+  const { skip, take } = getPagination(pagination);
+
+  const invoices = await prisma.invoice.findMany({
     where: {
-      customerProfile: { userId, businessId },
+      customerProfile: {
+        userId,
+        businessId,
+      },
     },
-    include: { items: true },
-    orderBy: { createdAt: "desc" },
+    include: {
+      items: true,
+    },
+    orderBy: [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    skip,
+    take: take + 1,
   });
+
+  const hasNextPage = invoices.length > take;
+
+  return {
+    items: hasNextPage
+      ? invoices.slice(0, take)
+      : invoices,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasNextPage,
+    },
+  };
 }
 
 export async function getInvoice(

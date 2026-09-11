@@ -1,14 +1,8 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import {
-  createPaymentSchema,
-  paymentParamsSchema,
-} from "./payment.schema.js";
-import {
-  createPayment,
-  getPayment,
-  getPayments,
-} from "./payment.service.js";
+import { createPaymentSchema, paymentParamsSchema, } from "./payment.schema.js";
+import { createPayment, getPayment, getPayments, } from "./payment.service.js";
+import { paginationSchema } from "../../shared/utils/pagination.js";
 
 export async function create(
   req: AuthenticatedRequest,
@@ -39,11 +33,26 @@ export async function create(
   });
 }
 
-export async function list(req: AuthenticatedRequest, res: Response) {
-  const { businessId } = paymentParamsSchema.parse(req.params);
-  const payments = await getPayments(req.userId, businessId);
+export async function list(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const { businessId } =
+    paymentParamsSchema.parse(req.params);
 
-  return res.status(200).json({ success: true, data: payments });
+  const pagination = paginationSchema.parse(req.query);
+
+  const result = await getPayments(
+    req.userId,
+    businessId,
+    pagination
+  );
+
+  return res.status(200).json({
+    success: true,
+    data: result.items,
+    pagination: result.pagination,
+  });
 }
 
 export async function getById(

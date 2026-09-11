@@ -1,5 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreatePlanInput, UpdatePlanInput } from "./plan.schema.js";
+import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
+
 
 export async function createPlan(
   businessId: string,
@@ -17,15 +19,51 @@ export async function createPlan(
   });
 }
 
-export async function getPlans(businessId: string, serviceId: string) {
+export async function getPlans(
+  businessId: string,
+  serviceId: string,
+  pagination: PaginationInput
+) {
   const service = await prisma.service.findFirst({
-    where: { id: serviceId, businessId },
+    where: {
+      id: serviceId,
+      businessId,
+    },
   });
 
-  if (!service) throw new Error("SERVICE_NOT_FOUND");
+  if (!service) {
+    throw new Error("SERVICE_NOT_FOUND");
+  }
 
-  return prisma.plan.findMany({ where: { serviceId } });
+  const { skip, take } =
+    getPagination(pagination);
+
+  const plans = await prisma.plan.findMany({
+    where: {
+      serviceId,
+    },
+    orderBy: [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    skip,
+    take: take + 1,
+  });
+
+  const hasNextPage = plans.length > take;
+
+  return {
+    items: hasNextPage
+      ? plans.slice(0, take)
+      : plans,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasNextPage,
+    },
+  };
 }
+
 
 export async function getPlan(
   businessId: string,

@@ -2,6 +2,7 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { createServiceSchema, serviceParamsSchema, updateServiceSchema } from "./service.schema.js";
 import { createService, getService, getServices, updateService } from "./service.service.js";
+import { paginationSchema } from "../../shared/utils/pagination.js";
 
 export async function create(req: AuthenticatedRequest, res: Response) {
   const { businessId } = serviceParamsSchema.parse(req.params);
@@ -12,11 +13,27 @@ export async function create(req: AuthenticatedRequest, res: Response) {
   return res.status(201).json({ success: true, data: service });
 }
 
-export async function list(req: AuthenticatedRequest, res: Response) {
-  const { businessId } = serviceParamsSchema.parse(req.params);
-  const services = await getServices(businessId);
+export async function list(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const { businessId } =
+    serviceParamsSchema.parse(req.params);
 
-  return res.status(200).json({ success: true, data: services });
+  const pagination = paginationSchema.parse(
+    req.query
+  );
+
+  const result = await getServices(
+    businessId,
+    pagination
+  );
+
+  return res.status(200).json({
+    success: true,
+    data: result.items,
+    pagination: result.pagination,
+  });
 }
 
 export async function getById(req: AuthenticatedRequest, res: Response) {

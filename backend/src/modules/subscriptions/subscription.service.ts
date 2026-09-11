@@ -6,6 +6,7 @@ import type { UpgradeSubscriptionInput, DowngradeSubscriptionInput } from "./sub
 import { createCredit } from "../credits/credit.service.js";
 import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
 import { generateInvoiceNumber } from "../invoices/invoice-number.service.js";
+import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
 
 export async function createSubscription(
   userId: string,
@@ -145,9 +146,12 @@ export async function createSubscription(
 }
 export async function getSubscriptions(
   userId: string,
-  businessId: string
+  businessId: string,
+  pagination: PaginationInput
 ) {
-  return prisma.subscription.findMany({
+  const { skip, take } = getPagination(pagination);
+
+  const subscriptions = await prisma.subscription.findMany({
     where: {
       customerProfile: {
         userId,
@@ -161,10 +165,26 @@ export async function getSubscriptions(
         },
       },
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    skip,
+    take: take + 1,
   });
+
+  const hasNextPage = subscriptions.length > take;
+
+  return {
+    items: hasNextPage
+      ? subscriptions.slice(0, take)
+      : subscriptions,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasNextPage,
+    },
+  };
 }
 
 export async function getSubscription(

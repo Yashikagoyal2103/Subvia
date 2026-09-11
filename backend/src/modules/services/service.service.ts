@@ -1,20 +1,65 @@
 import { prisma } from "../../config/prisma.js";
-import type { CreateServiceInput, UpdateServiceInput } from "./service.schema.js";
+import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
+import type { CreateServiceInput, UpdateServiceInput, } from "./service.schema.js";
 
-export async function createService(businessId: string, input: CreateServiceInput) {
-  return prisma.service.create({ data: { businessId, ...input } });
+export async function createService(
+  businessId: string,
+  input: CreateServiceInput
+) {
+  return prisma.service.create({
+    data: {
+      businessId,
+      ...input,
+    },
+  });
 }
 
-export async function getServices(businessId: string) {
-  return prisma.service.findMany({ where: { businessId } });
-}
+export async function getServices(
+  businessId: string,
+  pagination: PaginationInput
+) {
+  const { skip, take } = getPagination(pagination);
 
-export async function getService(businessId: string, serviceId: string) {
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, businessId },
+  const services = await prisma.service.findMany({
+    where: {
+      businessId,
+    },
+    orderBy: [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    skip,
+    take: take + 1,
   });
 
-  if (!service) throw new Error("SERVICE_NOT_FOUND");
+  const hasNextPage = services.length > take;
+
+  return {
+    items: hasNextPage
+      ? services.slice(0, take)
+      : services,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasNextPage,
+    },
+  };
+}
+
+export async function getService(
+  businessId: string,
+  serviceId: string
+) {
+  const service = await prisma.service.findFirst({
+    where: {
+      id: serviceId,
+      businessId,
+    },
+  });
+
+  if (!service) {
+    throw new Error("SERVICE_NOT_FOUND");
+  }
 
   return service;
 }
@@ -24,10 +69,15 @@ export async function updateService(
   serviceId: string,
   input: UpdateServiceInput
 ) {
-  const service = await getService(businessId, serviceId);
+  const service = await getService(
+    businessId,
+    serviceId
+  );
 
   return prisma.service.update({
-    where: { id: service.id },
+    where: {
+      id: service.id,
+    },
     data: input,
   });
 }

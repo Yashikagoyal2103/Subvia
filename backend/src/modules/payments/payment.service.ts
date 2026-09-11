@@ -4,7 +4,7 @@ import type { CreatePaymentInput } from "./payment.schema.js";
 import type { Prisma, Currency } from "../../generated/prisma/client.js";
 import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
 import { addBillingInterval } from "../billing/billing-interval.js";
-
+import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
 
 type ProcessPaymentInput = {
   invoiceId: string;
@@ -195,17 +195,40 @@ export async function createPayment(
 
 export async function getPayments(
   userId: string,
-  businessId: string
+  businessId: string,
+  pagination: PaginationInput
 ) {
-  return prisma.payment.findMany({
+  const { skip, take } = getPagination(pagination);
+
+  const payments = await prisma.payment.findMany({
     where: {
       invoice: {
-        customerProfile: { userId, businessId },
+        customerProfile: {
+          userId,
+          businessId,
+        },
       },
     },
-    include: { invoice: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: [
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    skip,
+    take: take + 1,
   });
+
+  const hasNextPage = payments.length > take;
+
+  return {
+    items: hasNextPage
+      ? payments.slice(0, take)
+      : payments,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasNextPage,
+    },
+  };
 }
 
 export async function getPayment(
