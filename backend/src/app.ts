@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { apiRateLimiter } from "./middleware/rate-limit.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import businessRoutes from "./modules/businesses/business.routes.js";
@@ -29,6 +30,8 @@ app.use(
     limit: "100kb",
   })
 );
+
+app.use("/api/v1", apiRateLimiter);
 
 app.get("/api/v1/health", (_req, res) => {
   res.json({
