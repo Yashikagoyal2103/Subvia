@@ -38,6 +38,7 @@ enum BusinessRole {
 model Business {
   id        String   @id @default(uuid())
   name      String
+  taxRate   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -66,14 +67,14 @@ model CustomerProfile {
   businessId String
   createdAt  DateTime @default(now())
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  creditLedger  CreditLedger[]
 
   @@unique([userId, businessId])
   @@index([businessId])
-  subscriptions Subscription[]
-  invoices Invoice[]
-  creditLedger CreditLedger[]
 }
 
 model Service {
@@ -133,28 +134,41 @@ enum CreditEntryType {
   DEBIT
 }
 
+enum SubscriptionEventType {
+  CREATED
+  UPGRADED
+  DOWNGRADE_SCHEDULED
+  DOWNGRADE_APPLIED
+  CANCEL_REQUESTED
+  CANCELLED
+  RENEWED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+}
 
 model Subscription {
-  id                String             @id @default(uuid())
-  customerProfileId String
-  planId            String
-  pendingPlanId     String?
-  status            SubscriptionStatus @default(PENDING)
-  currency          Currency
-  price             Int
-  billingInterval   BillingInterval
+  id                 String             @id @default(uuid())
+  customerProfileId  String
+  planId             String
+  pendingPlanId      String?
+  status             SubscriptionStatus @default(PENDING)
+  currency           Currency
+  price              Int
+  billingInterval    BillingInterval
   billingPeriodStart DateTime
   billingPeriodEnd   DateTime
-  cancelAtPeriodEnd Boolean            @default(false)
-  cancelledAt       DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  cancelAtPeriodEnd  Boolean            @default(false)
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   plan            Plan            @relation(fields: [planId], references: [id])
   pendingPlan     Plan?           @relation("PendingPlan", fields: [pendingPlanId], references: [id])
 
   invoices Invoice[]
+
+  events SubscriptionEvent[]
 
   @@index([customerProfileId])
   @@index([planId])
@@ -177,6 +191,8 @@ model Invoice {
   status            InvoiceStatus @default(DRAFT)
   currency          Currency
   subtotal          Int
+  taxRate           Int           @default(0)
+  taxAmount         Int           @default(0)
   total             Int
   issuedAt          DateTime      @default(now())
   dueAt             DateTime?
@@ -187,8 +203,8 @@ model Invoice {
   customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   subscription    Subscription    @relation(fields: [subscriptionId], references: [id])
   items           InvoiceItem[]
-  payments Payment[]
-  creditLedger CreditLedger[]
+  payments        Payment[]
+  creditLedger    CreditLedger[]
 
   @@index([customerProfileId])
   @@index([subscriptionId])
@@ -196,7 +212,7 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   invoiceId   String
   description String
   quantity    Int
@@ -216,16 +232,16 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  invoiceId       String
-  amount          Int
-  currency        Currency
-  status          PaymentStatus @default(PENDING)
-  paymentMethod   String
-  transactionId   String?       @unique
-  failureReason   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  invoiceId     String
+  amount        Int
+  currency      Currency
+  status        PaymentStatus @default(PENDING)
+  paymentMethod String
+  transactionId String?       @unique
+  failureReason String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   invoice Invoice @relation(fields: [invoiceId], references: [id])
 
@@ -263,4 +279,18 @@ model IdempotencyRecord {
 
   @@unique([userId, businessId, key, operation])
   @@index([userId, businessId])
+}
+
+model SubscriptionEvent {
+  id             String                @id @default(uuid())
+  subscriptionId String
+  type           SubscriptionEventType
+  metadata       Json?
+  createdAt      DateTime              @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([type])
+  @@index([createdAt])
 }

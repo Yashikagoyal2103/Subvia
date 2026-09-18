@@ -1,12 +1,24 @@
 import { prisma } from "../../config/prisma.js";
-import type { CreateSubscriptionInput } from "./subscription.schema.js";
+import type {
+  CreateSubscriptionInput,
+  UpgradeSubscriptionInput,
+  DowngradeSubscriptionInput,
+} from "./subscription.schema.js";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
-import type { UpgradeSubscriptionInput, DowngradeSubscriptionInput } from "./subscription.schema.js";
 import { createCredit } from "../credits/credit.service.js";
-import { createRequestHash, startIdempotency, completeIdempotency, } from "../../shared/utils/idempotency.js";
+import {
+  createRequestHash,
+  startIdempotency,
+  completeIdempotency,
+} from "../../shared/utils/idempotency.js";
 import { generateInvoiceNumber } from "../invoices/invoice-number.service.js";
-import { getPagination, type PaginationInput, } from "../../shared/utils/pagination.js";
+import {
+  getPagination,
+  type PaginationInput,
+} from "../../shared/utils/pagination.js";
+import { calculateTax } from "../billing/tax/tax.service.js";
+import { createSubscriptionEvent } from "./subscription-event.service.js";
 
 export async function createSubscription(
   userId: string,
@@ -65,69 +77,112 @@ export async function createSubscription(
       },
     });
 
-    // Serialize subscription creation for the same customer + service.
     await tx.$executeRaw`
       SELECT pg_advisory_xact_lock(
         hashtext(${`subscription-create:${customer.id}:${plan.serviceId}`})
       )
     `;
 
-    const existingSubscription = await tx.subscription.findFirst({
-      where: {
-        customerProfileId: customer.id,
-        status: {
-          in: ["PENDING", "ACTIVE"],
+    const existingSubscription =
+      await tx.subscription.findFirst({
+        where: {
+          customerProfileId: customer.id,
+          status: {
+            in: ["PENDING", "ACTIVE"],
+          },
+          plan: {
+            serviceId: plan.serviceId,
+          },
         },
-        plan: {
-          serviceId: plan.serviceId,
-        },
-      },
-    });
+      });
 
     if (existingSubscription) {
       throw new Error("ACTIVE_SUBSCRIPTION_EXISTS");
     }
 
     const start = new Date();
-    const end = getBillingPeriod(plan.interval, start);
 
-    const subscription = await tx.subscription.create({
-      data: {
-        customerProfileId: customer.id,
+    const end = getBillingPeriod(
+      plan.interval,
+      start
+    );
+
+    const subscription =
+      await tx.subscription.create({
+        data: {
+          customerProfileId: customer.id,
+          planId: plan.id,
+          status: "PENDING",
+          currency: plan.currency,
+          price: plan.price,
+          billingInterval: plan.interval,
+          billingPeriodStart: start,
+          billingPeriodEnd: end,
+        },
+      });
+
+    await createSubscriptionEvent(tx, {
+      subscriptionId: subscription.id,
+      type: "CREATED",
+      metadata: {
         planId: plan.id,
-        status: "PENDING",
-        currency: plan.currency,
+        planName: plan.name,
         price: plan.price,
+        currency: plan.currency,
         billingInterval: plan.interval,
-        billingPeriodStart: start,
-        billingPeriodEnd: end,
       },
     });
 
-    const invoiceNumber = await generateInvoiceNumber(tx, start);
+    const business = await tx.business.findUnique({
+      where: {
+        id: businessId,
+      },
+      select: {
+        taxRate: true,
+      },
+    });
 
-    const invoice = await tx.invoice.create({
-      data: {
-        invoiceNumber,
-        customerProfileId: customer.id,
-        subscriptionId: subscription.id,
-        status: "OPEN",
-        currency: plan.currency,
-        subtotal: plan.price,
-        total: plan.price,
-        items: {
-          create: {
-            description: `${plan.name} subscription`,
-            quantity: 1,
-            unitPrice: plan.price,
-            amount: plan.price,
+    if (!business) {
+      throw new Error("BUSINESS_NOT_FOUND");
+    }
+
+    const tax = calculateTax(
+      plan.price,
+      business.taxRate
+    );
+
+    const invoiceNumber =
+      await generateInvoiceNumber(
+        tx,
+        start
+      );
+
+    const invoice =
+      await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          customerProfileId: customer.id,
+          subscriptionId: subscription.id,
+          status: "OPEN",
+          currency: plan.currency,
+          subtotal: plan.price,
+          taxRate: tax.taxRate,
+          taxAmount: tax.taxAmount,
+          total: tax.total,
+          items: {
+            create: {
+              description:
+                `${plan.name} subscription`,
+              quantity: 1,
+              unitPrice: plan.price,
+              amount: plan.price,
+            },
           },
         },
-      },
-      include: {
-        items: true,
-      },
-    });
+        include: {
+          items: true,
+        },
+      });
 
     const response = {
       subscription,
@@ -144,36 +199,40 @@ export async function createSubscription(
     return response;
   });
 }
+
 export async function getSubscriptions(
   userId: string,
   businessId: string,
   pagination: PaginationInput
 ) {
-  const { skip, take } = getPagination(pagination);
+  const { skip, take } =
+    getPagination(pagination);
 
-  const subscriptions = await prisma.subscription.findMany({
-    where: {
-      customerProfile: {
-        userId,
-        businessId,
-      },
-    },
-    include: {
-      plan: {
-        include: {
-          service: true,
+  const subscriptions =
+    await prisma.subscription.findMany({
+      where: {
+        customerProfile: {
+          userId,
+          businessId,
         },
       },
-    },
-    orderBy: [
-      { createdAt: "desc" },
-      { id: "desc" },
-    ],
-    skip,
-    take: take + 1,
-  });
+      include: {
+        plan: {
+          include: {
+            service: true,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
+      skip,
+      take: take + 1,
+    });
 
-  const hasNextPage = subscriptions.length > take;
+  const hasNextPage =
+    subscriptions.length > take;
 
   return {
     items: hasNextPage
@@ -192,28 +251,67 @@ export async function getSubscription(
   businessId: string,
   subscriptionId: string
 ) {
-  const subscription = await prisma.subscription.findFirst({
-    where: {
-      id: subscriptionId,
-      customerProfile: {
-        userId,
-        businessId,
-      },
-    },
-    include: {
-      plan: {
-        include: {
-          service: true,
+  const subscription =
+    await prisma.subscription.findFirst({
+      where: {
+        id: subscriptionId,
+        customerProfile: {
+          userId,
+          businessId,
         },
       },
-    },
-  });
+      include: {
+        plan: {
+          include: {
+            service: true,
+          },
+        },
+      },
+    });
 
   if (!subscription) {
     throw new Error("SUBSCRIPTION_NOT_FOUND");
   }
 
   return subscription;
+}
+
+export async function getSubscriptionEvents(
+  userId: string,
+  businessId: string,
+  subscriptionId: string
+) {
+  const subscription =
+    await prisma.subscription.findFirst({
+      where: {
+        id: subscriptionId,
+        customerProfile: {
+          userId,
+          businessId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+  if (!subscription) {
+    throw new Error("SUBSCRIPTION_NOT_FOUND");
+  }
+
+  return prisma.subscriptionEvent.findMany({
+    where: {
+      subscriptionId: subscription.id,
+    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        id: "desc",
+      },
+    ],
+  });
 }
 
 export async function upgradeSubscription(
@@ -242,19 +340,20 @@ export async function upgradeSubscription(
       return idempotency.record.responseBody;
     }
 
-    const subscription = await tx.subscription.findFirst({
-      where: {
-        id: subscriptionId,
-        status: "ACTIVE",
-        customerProfile: {
-          userId,
-          businessId,
+    const subscription =
+      await tx.subscription.findFirst({
+        where: {
+          id: subscriptionId,
+          status: "ACTIVE",
+          customerProfile: {
+            userId,
+            businessId,
+          },
         },
-      },
-      include: {
-        plan: true,
-      },
-    });
+        include: {
+          plan: true,
+        },
+      });
 
     if (!subscription) {
       throw new Error("SUBSCRIPTION_NOT_FOUND");
@@ -268,80 +367,133 @@ export async function upgradeSubscription(
       throw new Error("PENDING_PLAN_CHANGE_EXISTS");
     }
 
-    const newPlan = await tx.plan.findFirst({
-      where: {
-        id: input.planId,
-        serviceId: subscription.plan.serviceId,
-        isActive: true,
-      },
-    });
+    const newPlan =
+      await tx.plan.findFirst({
+        where: {
+          id: input.planId,
+          serviceId:
+            subscription.plan.serviceId,
+          isActive: true,
+        },
+      });
 
     if (!newPlan) {
       throw new Error("PLAN_NOT_FOUND");
     }
 
-    if (newPlan.currency !== subscription.currency) {
-      throw new Error("CURRENCY_NOT_SUPPORTED");
+    if (
+      newPlan.currency !==
+      subscription.currency
+    ) {
+      throw new Error(
+        "CURRENCY_NOT_SUPPORTED"
+      );
     }
 
-    if (newPlan.price <= subscription.price) {
+    if (
+      newPlan.price <=
+      subscription.price
+    ) {
       throw new Error("NOT_AN_UPGRADE");
     }
 
     const changeTime = new Date();
 
-    const proration = calculateProration({
-      oldPlanPrice: subscription.price,
-      newPlanPrice: newPlan.price,
-      billingPeriodStart: subscription.billingPeriodStart,
-      billingPeriodEnd: subscription.billingPeriodEnd,
-      changeTime,
-    });
+    const proration =
+      calculateProration({
+        oldPlanPrice:
+          subscription.price,
+        newPlanPrice:
+          newPlan.price,
+        billingPeriodStart:
+          subscription.billingPeriodStart,
+        billingPeriodEnd:
+          subscription.billingPeriodEnd,
+        changeTime,
+      });
 
-    const updatedSubscription = await tx.subscription.update({
-      where: {
-        id: subscription.id,
-      },
-      data: {
-        pendingPlanId: newPlan.id,
-      },
-    });
-
-    const invoiceNumber = await generateInvoiceNumber(tx, changeTime);
-    
-    const invoice = await tx.invoice.create({
-      data: {
-        invoiceNumber,
-        customerProfileId: subscription.customerProfileId,
-        subscriptionId: subscription.id,
-        status: "OPEN",
-        currency: subscription.currency,
-        subtotal: proration.netAmount,
-        total: proration.netAmount,
-        items: {
-          create: [
-            {
-              description: `${newPlan.name} upgrade charge`,
-              quantity: 1,
-              unitPrice: proration.newPlanCharge,
-              amount: proration.newPlanCharge,
-            },
-            {
-              description: `${subscription.plan.name} unused time credit`,
-              quantity: 1,
-              unitPrice: -proration.oldPlanCredit,
-              amount: -proration.oldPlanCredit,
-            },
-          ],
+    const updatedSubscription =
+      await tx.subscription.update({
+        where: {
+          id: subscription.id,
         },
-      },
-      include: {
-        items: true,
-      },
-    });
+        data: {
+          pendingPlanId: newPlan.id,
+        },
+      });
+
+    const business =
+      await tx.business.findUnique({
+        where: {
+          id: businessId,
+        },
+        select: {
+          taxRate: true,
+        },
+      });
+
+    if (!business) {
+      throw new Error("BUSINESS_NOT_FOUND");
+    }
+
+    const tax = calculateTax(
+      proration.netAmount,
+      business.taxRate
+    );
+
+    const invoiceNumber =
+      await generateInvoiceNumber(
+        tx,
+        changeTime
+      );
+
+    const invoice =
+      await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          customerProfileId:
+            subscription.customerProfileId,
+          subscriptionId:
+            subscription.id,
+          status: "OPEN",
+          currency:
+            subscription.currency,
+          subtotal:
+            proration.netAmount,
+          taxRate: tax.taxRate,
+          taxAmount: tax.taxAmount,
+          total: tax.total,
+          items: {
+            create: [
+              {
+                description:
+                  `${newPlan.name} upgrade charge`,
+                quantity: 1,
+                unitPrice:
+                  proration.newPlanCharge,
+                amount:
+                  proration.newPlanCharge,
+              },
+              {
+                description:
+                  `${subscription.plan.name} unused time credit`,
+                quantity: 1,
+                unitPrice:
+                  -proration.oldPlanCredit,
+                amount:
+                  -proration.oldPlanCredit,
+              },
+            ],
+          },
+        },
+        include: {
+          items: true,
+        },
+      });
 
     const response = {
-      subscription: updatedSubscription,
+      subscription:
+        updatedSubscription,
       invoice,
       proration,
     };
@@ -383,64 +535,105 @@ export async function downgradeSubscription(
       return idempotency.record.responseBody;
     }
 
-    const subscription = await tx.subscription.findFirst({
-      where: {
-        id: subscriptionId,
-        status: "ACTIVE",
-        customerProfile: {
-          userId,
-          businessId,
+    const subscription =
+      await tx.subscription.findFirst({
+        where: {
+          id: subscriptionId,
+          status: "ACTIVE",
+          customerProfile: {
+            userId,
+            businessId,
+          },
         },
-      },
-      include: {
-        plan: true,
-      },
-    });
+        include: {
+          plan: true,
+        },
+      });
 
     if (!subscription) {
       throw new Error("SUBSCRIPTION_NOT_FOUND");
     }
 
-    if (subscription.planId === input.planId) {
+    if (
+      subscription.planId ===
+      input.planId
+    ) {
       throw new Error("ALREADY_ON_PLAN");
     }
 
     if (subscription.pendingPlanId) {
-      throw new Error("PENDING_PLAN_CHANGE_EXISTS");
+      throw new Error(
+        "PENDING_PLAN_CHANGE_EXISTS"
+      );
     }
 
-    const newPlan = await tx.plan.findFirst({
-      where: {
-        id: input.planId,
-        serviceId: subscription.plan.serviceId,
-        isActive: true,
-      },
-    });
+    const newPlan =
+      await tx.plan.findFirst({
+        where: {
+          id: input.planId,
+          serviceId:
+            subscription.plan.serviceId,
+          isActive: true,
+        },
+      });
 
     if (!newPlan) {
       throw new Error("PLAN_NOT_FOUND");
     }
 
-    if (newPlan.currency !== subscription.currency) {
-      throw new Error("CURRENCY_NOT_SUPPORTED");
+    if (
+      newPlan.currency !==
+      subscription.currency
+    ) {
+      throw new Error(
+        "CURRENCY_NOT_SUPPORTED"
+      );
     }
 
-    if (newPlan.price >= subscription.price) {
-      throw new Error("NOT_A_DOWNGRADE");
+    if (
+      newPlan.price >=
+      subscription.price
+    ) {
+      throw new Error(
+        "NOT_A_DOWNGRADE"
+      );
     }
 
-    const result = await tx.subscription.update({
-      where: {
-        id: subscription.id,
-      },
-      data: {
-        pendingPlanId: newPlan.id,
-      },
-      include: {
-        plan: true,
-        pendingPlan: true,
-      },
-    });
+    const result =
+      await tx.subscription.update({
+        where: {
+          id: subscription.id,
+        },
+        data: {
+          pendingPlanId: newPlan.id,
+        },
+        include: {
+          plan: true,
+          pendingPlan: true,
+        },
+      });
+
+    await createSubscriptionEvent(
+      tx,
+      {
+        subscriptionId:
+          subscription.id,
+        type:
+          "DOWNGRADE_SCHEDULED",
+        metadata: {
+          fromPlanId:
+            subscription.planId,
+          fromPlanName:
+            subscription.plan.name,
+          toPlanId:
+            newPlan.id,
+          toPlanName:
+            newPlan.name,
+          effectiveAt:
+            subscription.billingPeriodEnd.toISOString(),
+        },
+      }
+    );
 
     await completeIdempotency(
       tx,
@@ -452,6 +645,7 @@ export async function downgradeSubscription(
     return result;
   });
 }
+
 export async function cancelSubscription(
   userId: string,
   businessId: string,
@@ -478,20 +672,21 @@ export async function cancelSubscription(
       return idempotency.record.responseBody;
     }
 
-    const subscription = await tx.subscription.findFirst({
-      where: {
-        id: subscriptionId,
-        status: "ACTIVE",
-        customerProfile: {
-          userId,
-          businessId,
+    const subscription =
+      await tx.subscription.findFirst({
+        where: {
+          id: subscriptionId,
+          status: "ACTIVE",
+          customerProfile: {
+            userId,
+            businessId,
+          },
         },
-      },
-      include: {
-        plan: true,
-        customerProfile: true,
-      },
-    });
+        include: {
+          plan: true,
+          customerProfile: true,
+        },
+      });
 
     if (!subscription) {
       throw new Error("SUBSCRIPTION_NOT_FOUND");
@@ -499,17 +694,35 @@ export async function cancelSubscription(
 
     if (mode === "PERIOD_END") {
       if (subscription.cancelAtPeriodEnd) {
-        throw new Error("CANCELLATION_ALREADY_SCHEDULED");
+        throw new Error(
+          "CANCELLATION_ALREADY_SCHEDULED"
+        );
       }
 
-      const result = await tx.subscription.update({
-        where: {
-          id: subscription.id,
-        },
-        data: {
-          cancelAtPeriodEnd: true,
-        },
-      });
+      const result =
+        await tx.subscription.update({
+          where: {
+            id: subscription.id,
+          },
+          data: {
+            cancelAtPeriodEnd: true,
+          },
+        });
+
+      await createSubscriptionEvent(
+        tx,
+        {
+          subscriptionId:
+            subscription.id,
+          type:
+            "CANCEL_REQUESTED",
+          metadata: {
+            mode: "PERIOD_END",
+            effectiveAt:
+              subscription.billingPeriodEnd.toISOString(),
+          },
+        }
+      );
 
       await completeIdempotency(
         tx,
@@ -527,38 +740,60 @@ export async function cancelSubscription(
       subscription.billingPeriodEnd.getTime() -
       subscription.billingPeriodStart.getTime();
 
-    const remainingMs = Math.max(
-      subscription.billingPeriodEnd.getTime() -
-        now.getTime(),
-      0
-    );
+    const remainingMs =
+      Math.max(
+        subscription.billingPeriodEnd.getTime() -
+          now.getTime(),
+        0
+      );
 
-    const unusedAmount = Math.floor(
-      (subscription.price * remainingMs) /
-        totalPeriodMs
-    );
+    const unusedAmount =
+      totalPeriodMs > 0
+        ? Math.floor(
+            (subscription.price *
+              remainingMs) /
+              totalPeriodMs
+          )
+        : 0;
 
     if (unusedAmount > 0) {
       await createCredit(tx, {
-        customerProfileId: subscription.customerProfileId,
+        customerProfileId:
+          subscription.customerProfileId,
         amount: unusedAmount,
-        currency: subscription.currency,
+        currency:
+          subscription.currency,
         description:
           "Credit from immediate subscription cancellation.",
       });
     }
 
-    const result = await tx.subscription.update({
-      where: {
-        id: subscription.id,
-      },
-      data: {
-        status: "CANCELLED",
-        cancelledAt: now,
-        cancelAtPeriodEnd: false,
-        pendingPlanId: null,
-      },
-    });
+    const result =
+      await tx.subscription.update({
+        where: {
+          id: subscription.id,
+        },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: now,
+          cancelAtPeriodEnd: false,
+          pendingPlanId: null,
+        },
+      });
+
+    await createSubscriptionEvent(
+      tx,
+      {
+        subscriptionId:
+          subscription.id,
+        type: "CANCELLED",
+        metadata: {
+          mode: "IMMEDIATE",
+          creditCreated:
+            unusedAmount,
+        },
+      }
+    );
 
     await completeIdempotency(
       tx,
