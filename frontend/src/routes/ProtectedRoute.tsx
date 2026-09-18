@@ -1,23 +1,30 @@
-import { Loader2 } from "lucide-react";
-import { Navigate, Outlet } from "react-router-dom";
+// import { Navigate, Outlet } from "react-router-dom";
+// import { useAuthStore } from "../stores/auth.store";
 
+// export function ProtectedRoute() {
+//   const { userId, isAuthenticated } = useAuthStore();
+
+//   if (!isAuthenticated || !userId) {
+//     return <Navigate to="/login" replace />;
+//   }
+
+//   return <Outlet />;
+// }
+
+import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "../stores/auth.store";
 
 export function ProtectedRoute() {
-  const {
-    isAuthenticated,
-    isInitialized,
-  } = useAuthStore();
+  const { userId, isAuthenticated } = useAuthStore();
 
-  if (!isInitialized) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
+  const bypassAuth =
+    import.meta.env.DEV &&
+    import.meta.env.VITE_BYPASS_AUTH === "true";
 
-  if (!isAuthenticated) {
+  if (
+    !bypassAuth &&
+    (!isAuthenticated || !userId)
+  ) {
     return <Navigate to="/login" replace />;
   }
 
