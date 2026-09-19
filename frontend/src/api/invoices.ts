@@ -1,5 +1,4 @@
 import { apiClient } from "./client";
-import type { PaginatedResponse } from "./services";
 
 export interface InvoiceItem {
   id: string;
@@ -16,20 +15,16 @@ export interface Invoice {
   invoiceNumber: string;
   status: "DRAFT" | "OPEN" | "PAID" | "VOID";
   currency: "INR" | "USD";
-
   subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
-
   issuedAt: string;
   dueAt: string | null;
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
-
   items: InvoiceItem[];
-
   subscription?: {
     id: string;
     status: "PENDING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
@@ -41,43 +36,24 @@ export interface Invoice {
     plan: {
       id: string;
       name: string;
-      service: {
-        id: string;
-        name: string;
-      };
+      service: { id: string; name: string };
     };
   };
 }
 
-export const invoicesApi = {
-  async list(
-    businessId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<PaginatedResponse<Invoice>> {
-    const response = await apiClient.get<{
-      success: true;
-      data: Invoice[];
-      pagination: PaginatedResponse<Invoice>["pagination"];
-    }>(`/businesses/${businessId}/invoices`, {
-      params: { page, limit },
-    });
+export interface InvoiceListResponse {
+  data: Invoice[];
+  pagination: { page: number; limit: number; hasNextPage: boolean };
+}
 
-    return {
-      data: response.data.data,
-      pagination: response.data.pagination,
-    };
+export const invoicesApi = {
+  async list(businessId: string, page = 1, limit = 20): Promise<InvoiceListResponse> {
+    const response = await apiClient.get<{ success: true; data: Invoice[]; pagination: InvoiceListResponse["pagination"] }>(`/businesses/${businessId}/invoices`, { params: { page, limit } });
+    return { data: response.data.data, pagination: response.data.pagination };
   },
 
-  async getById(
-    businessId: string,
-    invoiceId: string,
-  ): Promise<Invoice> {
-    const response = await apiClient.get<{
-      success: true;
-      data: Invoice;
-    }>(`/businesses/${businessId}/invoices/${invoiceId}`);
-
+  async getById(businessId: string, invoiceId: string): Promise<Invoice> {
+    const response = await apiClient.get<{ success: true; data: Invoice }>(`/businesses/${businessId}/invoices/${invoiceId}`);
     return response.data.data;
   },
 };

@@ -16,43 +16,27 @@ export interface Plan {
   updatedAt: string;
 }
 
-interface PlansResponse {
-  success: true;
-  data: Plan[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-interface PlanResponse {
-  success: true;
-  data: Plan;
-}
+interface PlansResponse { success: true; data: Plan[]; pagination?: { page: number; limit: number; hasNextPage: boolean; }; }
+interface PlanResponse { success: true; data: Plan; }
 
 export const plansApi = {
-  async list(
-    businessId: string,
-    serviceId: string,
-  ): Promise<Plan[]> {
-    const response = await apiClient.get<PlansResponse>(
-      `/businesses/${businessId}/services/${serviceId}/plans`,
-    );
-
+  async list(businessId: string, serviceId: string): Promise<Plan[]> {
+    const response = await apiClient.get<PlansResponse>(`/businesses/${businessId}/services/${serviceId}/plans`);
     return response.data.data;
   },
 
-  async getById(
-    businessId: string,
-    serviceId: string,
-    planId: string,
-  ): Promise<Plan> {
-    const response = await apiClient.get<PlanResponse>(
-      `/businesses/${businessId}/services/${serviceId}/plans/${planId}`,
-    );
+  async getById(businessId: string, serviceId: string, planId: string): Promise<Plan> {
+    const response = await apiClient.get<PlanResponse>(`/businesses/${businessId}/services/${serviceId}/plans/${planId}`);
+    return response.data.data;
+  },
 
+  async create(businessId: string, serviceId: string, input: { name: string; description?: string; price: number; currency: Currency; interval: BillingInterval }): Promise<Plan> {
+    const response = await apiClient.post<PlanResponse>(`/businesses/${businessId}/services/${serviceId}/plans`, input);
+    return response.data.data;
+  },
+
+  async update(businessId: string, serviceId: string, planId: string, input: Partial<{ name: string; description: string; price: number; currency: Currency; interval: BillingInterval }>): Promise<Plan> {
+    const response = await apiClient.patch<PlanResponse>(`/businesses/${businessId}/services/${serviceId}/plans/${planId}`, input);
     return response.data.data;
   },
 };
