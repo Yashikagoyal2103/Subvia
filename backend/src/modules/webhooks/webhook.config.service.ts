@@ -23,7 +23,7 @@ export async function createWebhookEndpoint(
 ) {
   await requireAdmin(userId, businessId);
 
-  return prisma.webhookEndpoint.create({
+  const endpoint = await prisma.webhookEndpoint.create({
     data: {
       businessId,
       url: input.url,
@@ -32,10 +32,13 @@ export async function createWebhookEndpoint(
     select: {
       id: true,
       url: true,
+      secret: true,
       status: true,
       createdAt: true,
     },
   });
+
+  return endpoint;
 }
 
 export async function getWebhookEndpoints(

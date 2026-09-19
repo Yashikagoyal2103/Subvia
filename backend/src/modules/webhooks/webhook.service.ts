@@ -1,8 +1,12 @@
 import crypto from "node:crypto";
-import type { Prisma, SubscriptionEventType } from "../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
+import type {
+  Prisma,
+  SubscriptionEventType,
+} from "../../generated/prisma/client.js";
 
 const MAX_ATTEMPTS = 5;
+const CLAIM_LEASE_MS = 60_000;
 
 function eventName(type: SubscriptionEventType) {
   const names: Record<SubscriptionEventType, string> = {
@@ -21,7 +25,10 @@ function eventName(type: SubscriptionEventType) {
 }
 
 function retryDelay(attempts: number) {
-  return Math.min(60 * 60 * 1000, 5000 * 2 ** Math.max(attempts - 1, 0));
+  return Math.min(
+    60 * 60 * 1000,
+    5000 * 2 ** Math.max(attempts - 1, 0)
+  );
 }
 
 export async function createWebhookDeliveries(
@@ -31,22 +38,21 @@ export async function createWebhookDeliveries(
     subscriptionId: string;
     type: SubscriptionEventType;
     metadata?: Prisma.InputJsonValue;
+    createdAt: Date;
   }
 ) {
   const subscription = await tx.subscription.findUnique({
     where: { id: input.subscriptionId },
-    include: {
+    select: {
+      id: true,
+      status: true,
+      planId: true,
       customerProfile: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-            },
-          },
+        select: {
+          userId: true,
+          businessId: true,
         },
       },
-      plan: true,
     },
   });
 
@@ -71,7 +77,7 @@ export async function createWebhookDeliveries(
   const payload = {
     id: input.eventId,
     type: eventName(input.type),
-    createdAt: new Date().toISOString(),
+    createdAt: input.createdAt.toISOString(),
     data: {
       subscriptionId: subscription.id,
       customerId: subscription.customerProfile.userId,
@@ -91,10 +97,16 @@ export async function createWebhookDeliveries(
   });
 }
 
-export function signWebhookPayload(payload: unknown, secret: string) {
+export function signWebhookPayload(
+  payload: unknown,
+  secret: string,
+  timestamp: string
+) {
+  const signedPayload = `${timestamp}.${JSON.stringify(payload)}`;
+
   return crypto
     .createHmac("sha256", secret)
-    .update(JSON.stringify(payload))
+    .update(signedPayload)
     .digest("hex");
 }
 
@@ -123,27 +135,28 @@ export async function processWebhookDeliveries(
   let failed = 0;
 
   for (const delivery of deliveries) {
-    const claimed = await prisma.$transaction(async (tx) => {
-      const result = await tx.webhookDelivery.updateMany({
-        where: {
-          id: delivery.id,
-          status: "PENDING",
-          nextAttemptAt: {
-            lte: now,
-          },
-        },
-        data: {
-          attempts: {
-            increment: 1,
-          },
-          lastAttemptAt: now,
-        },
-      });
+    const claimUntil = new Date(
+      now.getTime() + CLAIM_LEASE_MS
+    );
 
-      return result.count === 1;
+    const claimed = await prisma.webhookDelivery.updateMany({
+      where: {
+        id: delivery.id,
+        status: "PENDING",
+        nextAttemptAt: {
+          lte: now,
+        },
+      },
+      data: {
+        attempts: {
+          increment: 1,
+        },
+        lastAttemptAt: now,
+        nextAttemptAt: claimUntil,
+      },
     });
 
-    if (!claimed) {
+    if (claimed.count !== 1) {
       continue;
     }
 
@@ -156,20 +169,30 @@ export async function processWebhookDeliveries(
       continue;
     }
 
+    const timestamp = Math.floor(
+      now.getTime() / 1000
+    ).toString();
+
     try {
-      const response = await fetch(current.endpoint.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-webhook-event": current.eventType,
-          "x-webhook-signature": signWebhookPayload(
-            current.payload,
-            current.endpoint.secret
-          ),
-        },
-        body: JSON.stringify(current.payload),
-        signal: AbortSignal.timeout(10000),
-      });
+      const response = await fetch(
+        current.endpoint.url,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-webhook-event": current.eventType,
+            "x-webhook-delivery-id": current.id,
+            "x-webhook-timestamp": timestamp,
+            "x-webhook-signature": `t=${timestamp},v1=${signWebhookPayload(
+              current.payload,
+              current.endpoint.secret,
+              timestamp
+            )}`,
+          },
+          body: JSON.stringify(current.payload),
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP_${response.status}`);
@@ -187,7 +210,9 @@ export async function processWebhookDeliveries(
       delivered++;
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "WEBHOOK_DELIVERY_FAILED";
+        error instanceof Error
+          ? error.message
+          : "WEBHOOK_DELIVERY_FAILED";
 
       if (current.attempts >= MAX_ATTEMPTS) {
         await prisma.webhookDelivery.update({
@@ -224,13 +249,17 @@ export async function cleanupWebhookDeliveries(
   now: Date = new Date()
 ) {
   const olderThan = new Date(
-    now.getTime() - 30 * 24 * 60 * 60 * 1000
+    now.getTime() -
+      30 * 24 * 60 * 60 * 1000
   );
 
   const result = await prisma.webhookDelivery.deleteMany({
     where: {
       createdAt: {
         lt: olderThan,
+      },
+      status: {
+        in: ["DELIVERED", "FAILED"],
       },
     },
   });

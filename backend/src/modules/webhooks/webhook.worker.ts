@@ -1,4 +1,7 @@
-import { cleanupWebhookDeliveries, processWebhookDeliveries } from "./webhook.service.js";
+import {
+  cleanupWebhookDeliveries,
+  processWebhookDeliveries,
+} from "./webhook.service.js";
 
 const DELIVERY_INTERVAL = 5000;
 const CLEANUP_INTERVAL = 60 * 60 * 1000;
@@ -8,7 +11,9 @@ let cleanupTimer: NodeJS.Timeout | undefined;
 let running = false;
 
 async function runDeliveryWorker() {
-  if (running) return;
+  if (running) {
+    return;
+  }
 
   running = true;
 
@@ -23,21 +28,36 @@ async function runDeliveryWorker() {
 
 async function runCleanupWorker() {
   try {
-    const deleted = await cleanupWebhookDeliveries();
+    const deleted =
+      await cleanupWebhookDeliveries();
 
     if (deleted > 0) {
-      console.log(`Webhook cleanup removed ${deleted} deliveries.`);
+      console.log(
+        `Webhook cleanup removed ${deleted} deliveries.`
+      );
     }
   } catch (error) {
-    console.error("Webhook cleanup error:", error);
+    console.error(
+      "Webhook cleanup error:",
+      error
+    );
   }
 }
 
 export function startWebhookWorker() {
-  if (deliveryTimer || cleanupTimer) return;
+  if (deliveryTimer || cleanupTimer) {
+    return;
+  }
 
-  deliveryTimer = setInterval(runDeliveryWorker, DELIVERY_INTERVAL);
-  cleanupTimer = setInterval(runCleanupWorker, CLEANUP_INTERVAL);
+  deliveryTimer = setInterval(
+    runDeliveryWorker,
+    DELIVERY_INTERVAL
+  );
+
+  cleanupTimer = setInterval(
+    runCleanupWorker,
+    CLEANUP_INTERVAL
+  );
 
   void runDeliveryWorker();
   void runCleanupWorker();

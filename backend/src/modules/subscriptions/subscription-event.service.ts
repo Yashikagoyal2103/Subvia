@@ -23,6 +23,7 @@ export async function createSubscriptionEvent(
     subscriptionId: input.subscriptionId,
     type: input.type,
     metadata: input.metadata,
+    createdAt: event.createdAt,
   });
 
   return event;
@@ -37,12 +38,8 @@ export async function getSubscriptionEvents(
       subscriptionId,
     },
     orderBy: [
-      {
-        createdAt: "desc",
-      },
-      {
-        id: "desc",
-      },
+      { createdAt: "desc" },
+      { id: "desc" },
     ],
   });
 }
