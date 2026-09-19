@@ -14,6 +14,10 @@ import { AdminSubscriptionsPage } from "../pages/admin/SubscriptionsPage";
 import { AdminInvoicesPage } from "../pages/admin/InvoicesPage";
 import { AdminPaymentsPage } from "../pages/admin/PaymentsPage";
 import { AdminBillingActivityPage } from "../pages/admin/BillingActivityPage";
+import { AdminCustomerDetailsPage } from "../pages/admin/CustomerDetailsPage";
+import { AdminSubscriptionDetailsPage } from "../pages/admin/SubscriptionDetailsPage";
+import { AdminInvoiceDetailsPage } from "../pages/admin/InvoiceDetailsPage";
+import { AdminPaymentDetailsPage } from "../pages/admin/PaymentDetailsPage";
 
 import { CustomerDashboardPage } from "../pages/customer/DashboardPage";
 import { CustomerServicesPage } from "../pages/customer/ServicesPage";
@@ -64,6 +68,42 @@ export const router = createBrowserRouter([
               { path: "invoices", element: <AdminInvoicesPage /> },
               { path: "payments", element: <AdminPaymentsPage /> },
               { path: "billing-activity", element: <AdminBillingActivityPage /> },
+              {
+                path: "customers",
+                element: <AdminCustomersPage />,
+              },
+              {
+                path: "customers/:customerId",
+                element: <AdminCustomerDetailsPage />,
+              },
+              {
+                path: "subscriptions",
+                element: <AdminSubscriptionsPage />,
+              },
+              {
+                path: "subscriptions/:subscriptionId",
+                element: <AdminSubscriptionDetailsPage />,
+              },
+              {
+                path: "invoices",
+                element: <AdminInvoicesPage />,
+              },
+              {
+                path: "invoices/:invoiceId",
+                element: <AdminInvoiceDetailsPage />,
+              },
+              {
+                path: "payments",
+                element: <AdminPaymentsPage />,
+              },
+              {
+                path: "payments/:paymentId",
+                element: <AdminPaymentDetailsPage />,
+              },
+              {
+                path: "billing-activity",
+                element: <AdminBillingActivityPage />,
+              },
             ],
           },
         ],
