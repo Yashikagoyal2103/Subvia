@@ -14,18 +14,42 @@ export interface MyBusiness extends Business {
 }
 
 export const businessesApi = {
+  async create(input: { name: string }): Promise<Business> {
+    const response = await apiClient.post<{
+      success: true;
+      data: Business;
+    }>("/businesses", input);
+
+    return response.data.data;
+  },
+
   async getMine(): Promise<MyBusiness[]> {
-    const response = await apiClient.get<{ success: true; data: MyBusiness[] }>("/businesses/my");
+    const response = await apiClient.get<{
+      success: true;
+      data: MyBusiness[];
+    }>("/businesses/my");
+
     return response.data.data;
   },
 
   async getById(businessId: string): Promise<Business> {
-    const response = await apiClient.get<{ success: true; data: Business }>(`/businesses/${businessId}`);
+    const response = await apiClient.get<{
+      success: true;
+      data: Business;
+    }>(`/businesses/${businessId}`);
+
     return response.data.data;
   },
 
-  async update(businessId: string, input: { name?: string; taxRate?: number }): Promise<Business> {
-    const response = await apiClient.patch<{ success: true; data: Business }>(`/businesses/${businessId}`, input);
+  async update(
+    businessId: string,
+    input: { name?: string; taxRate?: number },
+  ): Promise<Business> {
+    const response = await apiClient.patch<{
+      success: true;
+      data: Business;
+    }>(`/businesses/${businessId}`, input);
+
     return response.data.data;
   },
 };

@@ -1,23 +1,28 @@
 import { createBrowserRouter } from "react-router-dom";
+
 import App from "../App";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { CustomerLayout } from "../layouts/CustomerLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
+
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
+import { WorkspacePage } from "../pages/workspace/WorkspacePage";
 
 import { AdminDashboardPage } from "../pages/admin/DashboardPage";
 import { AdminServicesPage } from "../pages/admin/ServicesPage";
 import { AdminPlansPage } from "../pages/admin/PlansPage";
 import { AdminCustomersPage } from "../pages/admin/CustomersPage";
-import { AdminSubscriptionsPage } from "../pages/admin/SubscriptionsPage";
-import { AdminInvoicesPage } from "../pages/admin/InvoicesPage";
-import { AdminPaymentsPage } from "../pages/admin/PaymentsPage";
-import { AdminBillingActivityPage } from "../pages/admin/BillingActivityPage";
 import { AdminCustomerDetailsPage } from "../pages/admin/CustomerDetailsPage";
+import { AdminSubscriptionsPage } from "../pages/admin/SubscriptionsPage";
 import { AdminSubscriptionDetailsPage } from "../pages/admin/SubscriptionDetailsPage";
+import { AdminInvoicesPage } from "../pages/admin/InvoicesPage";
 import { AdminInvoiceDetailsPage } from "../pages/admin/InvoiceDetailsPage";
+import { AdminPaymentsPage } from "../pages/admin/PaymentsPage";
 import { AdminPaymentDetailsPage } from "../pages/admin/PaymentDetailsPage";
+import { AdminBillingActivityPage } from "../pages/admin/BillingActivityPage";
+import { AdminWebhooksPage } from "../pages/admin/WebhooksPage";
+import { AdminApiKeysPage } from "../pages/admin/ApiKeysPage";
 
 import { CustomerDashboardPage } from "../pages/customer/DashboardPage";
 import { CustomerServicesPage } from "../pages/customer/ServicesPage";
@@ -35,39 +40,85 @@ export const router = createBrowserRouter([
     path: "/",
     element: <App />,
     children: [
-      { path: "login", element: <LoginPage /> },
-      { path: "register", element: <RegisterPage /> },
+      {
+        path: "login",
+        element: <LoginPage />,
+      },
+      {
+        path: "register",
+        element: <RegisterPage />,
+      },
       {
         element: <ProtectedRoute />,
         children: [
           {
+            path: "workspace",
+            element: <WorkspacePage />,
+          },
+
+          {
             path: "customer/:businessId",
             element: <CustomerLayout />,
             children: [
-              { path: "dashboard", element: <CustomerDashboardPage /> },
-              { path: "services", element: <CustomerServicesPage /> },
-              { path: "services/:serviceId/plans", element: <CustomerPlansPage /> },
-              { path: "checkout/:serviceId/:planId", element: <CheckoutPage /> },
-              { path: "subscriptions", element: <CustomerSubscriptionsPage /> },
-              { path: "subscriptions/:subscriptionId", element: <SubscriptionDetailsPage /> },
-              { path: "invoices", element: <CustomerInvoicesPage /> },
-              { path: "invoices/:invoiceId", element: <CustomerInvoiceDetailsPage /> },
-              { path: "credits", element: <CustomerCreditsPage /> },
-              { path: "billing", element: <CustomerBillingHistoryPage /> },
+              {
+                path: "dashboard",
+                element: <CustomerDashboardPage />,
+              },
+              {
+                path: "services",
+                element: <CustomerServicesPage />,
+              },
+              {
+                path: "services/:serviceId/plans",
+                element: <CustomerPlansPage />,
+              },
+              {
+                path: "checkout/:serviceId/:planId",
+                element: <CheckoutPage />,
+              },
+              {
+                path: "subscriptions",
+                element: <CustomerSubscriptionsPage />,
+              },
+              {
+                path: "subscriptions/:subscriptionId",
+                element: <SubscriptionDetailsPage />,
+              },
+              {
+                path: "invoices",
+                element: <CustomerInvoicesPage />,
+              },
+              {
+                path: "invoices/:invoiceId",
+                element: <CustomerInvoiceDetailsPage />,
+              },
+              {
+                path: "credits",
+                element: <CustomerCreditsPage />,
+              },
+              {
+                path: "billing",
+                element: <CustomerBillingHistoryPage />,
+              },
             ],
           },
+
           {
             path: "admin/:businessId",
             element: <AdminLayout />,
             children: [
-              { path: "dashboard", element: <AdminDashboardPage /> },
-              { path: "services", element: <AdminServicesPage /> },
-              { path: "plans", element: <AdminPlansPage /> },
-              { path: "customers", element: <AdminCustomersPage /> },
-              { path: "subscriptions", element: <AdminSubscriptionsPage /> },
-              { path: "invoices", element: <AdminInvoicesPage /> },
-              { path: "payments", element: <AdminPaymentsPage /> },
-              { path: "billing-activity", element: <AdminBillingActivityPage /> },
+              {
+                path: "dashboard",
+                element: <AdminDashboardPage />,
+              },
+              {
+                path: "services",
+                element: <AdminServicesPage />,
+              },
+              {
+                path: "plans",
+                element: <AdminPlansPage />,
+              },
               {
                 path: "customers",
                 element: <AdminCustomersPage />,
@@ -103,6 +154,14 @@ export const router = createBrowserRouter([
               {
                 path: "billing-activity",
                 element: <AdminBillingActivityPage />,
+              },
+              {
+                path: "webhooks",
+                element: <AdminWebhooksPage />,
+              },
+              {
+                path: "api-keys",
+                element: <AdminApiKeysPage />,
               },
             ],
           },

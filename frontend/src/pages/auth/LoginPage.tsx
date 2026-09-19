@@ -74,7 +74,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setUser(user.userId);
     setInitialized(true);
 
-    navigate("/customer/dashboard", {
+    navigate("/workspace", {
       replace: true,
     });
   } catch (error) {

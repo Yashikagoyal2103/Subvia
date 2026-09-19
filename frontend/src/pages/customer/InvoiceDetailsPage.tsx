@@ -602,11 +602,15 @@ export function CustomerInvoiceDetailsPage() {
 
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">
-                  Tax rate
+                  Tax
                 </dt>
 
-                <dd className="font-medium text-gray-900">
-                  {invoice.taxRate}%
+                <dd className="text-right font-medium text-gray-900">
+                  {invoice.taxRate}% ·{" "}
+                  {formatMoney(
+                    invoice.taxAmount,
+                    invoice.currency,
+                  )}
                 </dd>
               </div>
             </dl>
