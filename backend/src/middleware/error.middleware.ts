@@ -271,6 +271,68 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
       },
     });
   }
+    if (error.message === "API_KEY_EXPIRATION_INVALID") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "API_KEY_EXPIRATION_INVALID",
+        message: "API key expiration must be in the future.",
+      },
+    });
+  }
+
+  if (error.message === "API_KEY_NOT_FOUND") {
+    return res.status(404).json({
+      success: false,
+      error: {
+        code: "API_KEY_NOT_FOUND",
+        message: "API key not found.",
+      },
+    });
+  }
+
+  if (error.message === "API_KEY_ALREADY_REVOKED") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "API_KEY_ALREADY_REVOKED",
+        message: "API key has already been revoked.",
+      },
+    });
+  }
+
+  if (
+    error.message === "INVALID_API_KEY" ||
+    error.message === "API_KEY_REVOKED" ||
+    error.message === "API_KEY_EXPIRED"
+  ) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: error.message,
+        message: "Invalid or inactive API key.",
+      },
+    });
+  }
+    if (error.message === "BUSINESS_ACCESS_DENIED") {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: "BUSINESS_ACCESS_DENIED",
+        message: "You do not have access to this business.",
+      },
+    });
+  }
+
+  if (error.message === "INSUFFICIENT_PERMISSIONS") {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: "INSUFFICIENT_PERMISSIONS",
+        message: "You do not have permission for this action.",
+      },
+    });
+  }
 
   // ─── Fallback ───
   console.error(error);

@@ -14,6 +14,8 @@ import recurringBillingRoutes from "./modules/billing/recurring/recurring-billin
 import creditRoutes from "./modules/credits/credit.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import webhookRoutes from "./modules/webhooks/webhook.routes.js";
+import apiKeyRoutes from "./modules/api-keys/api-key.routes.js";
+import publicApiRoutes from "./modules/public-api/public-api.routes.js";
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use("/api/v1/internal/billing", recurringBillingRoutes);
 app.use("/api/v1/businesses", creditRoutes);
 app.use("/api/v1/businesses", adminRoutes);
 app.use("/api/v1/businesses", webhookRoutes);
+app.use("/api/v1/businesses", apiKeyRoutes);
+app.use("/api/v1/public", publicApiRoutes);
 
 app.use(errorHandler);
 

@@ -46,6 +46,7 @@ model Business {
   customerProfiles CustomerProfile[]
   services         Service[]
   webhookEndpoints WebhookEndpoint[]
+  apiKeys          ApiKey[]
 }
 
 model BusinessMember {
@@ -347,4 +348,21 @@ model WebhookDelivery {
   @@index([endpointId])
   @@index([eventId])
   @@index([createdAt])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  businessId String
+  name       String
+  keyHash    String    @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([revokedAt])
 }
