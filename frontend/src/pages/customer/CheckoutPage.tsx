@@ -121,6 +121,20 @@ export function CheckoutPage() {
         ],
       });
 
+      queryClient.invalidateQueries({
+        queryKey: [
+          "payments",
+          businessId,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "credit-balance",
+          businessId,
+        ],
+      });
+
       if (data.payment.success) {
         toast.success(
           "Payment successful. Subscription activated.",
@@ -132,11 +146,19 @@ export function CheckoutPage() {
             replace: true,
           },
         );
+
         return;
       }
 
       toast.error(
-        "Payment failed. Subscription was not activated.",
+        "Payment failed. You can retry the invoice.",
+      );
+
+      navigate(
+        `/customer/${businessId}/invoices/${data.invoice.id}`,
+        {
+          replace: true,
+        },
       );
     },
 
@@ -201,7 +223,7 @@ export function CheckoutPage() {
       <div>
         <Link
           to={`/customer/${businessId}/services/${serviceId}/plans`}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900"
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to plans
@@ -212,13 +234,12 @@ export function CheckoutPage() {
             Checkout
           </p>
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950">
             Complete your subscription
           </h1>
 
           <p className="mt-2 text-sm text-gray-500">
-            Review your plan and run a simulated
-            payment.
+            Review your plan and run a controlled demo payment.
           </p>
         </div>
       </div>
@@ -236,8 +257,8 @@ export function CheckoutPage() {
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                No real payment information is
-                collected or processed.
+                No real payment information is collected or
+                processed.
               </p>
             </div>
           </div>
@@ -308,12 +329,12 @@ export function CheckoutPage() {
             </button>
           </div>
 
-          <div className="mt-8 flex gap-3 rounded-xl bg-gray-50 p-4 text-xs text-gray-500">
+          <div className="mt-8 flex gap-3 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500">
             <ShieldCheck className="h-4 w-4 shrink-0" />
 
             <span>
-              This checkout uses the project's
-              controlled DEMO payment system.
+              This checkout uses the project's controlled DEMO
+              payment system.
             </span>
           </div>
         </section>
@@ -334,28 +355,43 @@ export function CheckoutPage() {
 
           <div className="my-6 border-t" />
 
-          <div className="flex items-end justify-between">
-            <span className="text-sm text-gray-500">
-              Total
-            </span>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">
+                Plan price
+              </span>
 
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">
+              <span className="font-medium text-gray-900">
                 {formatMoney(
                   plan.price,
                   plan.currency,
                 )}
-              </p>
+              </span>
+            </div>
 
-              <p className="text-xs text-gray-400">
-                / {plan.interval.toLowerCase()}
-              </p>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">
+                Billing interval
+              </span>
+
+              <span className="font-medium text-gray-900">
+                {plan.interval === "MONTHLY"
+                  ? "Monthly"
+                  : "Yearly"}
+              </span>
             </div>
           </div>
 
+          <div className="my-6 border-t" />
+
+          <p className="text-xs leading-5 text-gray-400">
+            Final tax and invoice totals are calculated by the
+            billing backend when the subscription is created.
+          </p>
+
           <Button
             type="button"
-            className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700"
+            className="mt-6 w-full bg-gray-950 hover:bg-gray-800"
             disabled={
               checkoutMutation.isPending
             }

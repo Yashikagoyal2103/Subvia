@@ -16,13 +16,18 @@ export interface Invoice {
   invoiceNumber: string;
   status: "DRAFT" | "OPEN" | "PAID" | "VOID";
   currency: "INR" | "USD";
+
   subtotal: number;
+  taxRate: number;
+  taxAmount: number;
   total: number;
+
   issuedAt: string;
   dueAt: string | null;
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
+
   items: InvoiceItem[];
 
   subscription?: {
@@ -54,12 +59,9 @@ export const invoicesApi = {
       success: true;
       data: Invoice[];
       pagination: PaginatedResponse<Invoice>["pagination"];
-    }>(
-      `/businesses/${businessId}/invoices`,
-      {
-        params: { page, limit },
-      },
-    );
+    }>(`/businesses/${businessId}/invoices`, {
+      params: { page, limit },
+    });
 
     return {
       data: response.data.data,
@@ -74,9 +76,7 @@ export const invoicesApi = {
     const response = await apiClient.get<{
       success: true;
       data: Invoice;
-    }>(
-      `/businesses/${businessId}/invoices/${invoiceId}`,
-    );
+    }>(`/businesses/${businessId}/invoices/${invoiceId}`);
 
     return response.data.data;
   },
