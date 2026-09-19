@@ -1,5 +1,6 @@
 import type { Prisma } from "../../generated/prisma/client.js";
 import type { SubscriptionEventType } from "../../generated/prisma/client.js";
+import { createWebhookDeliveries } from "../webhooks/webhook.service.js";
 
 export async function createSubscriptionEvent(
   tx: Prisma.TransactionClient,
@@ -9,13 +10,22 @@ export async function createSubscriptionEvent(
     metadata?: Prisma.InputJsonValue;
   }
 ) {
-  return tx.subscriptionEvent.create({
+  const event = await tx.subscriptionEvent.create({
     data: {
       subscriptionId: input.subscriptionId,
       type: input.type,
       metadata: input.metadata,
     },
   });
+
+  await createWebhookDeliveries(tx, {
+    eventId: event.id,
+    subscriptionId: input.subscriptionId,
+    type: input.type,
+    metadata: input.metadata,
+  });
+
+  return event;
 }
 
 export async function getSubscriptionEvents(

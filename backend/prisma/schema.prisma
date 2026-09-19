@@ -45,6 +45,7 @@ model Business {
   members          BusinessMember[]
   customerProfiles CustomerProfile[]
   services         Service[]
+  webhookEndpoints WebhookEndpoint[]
 }
 
 model BusinessMember {
@@ -290,7 +291,60 @@ model SubscriptionEvent {
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
+  webhookDeliveries WebhookDelivery[]
+
   @@index([subscriptionId])
   @@index([type])
+  @@index([createdAt])
+}
+
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model WebhookEndpoint {
+  id         String                @id @default(uuid())
+  businessId String
+  url        String
+  secret     String
+  status     WebhookEndpointStatus @default(ACTIVE)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model WebhookDelivery {
+  id            String                @id @default(uuid())
+  endpointId    String
+  eventId       String
+  eventType     String
+  payload       Json
+  status        WebhookDeliveryStatus @default(PENDING)
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now())
+  lastAttemptAt DateTime?
+  deliveredAt   DateTime?
+  lastError     String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  endpoint WebhookEndpoint   @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event    SubscriptionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId])
+  @@index([eventId])
   @@index([createdAt])
 }
