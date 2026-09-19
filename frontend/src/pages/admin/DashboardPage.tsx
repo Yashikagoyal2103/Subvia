@@ -1,82 +1,135 @@
-import { Building2, Package2, Settings2, ArrowRight } from "lucide-react";
+import { Activity, CreditCard, FileText, Package2, Receipt, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { businessesApi } from "../../api/businesses";
+import { adminApi } from "../../api/admin";
 import { servicesApi } from "../../api/services";
 import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
+import { StatusBadge } from "../../components/status-badge";
+
+const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
+
+function money(amount: number, currency: string) {
+  return `${currencySymbol[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function date(value: string) {
+  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export function AdminDashboardPage() {
   const { businessId } = useParams<{ businessId: string }>();
 
-  const businessQuery = useQuery({
-    queryKey: ["business", businessId],
-    queryFn: () => businessesApi.getById(businessId!),
-    enabled: Boolean(businessId),
-  });
-
-  const servicesQuery = useQuery({
-    queryKey: ["services", businessId],
-    queryFn: () => servicesApi.list(businessId!),
-    enabled: Boolean(businessId),
-  });
+  const servicesQuery = useQuery({ queryKey: ["admin-services", businessId], queryFn: () => servicesApi.list(businessId!), enabled: Boolean(businessId) });
+  const customersQuery = useQuery({ queryKey: ["admin-customers", businessId], queryFn: () => adminApi.customers(businessId!), enabled: Boolean(businessId) });
+  const subscriptionsQuery = useQuery({ queryKey: ["admin-subscriptions", businessId], queryFn: () => adminApi.subscriptions(businessId!), enabled: Boolean(businessId) });
+  const invoicesQuery = useQuery({ queryKey: ["admin-invoices", businessId], queryFn: () => adminApi.invoices(businessId!), enabled: Boolean(businessId) });
+  const paymentsQuery = useQuery({ queryKey: ["admin-payments", businessId], queryFn: () => adminApi.payments(businessId!), enabled: Boolean(businessId) });
 
   if (!businessId) return <ErrorState description="A valid business context is required." />;
 
-  if (businessQuery.isLoading || servicesQuery.isLoading) {
-    return <LoadingState message="Loading business overview..." />;
+  const isLoading = servicesQuery.isLoading || customersQuery.isLoading || subscriptionsQuery.isLoading || invoicesQuery.isLoading || paymentsQuery.isLoading;
+
+  if (isLoading) return <LoadingState message="Loading business overview..." />;
+
+  const hasError = servicesQuery.isError || customersQuery.isError || subscriptionsQuery.isError || invoicesQuery.isError || paymentsQuery.isError;
+
+  if (hasError) {
+    return <ErrorState description="We couldn't load the business overview." retryAction={() => { void servicesQuery.refetch(); void customersQuery.refetch(); void subscriptionsQuery.refetch(); void invoicesQuery.refetch(); void paymentsQuery.refetch(); }} />;
   }
 
-  if (businessQuery.isError || servicesQuery.isError || !businessQuery.data) {
-    return <ErrorState description="We couldn't load the business overview." retryAction={() => { void businessQuery.refetch(); void servicesQuery.refetch(); }} />;
-  }
-
-  const business = businessQuery.data;
   const services = servicesQuery.data ?? [];
-  const activeServices = services.filter(service => service.isActive).length;
+  const customers = customersQuery.data?.data ?? [];
+  const subscriptions = subscriptionsQuery.data?.data ?? [];
+  const invoices = invoicesQuery.data?.data ?? [];
+  const payments = paymentsQuery.data?.data ?? [];
+
+  const activeSubscriptions = subscriptions.filter((item) => item.status === "ACTIVE");
+  const paidInvoices = invoices.filter((item) => item.status === "PAID");
+  const successfulPayments = payments.filter((item) => item.status === "SUCCESS");
+  const recentInvoices = [...invoices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="space-y-8">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Business Admin</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">{business.name}</h1>
-        <p className="mt-2 text-sm text-gray-500">Manage your recurring products, pricing and billing workspace.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Business overview</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">Admin Dashboard</h1>
+        <p className="mt-2 max-w-2xl text-sm text-gray-500">Monitor customers, subscriptions and billing activity across this business.</p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard icon={<Building2 className="h-5 w-5" />} label="Business" value={business.name} />
-        <StatCard icon={<Package2 className="h-5 w-5" />} label="Services" value={services.length} />
-        <StatCard icon={<Settings2 className="h-5 w-5" />} label="Active services" value={activeServices} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon={<Package2 className="h-5 w-5" />} label="Services" value={services.length} description="Configured services" />
+        <MetricCard icon={<Users className="h-5 w-5" />} label="Customers" value={customers.length} description="Business customers" />
+        <MetricCard icon={<CreditCard className="h-5 w-5" />} label="Active subscriptions" value={activeSubscriptions.length} description="Currently active" />
+        <MetricCard icon={<FileText className="h-5 w-5" />} label="Paid invoices" value={paidInvoices.length} description="Successfully settled" />
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Workspace</p>
-            <h2 className="mt-2 text-lg font-semibold text-gray-900">Catalog management</h2>
-            <p className="mt-1 text-sm text-gray-500">Manage the services and plans your business offers.</p>
+      <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-900">Recent invoices</h2>
+              <p className="mt-1 text-sm text-gray-500">Latest billing records generated by the platform.</p>
+            </div>
+            <Link to={`/admin/${businessId}/invoices`} className="text-sm font-medium text-indigo-600 hover:text-indigo-700">View all</Link>
           </div>
-          <Link to={`/admin/${businessId}/services`} className="text-sm font-medium text-indigo-600 hover:text-indigo-700">Manage catalog</Link>
+
+          <div className="mt-6 divide-y">
+            {recentInvoices.length === 0 ? (
+              <div className="py-10 text-center">
+                <FileText className="mx-auto h-9 w-9 text-gray-300" />
+                <p className="mt-3 text-sm font-medium text-gray-700">No invoices yet</p>
+                <p className="mt-1 text-sm text-gray-500">Billing records will appear here.</p>
+              </div>
+            ) : recentInvoices.map((invoice) => (
+              <div key={invoice.id} className="flex items-center justify-between gap-4 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-50"><Receipt className="h-4 w-4 text-gray-500" /></div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">{invoice.invoiceNumber}</p>
+                    <p className="mt-1 text-xs text-gray-400">{invoice.customerProfile.user.email} · {date(invoice.createdAt)}</p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold text-gray-900">{money(invoice.total, invoice.currency)}</p>
+                  <StatusBadge status={invoice.status} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <QuickLink href={`/admin/${businessId}/services`} title="Services" description="Create and manage recurring products." />
-          <QuickLink href={`/admin/${businessId}/plans`} title="Plans" description="Configure pricing and billing intervals." />
-        </div>
-      </section>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><Activity className="h-4 w-4" /></div>
+            <div>
+              <h2 className="font-semibold text-gray-900">Billing operations</h2>
+              <p className="mt-1 text-sm text-gray-500">Jump directly into operational views.</p>
+            </div>
+          </div>
 
-      <section className="rounded-2xl border border-amber-100 bg-amber-50/50 p-5">
-        <p className="text-sm font-semibold text-amber-900">Billing visibility</p>
-        <p className="mt-1 text-sm text-amber-800">Customer, subscription, invoice and payment inspection will use dedicated admin read APIs so the dashboard never mixes customer-scoped data with business-wide data.</p>
+          <div className="mt-6 space-y-2">
+            <AdminQuickLink href={`/admin/${businessId}/customers`} label="View customers" />
+            <AdminQuickLink href={`/admin/${businessId}/subscriptions`} label="Review subscriptions" />
+            <AdminQuickLink href={`/admin/${businessId}/invoices`} label="Review invoices" />
+            <AdminQuickLink href={`/admin/${businessId}/payments`} label="Inspect payments" />
+            <AdminQuickLink href={`/admin/${businessId}/billing-activity`} label="Open billing activity" />
+          </div>
+
+          <div className="mt-6 border-t pt-5">
+            <p className="text-xs text-gray-400">Successful payments</p>
+            <p className="mt-1 text-xl font-semibold text-gray-900">{successfulPayments.length}</p>
+          </div>
+        </div>
       </section>
     </div>
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
-  return <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">{icon}</div><p className="mt-5 text-sm text-gray-500">{label}</p><p className="mt-1 truncate text-xl font-semibold text-gray-900">{value}</p></div>;
+function MetricCard({ icon, label, value, description }: { icon: React.ReactNode; label: string; value: number; description: string }) {
+  return <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">{icon}</div><span className="text-2xl font-semibold tabular-nums text-gray-900">{value}</span></div><p className="mt-5 text-sm font-medium text-gray-900">{label}</p><p className="mt-1 text-xs text-gray-500">{description}</p></div>;
 }
 
-function QuickLink({ href, title, description }: { href: string; title: string; description: string }) {
-  return <Link to={href} className="group flex items-center justify-between rounded-xl border border-gray-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/40"><div><p className="font-medium text-gray-900">{title}</p><p className="mt-1 text-sm text-gray-500">{description}</p></div><ArrowRight className="h-4 w-4 text-gray-300 transition group-hover:translate-x-1 group-hover:text-indigo-500" /></Link>;
+function AdminQuickLink({ href, label }: { href: string; label: string }) {
+  return <Link to={href} className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:border-indigo-100 hover:bg-indigo-50/50 hover:text-indigo-700">{label}<span className="text-gray-300">→</span></Link>;
 }
