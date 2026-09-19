@@ -6,6 +6,25 @@ export type SubscriptionStatus =
   | "PAST_DUE"
   | "CANCELLED";
 
+export type SubscriptionEventType =
+  | "CREATED"
+  | "UPGRADED"
+  | "DOWNGRADE_SCHEDULED"
+  | "DOWNGRADE_APPLIED"
+  | "CANCEL_REQUESTED"
+  | "CANCELLED"
+  | "RENEWED"
+  | "PAYMENT_SUCCEEDED"
+  | "PAYMENT_FAILED";
+
+export interface SubscriptionEvent {
+  id: string;
+  subscriptionId: string;
+  type: SubscriptionEventType;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface SubscriptionPlan {
   id: string;
   serviceId: string;
@@ -33,15 +52,21 @@ export interface Subscription {
   id: string;
   customerProfileId: string;
   planId: string;
+
   status: SubscriptionStatus;
+
   currency: "INR" | "USD";
   price: number;
   billingInterval: "MONTHLY" | "YEARLY";
+
   billingPeriodStart: string;
   billingPeriodEnd: string;
-  pendingPlanId?: string | null;
-  cancelAtPeriodEnd?: boolean;
-  cancelledAt?: string | null;
+
+  pendingPlanId: string | null;
+
+  cancelAtPeriodEnd: boolean;
+  cancelledAt: string | null;
+
   createdAt: string;
   updatedAt: string;
 
@@ -50,33 +75,6 @@ export interface Subscription {
   };
 
   pendingPlan?: SubscriptionPlan | null;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  customerProfileId: string;
-  subscriptionId: string;
-  status: "DRAFT" | "OPEN" | "PAID" | "VOID";
-  currency: "INR" | "USD";
-  subtotal: number;
-  total: number;
-  issuedAt: string;
-  dueAt: string | null;
-  paidAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  items?: InvoiceItem[];
-}
-
-export interface InvoiceItem {
-  id: string;
-  invoiceId: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-  createdAt: string;
 }
 
 export interface ProrationResult {
@@ -96,12 +94,22 @@ export interface CancelSubscriptionInput {
 
 export interface CreateSubscriptionResult {
   subscription: Subscription;
-  invoice: Invoice;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    total: number;
+    currency: "INR" | "USD";
+  };
 }
 
 export interface UpgradeSubscriptionResult {
   subscription: Subscription;
-  invoice: Invoice;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    total: number;
+    currency: "INR" | "USD";
+  };
   proration: ProrationResult;
 }
 
@@ -126,7 +134,10 @@ export const subscriptionsApi = {
     }>(
       `/businesses/${businessId}/subscriptions`,
       {
-        params: { page, limit },
+        params: {
+          page,
+          limit,
+        },
       },
     );
 
@@ -142,6 +153,20 @@ export const subscriptionsApi = {
       data: Subscription;
     }>(
       `/businesses/${businessId}/subscriptions/${subscriptionId}`,
+    );
+
+    return response.data.data;
+  },
+
+  async events(
+    businessId: string,
+    subscriptionId: string,
+  ): Promise<SubscriptionEvent[]> {
+    const response = await apiClient.get<{
+      success: true;
+      data: SubscriptionEvent[];
+    }>(
+      `/businesses/${businessId}/subscriptions/${subscriptionId}/events`,
     );
 
     return response.data.data;
