@@ -1,11 +1,6 @@
 import { useState } from "react";
 import {
-  ArrowLeft,
-  CheckCircle2,
-  CreditCard,
-  Loader2,
-  ShieldCheck,
-  XCircle,
+  ArrowLeft, CheckCircle2, CreditCard, Loader2, ShieldCheck, XCircle, FileText
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,201 +12,71 @@ import { paymentsApi } from "../../api/payments";
 import { subscriptionsApi } from "../../api/subscriptions";
 import { Button } from "../../components/ui/button";
 import { queryClient } from "../../lib/query-client";
+import { cn } from "../../lib/utils";
 
-const currencySymbol = {
-  INR: "₹",
-  USD: "$",
-};
-
-function formatMoney(
-  amount: number,
-  currency: "INR" | "USD",
-) {
-  return `${currencySymbol[currency]}${(
-    amount / 100
-  ).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
+function formatMoney(amount: number, currency: "INR" | "USD") {
+  return `${currencySymbol[currency]}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function CheckoutPage() {
   const navigate = useNavigate();
-
-  const {
-    businessId,
-    serviceId,
-    planId,
-  } = useParams<{
-    businessId: string;
-    serviceId: string;
-    planId: string;
-  }>();
-
-  const [result, setResult] =
-    useState<"SUCCESS" | "FAILED">("SUCCESS");
+  const { businessId, serviceId, planId } = useParams<{ businessId: string; serviceId: string; planId: string }>();
+  const [result, setResult] = useState<"SUCCESS" | "FAILED">("SUCCESS");
 
   const planQuery = useQuery({
-    queryKey: [
-      "plan",
-      businessId,
-      serviceId,
-      planId,
-    ],
-    queryFn: () =>
-      plansApi.getById(
-        businessId!,
-        serviceId!,
-        planId!,
-      ),
-    enabled: Boolean(
-      businessId &&
-        serviceId &&
-        planId,
-    ),
+    queryKey: ["plan", businessId, serviceId, planId],
+    queryFn: () => plansApi.getById(businessId!, serviceId!, planId!),
+    enabled: Boolean(businessId && serviceId && planId),
   });
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      if (!businessId || !planQuery.data) {
-        throw new Error(
-          "CHECKOUT_CONTEXT_MISSING",
-        );
-      }
+      if (!businessId || !planQuery.data) throw new Error("CHECKOUT_CONTEXT_MISSING");
 
-      const created =
-        await subscriptionsApi.create(
-          businessId,
-          {
-            planId: planQuery.data.id,
-            currency:
-              planQuery.data.currency,
-          },
-        );
+      const created = await subscriptionsApi.create(businessId, { planId: planQuery.data.id, currency: planQuery.data.currency });
+      const payment = await paymentsApi.create(businessId, { invoiceId: created.invoice.id, paymentMethod: "DEMO", result });
 
-      const payment =
-        await paymentsApi.create(
-          businessId,
-          {
-            invoiceId:
-              created.invoice.id,
-            paymentMethod: "DEMO",
-            result,
-          },
-        );
-
-      return {
-        ...created,
-        payment,
-      };
+      return { ...created, payment };
     },
-
     onSuccess: (data) => {
-      queryClient.invalidateQueries({
-        queryKey: [
-          "subscriptions",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "invoices",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "payments",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "credit-balance",
-          businessId,
-        ],
-      });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["invoices", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["payments", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["credit-balance", businessId] });
 
       if (data.payment.success) {
-        toast.success(
-          "Payment successful. Subscription activated.",
-        );
-
-        navigate(
-          `/customer/${businessId}/subscriptions/${data.subscription.id}`,
-          {
-            replace: true,
-          },
-        );
-
+        toast.success("Payment successful. Subscription activated.");
+        navigate(`/customer/${businessId}/subscriptions/${data.subscription.id}`, { replace: true });
         return;
       }
 
-      toast.error(
-        "Payment failed. You can retry the invoice.",
-      );
-
-      navigate(
-        `/customer/${businessId}/invoices/${data.invoice.id}`,
-        {
-          replace: true,
-        },
-      );
+      toast.error("Payment failed. You can retry the invoice.");
+      navigate(`/customer/${businessId}/invoices/${data.invoice.id}`, { replace: true });
     },
-
     onError: (error) => {
       if (axios.isAxiosError(error)) {
-        toast.error(
-          error.response?.data?.error?.message ??
-            "Checkout failed.",
-        );
+        toast.error(error.response?.data?.error?.message ?? "Checkout failed.");
         return;
       }
-
       toast.error("Checkout failed.");
     },
   });
 
-  if (
-    !businessId ||
-    !serviceId ||
-    !planId
-  ) {
-    return (
-      <div className="rounded-2xl border bg-white p-10 text-center">
-        <h2 className="text-lg font-semibold">
-          Checkout context is missing
-        </h2>
-      </div>
-    );
+  if (!businessId || !serviceId || !planId) {
+    return <div className="rounded-3xl border bg-white p-10 text-center"><h2 className="text-lg font-semibold text-slate-900">Checkout context is missing</h2></div>;
   }
 
   if (planQuery.isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
-      </div>
-    );
+    return <div className="flex min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>;
   }
 
-  if (
-    planQuery.isError ||
-    !planQuery.data
-  ) {
+  if (planQuery.isError || !planQuery.data) {
     return (
-      <div className="rounded-2xl border bg-white p-10 text-center">
-        <XCircle className="mx-auto h-10 w-10 text-red-500" />
-
-        <h2 className="mt-4 text-lg font-semibold">
-          Unable to load plan
-        </h2>
-
-        <p className="mt-2 text-sm text-gray-500">
-          The selected plan could not be loaded.
-        </p>
+      <div className="rounded-[32px] border bg-white p-12 text-center max-w-2xl mx-auto shadow-sm">
+        <XCircle className="mx-auto h-12 w-12 text-red-500 mb-6" />
+        <h2 className="text-xl font-semibold text-slate-900 mb-2">Unable to load plan</h2>
+        <p className="text-sm text-slate-500">The selected plan could not be loaded for checkout.</p>
       </div>
     );
   }
@@ -219,191 +84,123 @@ export function CheckoutPage() {
   const plan = planQuery.data;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8 animate-fade-in pb-12">
       <div>
-        <Link
-          to={`/customer/${businessId}/services/${serviceId}/plans`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to plans
+        <Link to={`/customer/${businessId}/services/${serviceId}/plans`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Return to plans
         </Link>
 
-        <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-            Checkout
-          </p>
-
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950">
-            Complete your subscription
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Review your plan and run a controlled demo payment.
-          </p>
+        <div className="mt-8 flex items-end justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Complete your subscription</h1>
+            <p className="mt-3 text-base text-slate-500">Review your selection and process the demo payment.</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <CreditCard className="h-5 w-5" />
+      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] items-start">
+        
+        {/* Payment Configuration */}
+        <section className="glass-panel overflow-hidden p-1 lg:p-2">
+          <div className="bg-white rounded-[20px] p-6 sm:p-8">
+            <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 tracking-tight">Payment Configuration</h2>
+                <p className="text-sm text-slate-500 mt-1">Select simulation mode</p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="font-semibold text-gray-900">
-                Demo payment
-              </h2>
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setResult("SUCCESS")}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-2xl border p-5 text-left transition-all duration-200 group",
+                  result === "SUCCESS" ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500/20 shadow-sm" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                )}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={cn("p-2 rounded-full", result === "SUCCESS" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600")}>
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className={cn("font-semibold", result === "SUCCESS" ? "text-emerald-900" : "text-slate-700")}>Successful Payment</p>
+                    <p className="text-xs text-slate-500 mt-1">Simulates a successful charge and activates the subscription.</p>
+                  </div>
+                </div>
+                {result === "SUCCESS" && <div className="h-3 w-3 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />}
+              </button>
 
-              <p className="mt-1 text-sm text-gray-500">
-                No real payment information is collected or
-                processed.
+              <button
+                type="button"
+                onClick={() => setResult("FAILED")}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-2xl border p-5 text-left transition-all duration-200 group",
+                  result === "FAILED" ? "border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/20 shadow-sm" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                )}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={cn("p-2 rounded-full", result === "FAILED" ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600")}>
+                    <XCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className={cn("font-semibold", result === "FAILED" ? "text-rose-900" : "text-slate-700")}>Failed Payment</p>
+                    <p className="text-xs text-slate-500 mt-1">Simulates a declined card to test the failed payment workflow.</p>
+                  </div>
+                </div>
+                {result === "FAILED" && <div className="h-3 w-3 rounded-full bg-rose-500 ring-4 ring-rose-100" />}
+              </button>
+            </div>
+
+            <div className="mt-8 flex gap-3 rounded-xl bg-slate-50/80 border border-slate-100 p-4">
+              <ShieldCheck className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
+              <p className="text-xs leading-5 text-slate-500">
+                This environment is for demonstration purposes. No real money or card information is processed. The backend will simulate the complete billing lifecycle based on your selection.
               </p>
             </div>
           </div>
-
-          <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() =>
-                setResult("SUCCESS")
-              }
-              className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${
-                result === "SUCCESS"
-                  ? "border-indigo-300 bg-indigo-50"
-                  : "border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-
-                <div>
-                  <p className="font-medium">
-                    Successful payment
-                  </p>
-
-                  <p className="text-xs text-gray-500">
-                    Activate the subscription
-                  </p>
-                </div>
-              </div>
-
-              {result === "SUCCESS" && (
-                <span className="text-xs font-semibold text-indigo-600">
-                  Selected
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setResult("FAILED")
-              }
-              className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${
-                result === "FAILED"
-                  ? "border-red-300 bg-red-50"
-                  : "border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <XCircle className="h-5 w-5 text-red-500" />
-
-                <div>
-                  <p className="font-medium">
-                    Failed payment
-                  </p>
-
-                  <p className="text-xs text-gray-500">
-                    Test the failed-payment scenario
-                  </p>
-                </div>
-              </div>
-
-              {result === "FAILED" && (
-                <span className="text-xs font-semibold text-red-600">
-                  Selected
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="mt-8 flex gap-3 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500">
-            <ShieldCheck className="h-4 w-4 shrink-0" />
-
-            <span>
-              This checkout uses the project's controlled DEMO
-              payment system.
-            </span>
-          </div>
         </section>
 
-        <aside className="h-fit rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Order summary
-          </p>
+        {/* Order Summary */}
+        <aside className="premium-card p-6 sm:p-8 sticky top-24">
+          <div className="flex items-center gap-3 mb-6 pb-6 border-b border-slate-100">
+            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><FileText className="h-5 w-5" /></div>
+            <h2 className="text-lg font-semibold text-slate-900">Order Summary</h2>
+          </div>
 
-          <h2 className="mt-4 text-xl font-semibold text-gray-900">
-            {plan.name}
-          </h2>
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+            <p className="text-sm leading-6 text-slate-500">{plan.description ?? "Premium subscription"}</p>
+          </div>
 
-          <p className="mt-2 text-sm leading-6 text-gray-500">
-            {plan.description ??
-              "Subscription plan"}
-          </p>
-
-          <div className="my-6 border-t" />
-
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">
-                Plan price
-              </span>
-
-              <span className="font-medium text-gray-900">
-                {formatMoney(
-                  plan.price,
-                  plan.currency,
-                )}
-              </span>
+          <div className="space-y-4 bg-slate-50 p-5 rounded-2xl mb-8">
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-medium text-slate-500">Plan price</span>
+              <span className="font-semibold text-slate-900">{formatMoney(plan.price, plan.currency)}</span>
             </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">
-                Billing interval
-              </span>
-
-              <span className="font-medium text-gray-900">
-                {plan.interval === "MONTHLY"
-                  ? "Monthly"
-                  : "Yearly"}
-              </span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-medium text-slate-500">Billing interval</span>
+              <span className="font-semibold text-slate-900 capitalize">{plan.interval.toLowerCase()}</span>
             </div>
           </div>
 
-          <div className="my-6 border-t" />
-
-          <p className="text-xs leading-5 text-gray-400">
-            Final tax and invoice totals are calculated by the
-            billing backend when the subscription is created.
+          <p className="text-xs text-slate-400 mb-8 leading-5 text-center px-4">
+            Final tax calculations and invoice totals are generated by the billing engine upon subscription creation.
           </p>
 
           <Button
             type="button"
-            className="mt-6 w-full bg-gray-950 hover:bg-gray-800"
-            disabled={
-              checkoutMutation.isPending
-            }
-            onClick={() =>
-              checkoutMutation.mutate()
-            }
+            className={cn("w-full h-14 rounded-xl text-base font-semibold shadow-md transition-all duration-300", 
+              result === 'SUCCESS' ? "bg-slate-900 hover:bg-indigo-600 text-white" : "bg-rose-600 hover:bg-rose-700 text-white"
+            )}
+            disabled={checkoutMutation.isPending}
+            onClick={() => checkoutMutation.mutate()}
           >
             {checkoutMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </>
+              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing order...</>
             ) : result === "SUCCESS" ? (
               "Subscribe & Pay"
             ) : (

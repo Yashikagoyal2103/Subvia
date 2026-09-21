@@ -1,621 +1,197 @@
-import {
-  ArrowLeft,
-  CalendarDays,
-  CheckCircle2,
-  CreditCard,
-  FileText,
-  Loader2,
-  Package,
-  ShieldCheck,
-  XCircle,
-} from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import axios from "axios";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Building2, UserRound, Download, CheckCircle2, ShieldCheck, CreditCard, Banknote, HelpCircle } from "lucide-react";
 
 import { invoicesApi } from "../../api/invoices";
 import { paymentsApi } from "../../api/payments";
 import { StatusBadge } from "../../components/status-badge";
+import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
-import { SectionCard } from "../../components/section-card";
-import { Button } from "../../components/ui/button";
-import { queryClient } from "../../lib/query-client";
+import { cn } from "../../lib/utils";
 
-const currencySymbol: Record<string, string> = {
-  INR: "₹",
-  USD: "$",
-};
-
-function formatMoney(
-  amount: number,
-  currency: string,
-) {
-  const symbol =
-    currencySymbol[currency] ?? currency;
-
-  return `${symbol}${(
-    amount / 100
-  ).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Date(value).toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Date(value).toLocaleString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-  );
-}
+const symbols: Record<string, string> = { INR: "₹", USD: "$" };
+const money = (amount: number, currency: string) => `${symbols[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "-";
 
 export function CustomerInvoiceDetailsPage() {
-  const {
-    businessId,
-    invoiceId,
-  } = useParams<{
-    businessId: string;
-    invoiceId: string;
-  }>();
+  const { businessId, invoiceId } = useParams<{ businessId: string; invoiceId: string }>();
 
-  const [paymentResult, setPaymentResult] =
-    useState<"SUCCESS" | "FAILED">("SUCCESS");
-
-  const query = useQuery({
-    queryKey: [
-      "invoice",
-      businessId,
-      invoiceId,
-    ],
-    queryFn: () =>
-      invoicesApi.getById(
-        businessId!,
-        invoiceId!,
-      ),
-    enabled:
-      Boolean(businessId) &&
-      Boolean(invoiceId),
+  const invoiceQuery = useQuery({
+    queryKey: ["invoice", businessId, invoiceId],
+    queryFn: () => invoicesApi.getById(businessId!, invoiceId!),
+    enabled: Boolean(businessId && invoiceId),
   });
 
-  const paymentMutation = useMutation({
-    mutationFn: async () => {
-      if (!businessId || !invoiceId) {
-        throw new Error("INVOICE_CONTEXT_MISSING");
-      }
-
-      return paymentsApi.create(
-        businessId,
-        {
-          invoiceId,
-          paymentMethod: "DEMO",
-          result: paymentResult,
-        },
-      );
-    },
-
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({
-        queryKey: [
-          "invoice",
-          businessId,
-          invoiceId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "invoices",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "payments",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "subscriptions",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "subscription",
-          businessId,
-        ],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: [
-          "credit-balance",
-          businessId,
-        ],
-      });
-
-      if (result.success) {
-        toast.success(
-          "Payment successful. The invoice has been paid.",
-        );
-      } else {
-        toast.error(
-          "Payment failed. The invoice is still awaiting payment.",
-        );
-      }
-    },
-
-    onError: (error) => {
-      if (axios.isAxiosError(error)) {
-        toast.error(
-          error.response?.data?.error?.message ??
-            "Payment could not be processed.",
-        );
-        return;
-      }
-
-      toast.error("Payment could not be processed.");
-    },
+  const paymentsQuery = useQuery({
+    queryKey: ["invoice-payments", businessId, invoiceId],
+    queryFn: () => paymentsApi.list(businessId!).then(res => res.filter(p => p.invoiceId === invoiceId)),
+    enabled: Boolean(businessId && invoiceId),
   });
 
-  if (!businessId || !invoiceId) {
-    return (
-      <ErrorState
-        description="Invoice information is missing."
-      />
-    );
-  }
+  if (!businessId || !invoiceId) return <ErrorState description="Context missing." />;
+  if (invoiceQuery.isLoading) return <LoadingState message="Loading document..." />;
+  if (invoiceQuery.isError || !invoiceQuery.data) return <ErrorState description="Unable to load invoice." retryAction={() => invoiceQuery.refetch()} />;
 
-  if (query.isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
-      </div>
-    );
-  }
-
-  if (query.isError || !query.data) {
-    return (
-      <ErrorState
-        description="We couldn't load this invoice."
-        retryAction={() => query.refetch()}
-      />
-    );
-  }
-
-  const invoice = query.data;
-  const subscription = invoice.subscription;
-  const canPay =
-    invoice.status === "OPEN";
+  const invoice = invoiceQuery.data;
+  const payments = paymentsQuery.data ?? [];
+  const items = invoice.items ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <Link
-        to={`/customer/${businessId}/invoices`}
-        className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to invoices
-      </Link>
+    <div className="space-y-8 animate-fade-in pb-16 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center">
+        <Link to={`/customer/${businessId}/invoices`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to invoices
+        </Link>
+        <button className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+          <Download className="h-3.5 w-3.5" /> Download PDF
+        </button>
+      </div>
 
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-            Billing document
-          </p>
-
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950">
-            {invoice.invoiceNumber}
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Issued {formatDate(invoice.issuedAt)}
-          </p>
+      {/* Document Container */}
+      <div className="bg-white rounded-none sm:rounded-2xl border-y sm:border border-slate-200 shadow-sm overflow-hidden">
+        
+        {/* Document Header */}
+        <div className="p-8 sm:p-12 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-50/50">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <StatusBadge status={invoice.status} className="px-3 py-1 text-sm font-bold shadow-sm" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 mt-4">Invoice</h1>
+            <p className="font-mono text-lg text-slate-500 mt-1">{invoice.invoiceNumber}</p>
+          </div>
+          <div className="text-left md:text-right">
+            <p className="text-4xl font-bold text-slate-900">{money(invoice.total, invoice.currency)}</p>
+            <p className="text-sm font-medium text-slate-500 mt-1 uppercase tracking-wider">{invoice.currency}</p>
+          </div>
         </div>
 
-        <StatusBadge status={invoice.status} />
-      </header>
-
-      <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="space-y-6">
-          <SectionCard
-            title="Invoice items"
-            description="Charges included in this billing document."
-          >
-            {invoice.items.length === 0 ? (
-              <div className="py-10 text-center">
-                <FileText className="mx-auto h-10 w-10 text-gray-300" />
-
-                <p className="mt-3 text-sm text-gray-500">
-                  No invoice items were recorded.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {invoice.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start justify-between gap-6 border-b border-gray-100 pb-5 last:border-0 last:pb-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900">
-                        {item.description}
-                      </p>
-
-                      <p className="mt-1 text-sm text-gray-400">
-                        {item.quantity} ×{" "}
-                        {formatMoney(
-                          item.unitPrice,
-                          invoice.currency,
-                        )}
-                      </p>
-                    </div>
-
-                    <p className="shrink-0 font-semibold text-gray-900">
-                      {formatMoney(
-                        item.amount,
-                        invoice.currency,
-                      )}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-8 space-y-3 border-t border-gray-100 pt-5">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">
-                  Subtotal
-                </span>
-
-                <span className="font-medium text-gray-900">
-                  {formatMoney(
-                    invoice.subtotal,
-                    invoice.currency,
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">
-                  Tax
-                  {invoice.taxRate > 0
-                    ? ` (${invoice.taxRate}%)`
-                    : ""}
-                </span>
-
-                <span className="font-medium text-gray-900">
-                  {formatMoney(
-                    invoice.taxAmount,
-                    invoice.currency,
-                  )}
-                </span>
-              </div>
-
-              <div className="flex justify-between border-t border-gray-100 pt-4">
-                <span className="font-semibold text-gray-950">
-                  Total
-                </span>
-
-                <span className="text-xl font-bold text-gray-950">
-                  {formatMoney(
-                    invoice.total,
-                    invoice.currency,
-                  )}
-                </span>
-              </div>
+        {/* Parties */}
+        <div className="p-8 sm:p-12 grid sm:grid-cols-2 gap-10">
+          <div>
+            <div className="flex items-center gap-2 text-slate-400 mb-3">
+              <Building2 className="h-4 w-4" />
+              <p className="text-xs font-bold uppercase tracking-wider">From</p>
             </div>
-          </SectionCard>
+            <p className="font-semibold text-slate-900">SaaS Billing Platform</p>
+            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+              123 Tech Park, Phase 1<br/>
+              Cloud City, CC 400101<br/>
+              contact@saasbilling.test
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 text-slate-400 mb-3">
+              <UserRound className="h-4 w-4" />
+              <p className="text-xs font-bold uppercase tracking-wider">Billed To</p>
+            </div>
+            <p className="font-semibold text-slate-900">Workspace {businessId.split('-')[0]}</p>
+            <p className="text-sm text-slate-500 mt-1">Customer Profile</p>
+          </div>
+        </div>
 
-          {subscription && (
-            <SectionCard
-              title="Subscription"
-              description="Subscription associated with this invoice."
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
-                  <Package className="h-5 w-5 text-indigo-600" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900">
-                    {subscription.plan.service.name}
-                  </p>
-
-                  <p className="mt-1 text-sm text-gray-500">
-                    {subscription.plan.name}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Billing period
-                  </p>
-
-                  <p className="mt-2 text-sm font-medium text-gray-900">
-                    {formatDate(
-                      subscription.billingPeriodStart,
-                    )}
-                    {" — "}
-                    {formatDate(
-                      subscription.billingPeriodEnd,
-                    )}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Billing interval
-                  </p>
-
-                  <p className="mt-2 text-sm font-medium text-gray-900">
-                    {subscription.billingInterval ===
-                    "MONTHLY"
-                      ? "Monthly"
-                      : "Yearly"}
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                to={`/customer/${businessId}/subscriptions/${subscription.id}`}
-                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600"
-              >
-                View subscription
-                <ArrowLeft className="h-4 w-4 rotate-180" />
-              </Link>
-            </SectionCard>
+        {/* Meta */}
+        <div className="px-8 sm:px-12 py-6 bg-slate-50 grid grid-cols-2 sm:grid-cols-4 gap-6 border-y border-slate-100">
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Issue Date</p>
+            <p className="text-sm font-semibold text-slate-900">{date(invoice.issuedAt)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Due Date</p>
+            <p className="text-sm font-semibold text-slate-900">{date(invoice.dueAt)}</p>
+          </div>
+          {invoice.paidAt && (
+            <div>
+              <p className="text-xs text-slate-500 mb-1">Paid Date</p>
+              <p className="text-sm font-semibold text-emerald-600 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> {date(invoice.paidAt)}
+              </p>
+            </div>
           )}
         </div>
 
-        <div className="space-y-6">
-          <SectionCard
-            title="Payment"
-            description="Current payment state for this invoice."
-          >
-            <div className="flex items-start gap-3">
-              {invoice.status === "PAID" ? (
-                <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-600" />
-              ) : invoice.status === "VOID" ? (
-                <XCircle className="mt-0.5 h-6 w-6 text-gray-400" />
+        {/* Line Items */}
+        <div className="p-8 sm:p-12">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-full">Description</th>
+                <th className="py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right px-4">Qty</th>
+                <th className="py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="py-6 text-sm text-slate-500">Subscription line item</td>
+                </tr>
               ) : (
-                <CreditCard className="mt-0.5 h-6 w-6 text-amber-600" />
+                items.map(item => (
+                  <tr key={item.id} className="group">
+                    <td className="py-4">
+                      <p className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors">{item.description}</p>
+                    </td>
+                    <td className="py-4 text-right px-4 text-sm text-slate-500">{item.quantity}</td>
+                    <td className="py-4 text-right font-medium text-slate-900">{money(item.amount, invoice.currency)}</td>
+                  </tr>
+                ))
               )}
-
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {invoice.status === "PAID"
-                    ? "Payment completed"
-                    : invoice.status === "VOID"
-                      ? "Invoice voided"
-                      : "Payment required"}
-                </p>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  {invoice.paidAt
-                    ? `Paid on ${formatDateTime(invoice.paidAt)}`
-                    : invoice.status === "OPEN"
-                      ? "This invoice is awaiting payment."
-                      : "No successful payment is recorded on this invoice."}
-                </p>
-              </div>
-            </div>
-
-            {canPay && (
-              <>
-                <div className="mt-6 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentResult("SUCCESS")
-                    }
-                    className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${
-                      paymentResult === "SUCCESS"
-                        ? "border-indigo-300 bg-indigo-50"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          Successful payment
-                        </p>
-
-                        <p className="text-xs text-gray-500">
-                          Mark this invoice as paid
-                        </p>
-                      </div>
-                    </div>
-
-                    {paymentResult === "SUCCESS" && (
-                      <span className="text-xs font-semibold text-indigo-600">
-                        Selected
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentResult("FAILED")
-                    }
-                    className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${
-                      paymentResult === "FAILED"
-                        ? "border-red-300 bg-red-50"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <XCircle className="h-5 w-5 text-red-500" />
-
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          Failed payment
-                        </p>
-
-                        <p className="text-xs text-gray-500">
-                          Test the failed-payment scenario
-                        </p>
-                      </div>
-                    </div>
-
-                    {paymentResult === "FAILED" && (
-                      <span className="text-xs font-semibold text-red-600">
-                        Selected
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                <Button
-                  className="mt-5 w-full bg-gray-950 hover:bg-gray-800"
-                  disabled={paymentMutation.isPending}
-                  onClick={() =>
-                    paymentMutation.mutate()
-                  }
-                >
-                  {paymentMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : paymentResult === "SUCCESS" ? (
-                    "Pay invoice"
-                  ) : (
-                    "Run failed payment"
-                  )}
-                </Button>
-
-                <div className="mt-4 flex gap-3 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500">
-                  <ShieldCheck className="h-4 w-4 shrink-0" />
-
-                  <span>
-                    This uses the controlled DEMO payment system.
-                    No real card, bank, UPI or payment information
-                    is collected.
-                  </span>
-                </div>
-              </>
-            )}
-
-            <div className="mt-6 border-t border-gray-100 pt-5">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">
-                  Amount
-                </span>
-
-                <span className="font-semibold text-gray-900">
-                  {formatMoney(
-                    invoice.total,
-                    invoice.currency,
-                  )}
-                </span>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Invoice information">
-            <dl className="space-y-4 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">
-                  Invoice number
-                </dt>
-
-                <dd className="font-medium text-gray-900">
-                  {invoice.invoiceNumber}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">
-                  Status
-                </dt>
-
-                <dd>
-                  <StatusBadge status={invoice.status} />
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">
-                  Currency
-                </dt>
-
-                <dd className="font-medium text-gray-900">
-                  {invoice.currency}
-                </dd>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <dt className="flex items-center gap-2 text-gray-500">
-                  <CalendarDays className="h-4 w-4" />
-                  Issued
-                </dt>
-
-                <dd className="font-medium text-gray-900">
-                  {formatDate(invoice.issuedAt)}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">
-                  Due
-                </dt>
-
-                <dd className="font-medium text-gray-900">
-                  {formatDate(invoice.dueAt)}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">
-                  Tax
-                </dt>
-
-                <dd className="text-right font-medium text-gray-900">
-                  {invoice.taxRate}% ·{" "}
-                  {formatMoney(
-                    invoice.taxAmount,
-                    invoice.currency,
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </SectionCard>
+            </tbody>
+          </table>
         </div>
+
+        {/* Totals */}
+        <div className="px-8 sm:px-12 py-8 bg-slate-50/50 flex justify-end border-t border-slate-100">
+          <div className="w-full sm:w-80 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Subtotal</span>
+              <span className="font-medium text-slate-900">{money(invoice.subtotal, invoice.currency)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Tax ({(invoice.taxRate * 100).toFixed(0)}%)</span>
+              <span className="font-medium text-slate-900">{money(invoice.taxAmount, invoice.currency)}</span>
+            </div>
+            <div className="border-t border-slate-200 pt-3 flex justify-between items-center">
+              <span className="font-semibold text-slate-900">Total</span>
+              <span className="text-xl font-bold text-slate-900">{money(invoice.total, invoice.currency)}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Payments Section */}
+      {payments.length > 0 && (
+        <section className="mt-8">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 px-1">Payment Activity</h3>
+          <div className="surface-panel overflow-hidden">
+            <div className="divide-y divide-slate-100">
+              {payments.map(payment => (
+                <div key={payment.id} className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={cn("p-2 rounded-xl border", payment.status === 'SUCCESS' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-rose-50 border-rose-100 text-rose-600")}>
+                      <Banknote className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{money(payment.amount, payment.currency)}</p>
+                      <p className="text-xs text-slate-500 mt-1">{date(payment.createdAt)} • {payment.paymentMethod}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <StatusBadge status={payment.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Credit Info */}
+      <div className="flex items-start gap-3 mt-8 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+        <HelpCircle className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
+        <p className="text-sm text-indigo-900 leading-relaxed">
+          If any account credits were available at the time of invoice generation, they have been automatically applied to the subtotal. The final total represents the remaining amount due.
+        </p>
       </div>
     </div>
   );

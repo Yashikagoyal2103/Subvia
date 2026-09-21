@@ -1,104 +1,119 @@
-import { CheckCircle2, FileText, IndianRupee, Loader2, Receipt } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { Receipt, FileText, ArrowUpRight, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { invoicesApi, type Invoice } from "../../api/invoices";
+
+import { invoicesApi } from "../../api/invoices";
 import { StatusBadge } from "../../components/status-badge";
+import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
-import { SectionCard } from "../../components/section-card";
+import { cn } from "../../lib/utils";
 
-const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
-
-function formatMoney(amount: number, currency: string) {
-  return `${currencySymbol[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+const symbols: Record<string, string> = { INR: "₹", USD: "$" };
+const money = (amount: number, currency: string) => `${symbols[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 
 export function CustomerInvoicesPage() {
   const { businessId } = useParams<{ businessId: string }>();
 
-  const query = useQuery({
+  const { data: invoicesResponse, isLoading, isError, refetch } = useQuery({
     queryKey: ["invoices", businessId],
     queryFn: () => invoicesApi.list(businessId!),
     enabled: Boolean(businessId),
   });
 
   if (!businessId) return <ErrorState description="A valid business context is required." />;
+  if (isLoading) return <LoadingState message="Loading your invoices..." />;
+  if (isError) return <ErrorState description="We couldn't load your invoices." retryAction={() => { void refetch(); }} />;
 
-  if (query.isLoading) {
-    return <div className="flex min-h-[400px] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-indigo-600" /></div>;
-  }
-
-  if (query.isError) {
-    return <ErrorState description="We couldn't load your invoices." retryAction={() => query.refetch()} />;
-  }
-
-  const invoices: Invoice[] = query.data?.data ?? [];
-  const paidInvoices: Invoice[] = invoices.filter((invoice: Invoice) => invoice.status === "PAID");
-  const openInvoices: Invoice[] = invoices.filter((invoice: Invoice) => invoice.status === "OPEN");
-  const outstandingAmount = openInvoices.reduce((total: number, invoice: Invoice) => total + invoice.total, 0);
+  const invoices = invoicesResponse?.data ?? [];
+  const hasInvoices = invoices.length > 0;
+  
+  const paidInvoices = invoices.filter(i => i.status === 'PAID').length;
+  const openInvoices = invoices.filter(i => i.status === 'OPEN').length;
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Billing</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">Invoices</h1>
-        <p className="mt-2 text-sm text-gray-500">View your billing documents and payment status.</p>
+    <div className="space-y-10 pb-12 animate-fade-in">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl mb-2">Invoices</h1>
+          <p className="text-base text-slate-500 max-w-xl">View and track billing documents generated for your subscriptions.</p>
+        </div>
+        
+        {hasInvoices && (
+          <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-2xl border border-slate-200/60 shadow-sm">
+            <div className="text-center px-4 border-r border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total</p>
+              <p className="text-xl font-bold text-slate-900">{invoices.length}</p>
+            </div>
+            <div className="text-center px-4 border-r border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Paid</p>
+              <p className="text-xl font-bold text-emerald-600">{paidInvoices}</p>
+            </div>
+            <div className="text-center px-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Open</p>
+              <p className={cn("text-xl font-bold", openInvoices > 0 ? "text-amber-600" : "text-slate-900")}>{openInvoices}</p>
+            </div>
+          </div>
+        )}
       </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between"><p className="text-sm text-gray-500">Total invoices</p><Receipt className="h-5 w-5 text-indigo-500" /></div>
-          <p className="mt-3 text-3xl font-semibold">{invoices.length}</p>
-          <p className="mt-1 text-xs text-gray-400">Billing records</p>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between"><p className="text-sm text-gray-500">Paid</p><CheckCircle2 className="h-5 w-5 text-emerald-500" /></div>
-          <p className="mt-3 text-3xl font-semibold">{paidInvoices.length}</p>
-          <p className="mt-1 text-xs text-gray-400">Successfully settled</p>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between"><p className="text-sm text-gray-500">Outstanding</p><IndianRupee className="h-5 w-5 text-amber-500" /></div>
-          <p className="mt-3 text-3xl font-semibold">{openInvoices.length > 0 ? formatMoney(outstandingAmount, openInvoices[0].currency) : "₹0.00"}</p>
-          <p className="mt-1 text-xs text-gray-400">Open invoice balance</p>
-        </div>
-      </div>
-
-      <SectionCard title="Invoice history" description="Your latest billing records.">
-        {invoices.length === 0 ? (
-          <div className="py-12 text-center">
-            <FileText className="mx-auto h-10 w-10 text-gray-300" />
-            <h3 className="mt-4 font-semibold text-gray-900">No invoices yet</h3>
-            <p className="mt-2 text-sm text-gray-500">Your invoices will appear here after billing activity.</p>
+      {!hasInvoices ? (
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[32px] border border-dashed border-slate-300 bg-white/50 p-10 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-6">
+            <Receipt className="h-8 w-8" />
           </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {invoices.map((invoice: Invoice) => (
-              <Link key={invoice.id} to={`/customer/${businessId}/invoices/${invoice.id}`} className="flex flex-col gap-4 py-5 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between sm:px-3">
-                <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><FileText className="h-5 w-5" /></div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900">{invoice.invoiceNumber}</p>
-                    <p className="mt-1 text-xs text-gray-400">{formatDate(invoice.issuedAt)}</p>
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">No invoices yet</h2>
+          <p className="max-w-sm text-sm text-slate-500">Invoices will appear here once billing activity occurs.</p>
+        </div>
+      ) : (
+        <div className="surface-panel overflow-hidden">
+          {/* Table Header */}
+          <div className="hidden sm:grid grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-4 p-5 bg-slate-50/80 border-b border-slate-200/60 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="pl-4">Invoice</div>
+            <div>Date</div>
+            <div>Amount</div>
+            <div>Status</div>
+            <div className="text-right pr-4">Action</div>
+          </div>
+          
+          {/* Table Body */}
+          <div className="divide-y divide-slate-100">
+            {invoices.map((invoice) => (
+              <Link 
+                key={invoice.id} 
+                to={`/customer/${businessId}/invoices/${invoice.id}`}
+                className="group flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto] gap-4 p-5 sm:items-center transition-colors hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-4 pl-0 sm:pl-4">
+                  <div className={cn("hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", invoice.status === 'PAID' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-amber-50 border-amber-100 text-amber-600")}>
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-mono text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{invoice.invoiceNumber}</p>
+                    <p className="text-xs text-slate-500 sm:hidden mt-1">{date(invoice.createdAt)}</p>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between gap-5 sm:justify-end">
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatMoney(invoice.total, invoice.currency)}</p>
-                    <p className="mt-1 text-xs text-gray-400">{invoice.currency}</p>
-                  </div>
+                
+                <div className="hidden sm:block text-sm text-slate-600">
+                  {date(invoice.createdAt)}
+                </div>
+                
+                <div className="text-sm font-semibold text-slate-900">
+                  {money(invoice.total, invoice.currency)}
+                </div>
+                
+                <div>
                   <StatusBadge status={invoice.status} />
+                </div>
+                
+                <div className="hidden sm:flex justify-end pr-4 text-slate-400 group-hover:text-indigo-600 transition-colors">
+                  <ArrowUpRight className="h-5 w-5" />
                 </div>
               </Link>
             ))}
           </div>
-        )}
-      </SectionCard>
+        </div>
+      )}
     </div>
   );
 }
