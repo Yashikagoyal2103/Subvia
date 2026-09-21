@@ -9,7 +9,6 @@ import { subscriptionsApi } from "../../api/subscriptions";
 import { StatusBadge } from "../../components/status-badge";
 import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
-import { Button } from "../../components/ui/button";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { cn } from "../../lib/utils";
 
@@ -18,7 +17,7 @@ const money = (amount: number, currency: string) => `${symbols[currency] ?? curr
 const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 const time = (value: string | null | undefined) => value ? new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
 
-export function CustomerSubscriptionDetailsPage() {
+export function SubscriptionDetailsPage() {
   const { businessId, subscriptionId } = useParams<{ businessId: string; subscriptionId: string }>();
   const queryClient = useQueryClient();
 

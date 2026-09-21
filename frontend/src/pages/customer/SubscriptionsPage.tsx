@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Package, ArrowUpRight, AlertCircle, Calendar } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";

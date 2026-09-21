@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Building2, UserRound, Download, CheckCircle2, ShieldCheck, CreditCard, Banknote, HelpCircle } from "lucide-react";
+import { ArrowLeft, Building2, UserRound, Download, CheckCircle2, Banknote, HelpCircle } from "lucide-react";
 
 import { invoicesApi } from "../../api/invoices";
 import { paymentsApi } from "../../api/payments";

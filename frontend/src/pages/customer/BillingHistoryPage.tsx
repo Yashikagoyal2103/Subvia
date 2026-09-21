@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { History, Banknote, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { History, Banknote, CheckCircle2, XCircle } from "lucide-react";
 
 import { paymentsApi } from "../../api/payments";
 import { StatusBadge } from "../../components/status-badge";

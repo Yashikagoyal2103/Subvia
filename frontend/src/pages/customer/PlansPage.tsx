@@ -15,7 +15,7 @@ function PlanCard({ plan, action }: { plan: any; action: React.ReactNode }) {
       
       <div className="p-8 flex-1 flex flex-col">
         <h3 className="text-2xl font-semibold text-slate-900">{plan.name}</h3>
-        <p className="mt-3 text-sm leading-6 text-slate-500 min-h-[48px]">{plan.description ?? "Professional subscription plan tailored for your business needs."}</p>
+        <p className="mt-3 text-sm leading-6 text-slate-500 min-h-[48px]">{plan.description || "No description provided."}</p>
         
         <div className="my-8 flex items-end gap-1">
           <span className="text-5xl font-bold tracking-tight text-slate-900">

@@ -1,4 +1,4 @@
-// import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "cn";
 import { Button } from "./ui/button";
 
@@ -9,10 +9,12 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
   isLoading?: boolean;
   isDestructive?: boolean;
   className?: string;
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -23,9 +25,11 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   onConfirm,
   onCancel,
+  onClose,
   isLoading,
   isDestructive,
   className,
+  children,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -40,10 +44,12 @@ export function ConfirmDialog({
         <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
         <p className="mt-3 text-sm text-gray-600 leading-relaxed">{description}</p>
         
+        {children}
+
         <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button 
             variant="outline" 
-            onClick={onCancel}
+            onClick={onCancel ?? onClose}
             disabled={isLoading}
             className="sm:w-auto"
           >

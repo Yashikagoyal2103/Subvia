@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { Receipt, FileText, ArrowUpRight, Search } from "lucide-react";
+import { Receipt, FileText, ArrowUpRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { invoicesApi } from "../../api/invoices";

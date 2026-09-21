@@ -173,7 +173,7 @@ export function CheckoutPage() {
 
           <div className="mb-8">
             <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-            <p className="text-sm leading-6 text-slate-500">{plan.description ?? "Premium subscription"}</p>
+            <p className="text-sm leading-6 text-slate-500">{plan.description || "No description provided."}</p>
           </div>
 
           <div className="space-y-4 bg-slate-50 p-5 rounded-2xl mb-8">

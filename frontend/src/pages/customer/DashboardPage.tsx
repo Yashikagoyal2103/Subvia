@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { 
-  ArrowUpRight, CheckCircle2, CreditCard, FileText, 
+  ArrowUpRight, CheckCircle2, FileText, 
   Package, Receipt, WalletCards, XCircle, TrendingUp,
-  Clock, ShieldCheck
+  Clock
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +19,6 @@ import { cn } from "../../lib/utils";
 const symbols: Record<string, string> = { INR: "₹", USD: "$" };
 const money = (amount: number, currency: string) => `${symbols[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-";
-const greeting = () => { const hour = new Date().getHours(); return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"; };
 
 export function CustomerDashboardPage() {
   const { businessId } = useParams<{ businessId: string }>();
@@ -41,7 +40,6 @@ export function CustomerDashboardPage() {
   
   // Outstanding total
   const outstandingInr = openInvoices.filter(i => i.currency === "INR").reduce((acc, curr) => acc + curr.total, 0);
-  const outstandingUsd = openInvoices.filter(i => i.currency === "USD").reduce((acc, curr) => acc + curr.total, 0);
 
   const recentInvoices = [...invoices].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 4);
   const recentPayments = [...payments].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 4);
@@ -54,8 +52,8 @@ export function CustomerDashboardPage() {
             <span className="flex h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20"></span>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Workspace Active</p>
           </div>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">{greeting()}.</h1>
-          <p className="mt-2 text-base leading-7 text-slate-500 max-w-xl">Your complete billing and subscription overview at a glance.</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Your billing overview.</h1>
+          <p className="mt-2 text-base leading-7 text-slate-500 max-w-xl">Review active plans, invoices and recent payments.</p>
         </div>
         <Link to={`/customer/${businessId}/services`} className="group inline-flex w-fit items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-all hover:bg-indigo-600 hover:shadow-indigo-500/25">
           Browse services <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -71,12 +69,12 @@ export function CustomerDashboardPage() {
             <div className="flex-1">
               <div className="flex items-center gap-3 text-indigo-600 mb-4">
                 <div className="p-2 bg-indigo-100 rounded-lg"><WalletCards className="h-5 w-5" /></div>
-                <h2 className="font-semibold text-sm uppercase tracking-wider">Account Balance</h2>
+                <h2 className="font-semibold text-sm uppercase tracking-wider">Available credits</h2>
               </div>
               <div className="flex flex-wrap items-baseline gap-6">
                 <div>
                   <p className="text-5xl font-semibold tracking-tight text-slate-900">{money(credits.INR, "INR")}</p>
-                  <p className="text-sm text-slate-500 mt-1">INR Credits Available</p>
+                  <p className="text-sm text-slate-500 mt-1">INR credits</p>
                 </div>
                 {credits.USD > 0 && (
                   <div>
@@ -187,7 +185,7 @@ export function CustomerDashboardPage() {
                 <EmptyState icon={<Clock />} title="No activity" description="Payment events will be logged here." />
               ) : (
                 <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-slate-200 before:to-transparent">
-                  {recentPayments.map((payment, i) => (
+                  {recentPayments.map((payment) => (
                     <div key={payment.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                       {/* Timeline Dot */}
                       <div className={cn(

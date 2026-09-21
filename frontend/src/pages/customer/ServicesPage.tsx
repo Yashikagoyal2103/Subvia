@@ -22,7 +22,7 @@ function ServiceCard({ service, href }: { service: any; href: string }) {
         </div>
         
         <h3 className="text-xl font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{service.name}</h3>
-        <p className="mt-2 text-sm text-slate-500 line-clamp-2 flex-1">{service.description ?? "Cloud service"}</p>
+        <p className="mt-2 text-sm text-slate-500 line-clamp-2 flex-1">{service.description || "No description provided."}</p>
         
         <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
           <span className="text-xs font-semibold text-indigo-600 transition-colors group-hover:text-indigo-800">
@@ -105,7 +105,7 @@ function CatalogHeader({ count }: { count?: number }) {
         </h1>
         
         <p className="max-w-xl text-base leading-7 text-slate-500 sm:text-lg">
-          Explore the professional services available in this workspace. Choose a product and configure the perfect plan to scale your operations.
+          Explore the services available in this workspace.
         </p>
       </div>
 

@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router-dom";
-import { AppLogo } from "./app-logo";
 import { LogoutButton } from "./auth/LogoutButton";
 import { cn } from "../lib/utils";
 import { Menu, X, ChevronDown, UserRound, ArrowUpRight, Zap } from "lucide-react";
@@ -37,7 +36,7 @@ export function CustomerTopNav({ businessId }: CustomerTopNavProps) {
       <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-10">
         
         <div className="flex items-center gap-10">
-          <Link to={base} className="flex items-center gap-3 group">
+          <Link to={`${base}/dashboard`} className="flex items-center gap-3 group">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-200 transition-transform group-hover:scale-105">
               <Zap className="h-5 w-5 fill-current" />
             </div>
