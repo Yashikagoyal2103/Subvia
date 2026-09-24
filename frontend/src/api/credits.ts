@@ -6,16 +6,13 @@ export interface CreditBalance {
 }
 
 export const creditsApi = {
-  async getBalance(
-    businessId: string,
-  ): Promise<CreditBalance> {
+  async getBalance(): Promise<CreditBalance> {
     const response = await apiClient.get<{
       success: true;
       data: CreditBalance;
-    }>(
-      `/businesses/${businessId}/credits`,
-    );
+    }>("/credits");
 
     return response.data.data;
   },
 };
+

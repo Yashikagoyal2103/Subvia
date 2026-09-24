@@ -34,8 +34,8 @@ import { CustomerSubscriptionsPage } from "../pages/customer/SubscriptionsPage";
 import { SubscriptionDetailsPage } from "../pages/customer/SubscriptionDetailsPage";
 import { CustomerInvoicesPage } from "../pages/customer/InvoicesPage";
 import { CustomerInvoiceDetailsPage } from "../pages/customer/InvoiceDetailsPage";
-import { CustomerCreditsPage } from "../pages/customer/CreditsPage";
 import { CustomerBillingHistoryPage } from "../pages/customer/BillingHistoryPage";
+import { ServiceDetailsPage } from "../pages/customer/ServiceDetailsPage";
 
 export const router = createBrowserRouter([
   {
@@ -67,17 +67,27 @@ export const router = createBrowserRouter([
           },
 
           {
-            path: "customer/:businessId",
+            path: "customer",
             element: <CustomerLayout />,
             children: [
-              { path: "dashboard", element: <CustomerDashboardPage /> },
-              { path: "services", element: <CustomerServicesPage /> },
               {
-                path: "services/:serviceId/plans",
+                index: true,
+                element: <CustomerDashboardPage />,
+              },
+              {
+                path: "explore",
+                element: <CustomerServicesPage />,
+              },
+              {
+                path: "services/:serviceId",
+                element: <ServiceDetailsPage />,
+              },
+              {
+                path: "plans",
                 element: <CustomerPlansPage />,
               },
               {
-                path: "checkout/:serviceId/:planId",
+                path: "checkout/:planId",
                 element: <CheckoutPage />,
               },
               {
@@ -88,13 +98,18 @@ export const router = createBrowserRouter([
                 path: "subscriptions/:subscriptionId",
                 element: <SubscriptionDetailsPage />,
               },
-              { path: "invoices", element: <CustomerInvoicesPage /> },
+              {
+                path: "invoices",
+                element: <CustomerInvoicesPage />,
+              },
               {
                 path: "invoices/:invoiceId",
                 element: <CustomerInvoiceDetailsPage />,
               },
-              { path: "credits", element: <CustomerCreditsPage /> },
-              { path: "billing", element: <CustomerBillingHistoryPage /> },
+              {
+                path: "billing",
+                element: <CustomerBillingHistoryPage />,
+              },
             ],
           },
 
@@ -102,32 +117,62 @@ export const router = createBrowserRouter([
             path: "admin/:businessId",
             element: <AdminLayout />,
             children: [
-              { path: "dashboard", element: <AdminDashboardPage /> },
-              { path: "services", element: <AdminServicesPage /> },
-              { path: "plans", element: <AdminPlansPage /> },
-              { path: "customers", element: <AdminCustomersPage /> },
+              {
+                path: "dashboard",
+                element: <AdminDashboardPage />,
+              },
+              {
+                path: "services",
+                element: <AdminServicesPage />,
+              },
+              {
+                path: "plans",
+                element: <AdminPlansPage />,
+              },
+              {
+                path: "customers",
+                element: <AdminCustomersPage />,
+              },
               {
                 path: "customers/:customerId",
                 element: <AdminCustomerDetailsPage />,
               },
-              { path: "subscriptions", element: <AdminSubscriptionsPage /> },
+              {
+                path: "subscriptions",
+                element: <AdminSubscriptionsPage />,
+              },
               {
                 path: "subscriptions/:subscriptionId",
                 element: <AdminSubscriptionDetailsPage />,
               },
-              { path: "invoices", element: <AdminInvoicesPage /> },
+              {
+                path: "invoices",
+                element: <AdminInvoicesPage />,
+              },
               {
                 path: "invoices/:invoiceId",
                 element: <AdminInvoiceDetailsPage />,
               },
-              { path: "payments", element: <AdminPaymentsPage /> },
+              {
+                path: "payments",
+                element: <AdminPaymentsPage />,
+              },
               {
                 path: "payments/:paymentId",
                 element: <AdminPaymentDetailsPage />,
               },
-              { path: "billing-activity", element: <AdminBillingActivityPage /> },
-              { path: "webhooks", element: <AdminWebhooksPage /> },
-              { path: "api-keys", element: <AdminApiKeysPage /> },
+              {
+                path: "billing-activity",
+                element: <AdminBillingActivityPage />,
+              },
+              {
+                path: "webhooks",
+                element: <AdminWebhooksPage />,
+              },
+              {
+                path: "api-keys",
+                element: <AdminApiKeysPage />,
+              },
             ],
           },
         ],

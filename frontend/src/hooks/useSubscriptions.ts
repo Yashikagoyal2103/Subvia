@@ -1,41 +1,42 @@
-import { useQuery } from "@tanstack/react-query";
-import {
-  subscriptionsApi,
-} from "../api/subscriptions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { subscriptionsApi } from "@/api/subscriptions";
 
-export function useSubscriptions(
-  businessId: string,
-) {
-  return useQuery({
-    queryKey: [
-      "subscriptions",
-      businessId,
-    ],
-    queryFn: () =>
-      subscriptionsApi.list(
-        businessId,
-      ),
-    enabled: Boolean(businessId),
+export function useSubscriptions() {
+  const queryClient = useQueryClient();
+
+  const subscriptionsQuery = useQuery({
+    queryKey: ["customer-subscriptions"],
+    queryFn: () => subscriptionsApi.list(),
   });
-}
 
-export function useSubscription(
-  businessId: string,
-  subscriptionId: string,
-) {
-  return useQuery({
-    queryKey: [
-      "subscription",
-      businessId,
+  const cancelMutation = useMutation({
+    mutationFn: ({
       subscriptionId,
-    ],
-    queryFn: () =>
-      subscriptionsApi.getById(
-        businessId,
-        subscriptionId,
-      ),
-    enabled:
-      Boolean(businessId) &&
-      Boolean(subscriptionId),
+      mode,
+    }: {
+      subscriptionId: string;
+      mode: "PERIOD_END" | "IMMEDIATE";
+    }) => subscriptionsApi.cancel(subscriptionId, { mode }),
+
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["customer-subscriptions"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer-subscription", variables.subscriptionId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer-subscription-events", variables.subscriptionId],
+        }),
+      ]);
+    },
   });
+
+  return {
+    ...subscriptionsQuery,
+    subscriptions: subscriptionsQuery.data ?? [],
+    cancel: cancelMutation.mutateAsync,
+    cancelPending: cancelMutation.isPending,
+  };
 }

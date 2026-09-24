@@ -52,28 +52,20 @@ export interface Subscription {
   id: string;
   customerProfileId: string;
   planId: string;
-
   status: SubscriptionStatus;
-
   currency: "INR" | "USD";
   price: number;
   billingInterval: "MONTHLY" | "YEARLY";
-
   billingPeriodStart: string;
   billingPeriodEnd: string;
-
   pendingPlanId: string | null;
-
   cancelAtPeriodEnd: boolean;
   cancelledAt: string | null;
-
   createdAt: string;
   updatedAt: string;
-
   plan?: SubscriptionPlan & {
     service?: SubscriptionService;
   };
-
   pendingPlan?: SubscriptionPlan | null;
 }
 
@@ -118,11 +110,7 @@ function createIdempotencyKey() {
 }
 
 export const subscriptionsApi = {
-  async list(
-    businessId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<Subscription[]> {
+  async list(page = 1, limit = 20): Promise<Subscription[]> {
     const response = await apiClient.get<{
       success: true;
       data: Subscription[];
@@ -131,69 +119,47 @@ export const subscriptionsApi = {
         limit: number;
         hasNextPage: boolean;
       };
-    }>(
-      `/businesses/${businessId}/subscriptions`,
-      {
-        params: {
-          page,
-          limit,
-        },
-      },
-    );
+    }>("/subscriptions", {
+      params: { page, limit },
+    });
 
     return response.data.data;
   },
 
-  async getById(
-    businessId: string,
-    subscriptionId: string,
-  ): Promise<Subscription> {
+  async getById(subscriptionId: string): Promise<Subscription> {
     const response = await apiClient.get<{
       success: true;
       data: Subscription;
-    }>(
-      `/businesses/${businessId}/subscriptions/${subscriptionId}`,
-    );
+    }>(`/subscriptions/${subscriptionId}`);
 
     return response.data.data;
   },
 
-  async events(
-    businessId: string,
-    subscriptionId: string,
-  ): Promise<SubscriptionEvent[]> {
+  async events(subscriptionId: string): Promise<SubscriptionEvent[]> {
     const response = await apiClient.get<{
       success: true;
       data: SubscriptionEvent[];
-    }>(
-      `/businesses/${businessId}/subscriptions/${subscriptionId}/events`,
-    );
+    }>(`/subscriptions/${subscriptionId}/events`);
 
     return response.data.data;
   },
 
   async create(
-    businessId: string,
     input: CreateSubscriptionInput,
   ): Promise<CreateSubscriptionResult> {
     const response = await apiClient.post<{
       success: true;
       data: CreateSubscriptionResult;
-    }>(
-      `/businesses/${businessId}/subscriptions`,
-      input,
-      {
-        headers: {
-          "Idempotency-Key": createIdempotencyKey(),
-        },
+    }>("/subscriptions", input, {
+      headers: {
+        "Idempotency-Key": createIdempotencyKey(),
       },
-    );
+    });
 
     return response.data.data;
   },
 
   async upgrade(
-    businessId: string,
     subscriptionId: string,
     planId: string,
   ): Promise<UpgradeSubscriptionResult> {
@@ -201,7 +167,7 @@ export const subscriptionsApi = {
       success: true;
       data: UpgradeSubscriptionResult;
     }>(
-      `/businesses/${businessId}/subscriptions/${subscriptionId}/upgrade`,
+      `/subscriptions/${subscriptionId}/upgrade`,
       { planId },
       {
         headers: {
@@ -214,7 +180,6 @@ export const subscriptionsApi = {
   },
 
   async downgrade(
-    businessId: string,
     subscriptionId: string,
     planId: string,
   ): Promise<Subscription> {
@@ -222,7 +187,7 @@ export const subscriptionsApi = {
       success: true;
       data: Subscription;
     }>(
-      `/businesses/${businessId}/subscriptions/${subscriptionId}/downgrade`,
+      `/subscriptions/${subscriptionId}/downgrade`,
       { planId },
       {
         headers: {
@@ -235,7 +200,6 @@ export const subscriptionsApi = {
   },
 
   async cancel(
-    businessId: string,
     subscriptionId: string,
     input: CancelSubscriptionInput,
   ): Promise<Subscription> {
@@ -243,7 +207,7 @@ export const subscriptionsApi = {
       success: true;
       data: Subscription;
     }>(
-      `/businesses/${businessId}/subscriptions/${subscriptionId}/cancel`,
+      `/subscriptions/${subscriptionId}/cancel`,
       input,
       {
         headers: {

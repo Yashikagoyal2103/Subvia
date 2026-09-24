@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -7,12 +6,10 @@ import {
   FileText,
   Receipt,
   Sparkles,
-  Wallet,
 } from "lucide-react";
 
-import { subscriptionsApi, type Subscription } from "@/api/subscriptions";
-import { invoicesApi, type Invoice } from "@/api/invoices";
-import { paymentsApi, type Payment } from "@/api/payments";
+import { subscriptionsApi } from "@/api/subscriptions";
+import { invoicesApi } from "@/api/invoices";
 import { creditsApi } from "@/api/credits";
 
 import { PageHeader } from "@/components/page-header";
@@ -22,204 +19,194 @@ import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
 import { InvoiceTrendChart } from "@/components/charts/InvoiceTrendChart";
 import { formatMoney } from "@/lib/format";
-import { toArray } from "@/lib/api-shape";
 
 function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
+  const hour = new Date().getHours();
+
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
 
-function readBalance(d: unknown): { INR: number; USD: number } {
-  if (!d || typeof d !== "object") return { INR: 0, USD: 0 };
-  const o = d as Record<string, unknown>;
-  const n = (v: unknown) => (typeof v === "number" ? v : 0);
-  return { INR: n(o.INR) || n(o.inr) || 0, USD: n(o.USD) || n(o.usd) || 0 };
-}
-
 export function CustomerDashboardPage() {
-  const { businessId = "" } = useParams();
-  const hasBusiness = !!businessId;
-
-  const subs = useQuery({
-    queryKey: ["subscriptions", businessId],
-    queryFn: () => subscriptionsApi.list(businessId),
-    enabled: hasBusiness,
+  const subscriptions = useQuery({
+    queryKey: ["customer-subscriptions"],
+    queryFn: () => subscriptionsApi.list(),
   });
+
   const invoices = useQuery({
-    queryKey: ["invoices", businessId],
-    queryFn: () => invoicesApi.list(businessId),
-    enabled: hasBusiness,
+    queryKey: ["customer-invoices"],
+    queryFn: () => invoicesApi.list(),
   });
-  const payments = useQuery({
-    queryKey: ["payments", businessId],
-    queryFn: () => paymentsApi.list(businessId),
-    enabled: hasBusiness,
-  });
+
   const credits = useQuery({
-    queryKey: ["credits", businessId],
-    queryFn: () => creditsApi.getBalance(businessId),
-    enabled: hasBusiness,
-    retry: false,
+    queryKey: ["customer-credits"],
+    queryFn: () => creditsApi.getBalance(),
   });
 
-  const subList = useMemo(
-    () => (subs.isError ? [] : toArray<Subscription>(subs.data)),
-    [subs.data, subs.isError],
-  );
-  const invoiceList = useMemo(
-    () => (invoices.isError ? [] : toArray<Invoice>(invoices.data)),
-    [invoices.data, invoices.isError],
-  );
-  const paymentList = useMemo(
-    () => (payments.isError ? [] : toArray<Payment>(payments.data)),
-    [payments.data, payments.isError],
-  );
-  const balance = useMemo(
-    () => (credits.isError ? { INR: 0, USD: 0 } : readBalance(credits.data)),
-    [credits.data, credits.isError],
-  );
-
-  if (!hasBusiness) {
-    return <ErrorState description="A valid business context is required." />;
-  }
-  if (subs.isPending && invoices.isPending) {
+  if (
+    subscriptions.isPending ||
+    invoices.isPending ||
+    credits.isPending
+  ) {
     return <LoadingState message="Loading your billing overview…" />;
   }
 
-  const degraded =
-    subs.isError || invoices.isError || payments.isError || credits.isError;
+  if (
+    subscriptions.isError ||
+    invoices.isError ||
+    credits.isError
+  ) {
+    return (
+      <ErrorState
+        description="We couldn't load your billing overview."
+        retryAction={() => {
+          subscriptions.refetch();
+          invoices.refetch();
+          credits.refetch();
+        }}
+      />
+    );
+  }
 
-  const activeSubs = subList.filter((s) => s.status === "ACTIVE").length;
-  const openInvoices = invoiceList.filter((i) => i.status === "OPEN");
-  const openInvoiceCount = openInvoices.length;
-  const outstandingINR = openInvoices
-    .filter((i) => i.currency === "INR")
-    .reduce((a, i) => a + i.total, 0);
+  const subscriptionList = subscriptions.data;
+  const invoiceList = invoices.data.data;
 
-  const chartData = [...invoiceList]
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    )
-    .slice(-6)
-    .map((i) => ({ label: i.invoiceNumber, amount: i.total / 100 }));
+  const activeSubscriptions = subscriptionList.filter(
+    (subscription) => subscription.status === "ACTIVE",
+  );
 
-  const recentSubs = subList.slice(0, 4);
-  const recentInvoices = [...invoiceList]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 4);
-  const recentPayments = [...paymentList]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
+  const openInvoices = invoiceList.filter(
+    (invoice) => invoice.status === "OPEN",
+  );
+
+  const chartCurrency = invoiceList[0]?.currency ?? "INR";
+
+  const chartData = invoiceList
+    .filter((invoice) => invoice.currency === chartCurrency)
+    .slice(0, 6)
+    .reverse()
+    .map((invoice) => ({
+      label: invoice.invoiceNumber,
+      amount: invoice.total / 100,
+    }));
+
+  const creditBalances = [
+    credits.data.INR > 0
+      ? formatMoney(credits.data.INR, "INR")
+      : null,
+    credits.data.USD > 0
+      ? formatMoney(credits.data.USD, "USD")
+      : null,
+  ].filter(Boolean);
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title={`${greeting()}, welcome back`}
-        description="A clear view of your subscriptions, invoices and credits."
+        title={greeting()}
+        description="Here's what's happening across your subscriptions and billing."
       />
-
-      {degraded ? (
-        <div className="rounded-xl border-l-4 border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-900">
-          Some data couldn&apos;t be loaded from the server. The page shows what
-          is available.
-        </div>
-      ) : null}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Active subscriptions"
-          value={activeSubs}
-          icon={CreditCard}
-          description="Currently active services"
+          value={String(activeSubscriptions.length)}
+          icon={<CreditCard className="h-4 w-4" />}
+          description="Currently active"
         />
-        <StatCard
-          label="Outstanding balance"
-          value={formatMoney(outstandingINR, "INR")}
-          icon={Receipt}
-          description="Open invoices (INR)"
-        />
-        <StatCard
-          label="Credits available"
-          value={formatMoney(balance.INR, "INR")}
-          icon={Wallet}
-          description={
-            balance.USD > 0
-              ? `Also ${formatMoney(balance.USD, "USD")}`
-              : "Account credits"
-          }
-        />
+
         <StatCard
           label="Open invoices"
-          value={openInvoiceCount}
-          icon={FileText}
+          value={String(openInvoices.length)}
+          icon={<FileText className="h-4 w-4" />}
           description="Awaiting payment"
+        />
+
+        <StatCard
+          label="Available credit"
+          value={
+            creditBalances.length
+              ? creditBalances.join(" · ")
+              : "—"
+          }
+          icon={<Sparkles className="h-4 w-4" />}
+          description="Available account credit"
+        />
+
+        <StatCard
+          label="Invoices"
+          value={String(invoiceList.length)}
+          icon={<Receipt className="h-4 w-4" />}
+          description="Total billing history"
         />
       </section>
 
       <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-5 shadow-[var(--shadow-soft)]">
         <div className="mb-4">
           <h2 className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-            Invoice amounts (last 6)
+            Billing trend
           </h2>
+
           <p className="text-xs text-[var(--color-ink-muted)]">
-            Based on your recent invoice history
+            Recent invoices in {chartCurrency}
           </p>
         </div>
+
         <InvoiceTrendChart data={chartData} />
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-[var(--shadow-soft)]">
           <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-5 py-4">
-            <h2 className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              Your Subscriptions
+            <h2 className="text-sm font-semibold text-[var(--color-ink)]">
+              Your subscriptions
             </h2>
+
             <Link
-              to={`/customer/${businessId}/subscriptions`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
+              to="/customer/subscriptions"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
             >
-              View all <ArrowRight className="h-3 w-3" />
+              View all
+              <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+
           <ul className="divide-y divide-[var(--color-border-soft)]">
-            {recentSubs.length === 0 ? (
+            {activeSubscriptions.length === 0 ? (
               <li className="px-5 py-10 text-center text-sm text-[var(--color-ink-muted)]">
-                No subscriptions yet.
+                No active subscriptions yet.
               </li>
             ) : (
-              recentSubs.map((s) => (
-                <li key={s.id}>
+              activeSubscriptions.slice(0, 4).map((subscription) => (
+                <li key={subscription.id}>
                   <Link
-                    to={`/customer/${businessId}/subscriptions/${s.id}`}
+                    to={`/customer/subscriptions/${subscription.id}`}
                     className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--color-surface)]"
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border-soft)]">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)]">
                       <Sparkles className="h-4 w-4 text-[var(--color-ink-muted)]" />
                     </span>
+
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--color-ink)]">
-                        {s.plan?.service?.name ?? "Service"} ·{" "}
-                        {s.plan?.name ?? "Plan"}
+                        {subscription.plan?.service?.name ?? "Service"}{" "}
+                        ·{" "}
+                        {subscription.plan?.name ?? "Plan"}
                       </p>
-                      <p className="truncate text-xs text-[var(--color-ink-muted)]">
-                        {s.billingInterval === "MONTHLY" ? "Monthly" : "Yearly"}
+
+                      <p className="text-xs text-[var(--color-ink-muted)]">
+                        {formatMoney(
+                          subscription.price,
+                          subscription.currency,
+                        )}{" "}
+                        /{" "}
+                        {subscription.billingInterval === "MONTHLY"
+                          ? "month"
+                          : "year"}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
-                        {formatMoney(s.price, s.currency)}
-                      </span>
-                      <StatusBadge status={s.status} />
-                    </div>
+
+                    <StatusBadge status={subscription.status} />
                   </Link>
                 </li>
               ))
@@ -229,92 +216,85 @@ export function CustomerDashboardPage() {
 
         <div className="rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-[var(--shadow-soft)]">
           <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-5 py-4">
-            <h2 className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              Recent Invoices
+            <h2 className="text-sm font-semibold text-[var(--color-ink)]">
+              Recent invoices
             </h2>
+
             <Link
-              to={`/customer/${businessId}/invoices`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
+              to="/customer/invoices"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
             >
-              View all <ArrowRight className="h-3 w-3" />
+              View all
+              <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+
           <ul className="divide-y divide-[var(--color-border-soft)]">
-            {recentInvoices.length === 0 ? (
+            {invoiceList.slice(0, 4).map((invoice) => (
+              <li key={invoice.id}>
+                <Link
+                  to={`/customer/invoices/${invoice.id}`}
+                  className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--color-surface)]"
+                >
+                  <Receipt className="h-4 w-4 text-[var(--color-ink-muted)]" />
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-[var(--color-ink)]">
+                      {invoice.invoiceNumber}
+                    </p>
+
+                    <p className="text-xs text-[var(--color-ink-muted)]">
+                      {new Date(
+                        invoice.createdAt,
+                      ).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
+                    {formatMoney(
+                      invoice.total,
+                      invoice.currency,
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+
+            {invoiceList.length === 0 ? (
               <li className="px-5 py-10 text-center text-sm text-[var(--color-ink-muted)]">
                 No invoices yet.
               </li>
-            ) : (
-              recentInvoices.map((i) => (
-                <li key={i.id}>
-                  <Link
-                    to={`/customer/${businessId}/invoices/${i.id}`}
-                    className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-[var(--color-surface)]"
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border-soft)]">
-                      <FileText className="h-4 w-4 text-[var(--color-ink-muted)]" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--color-ink)]">
-                        {i.invoiceNumber}
-                      </p>
-                      <p className="truncate text-xs text-[var(--color-ink-muted)]">
-                        {new Date(i.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
-                        {formatMoney(i.total, i.currency)}
-                      </span>
-                      <StatusBadge status={i.status} />
-                    </div>
-                  </Link>
-                </li>
-              ))
-            )}
+            ) : null}
           </ul>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-[var(--shadow-soft)]">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-soft)] px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-            Billing Activity
-          </h2>
+      <section className="rounded-2xl bg-[var(--color-surface-dark)] p-6 text-white shadow-[var(--shadow-card)]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/50">
+              Discover more
+            </p>
+
+            <h2 className="mt-1 text-xl font-semibold">
+              Explore available services
+            </h2>
+
+            <p className="mt-1 text-sm text-white/60">
+              Browse services and choose a plan whenever you're ready.
+            </p>
+          </div>
+
           <Link
-            to={`/customer/${businessId}/billing`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
+            to="/customer/explore"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-5 py-2.5 text-sm font-semibold text-[var(--color-accent-foreground)]"
           >
-            View all <ArrowRight className="h-3 w-3" />
+            Explore
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <ul className="divide-y divide-[var(--color-border-soft)]">
-          {recentPayments.length === 0 ? (
-            <li className="px-5 py-10 text-center text-sm text-[var(--color-ink-muted)]">
-              No payment activity yet.
-            </li>
-          ) : (
-            recentPayments.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 px-5 py-3.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)] ring-1 ring-[var(--color-border-soft)]">
-                  <Receipt className="h-4 w-4 text-[var(--color-ink-muted)]" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[var(--color-ink)]">
-                    {p.paymentMethod ?? "Payment"} · {p.status}
-                  </p>
-                  <p className="truncate text-xs text-[var(--color-ink-muted)]">
-                    {new Date(p.createdAt).toLocaleString()}
-                  </p>
-                </div>
-                <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
-                  {formatMoney(p.amount, p.currency)}
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
       </section>
     </div>
   );
 }
+

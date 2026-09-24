@@ -36,24 +36,45 @@ export interface Invoice {
     plan: {
       id: string;
       name: string;
-      service: { id: string; name: string };
+      service: {
+        id: string;
+        name: string;
+      };
     };
   };
 }
 
 export interface InvoiceListResponse {
   data: Invoice[];
-  pagination: { page: number; limit: number; hasNextPage: boolean };
+  pagination: {
+    page: number;
+    limit: number;
+    hasNextPage: boolean;
+  };
 }
 
 export const invoicesApi = {
-  async list(businessId: string, page = 1, limit = 20): Promise<InvoiceListResponse> {
-    const response = await apiClient.get<{ success: true; data: Invoice[]; pagination: InvoiceListResponse["pagination"] }>(`/businesses/${businessId}/invoices`, { params: { page, limit } });
-    return { data: response.data.data, pagination: response.data.pagination };
+  async list(page = 1, limit = 20): Promise<InvoiceListResponse> {
+    const response = await apiClient.get<{
+      success: true;
+      data: Invoice[];
+      pagination: InvoiceListResponse["pagination"];
+    }>("/invoices", {
+      params: { page, limit },
+    });
+
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination,
+    };
   },
 
-  async getById(businessId: string, invoiceId: string): Promise<Invoice> {
-    const response = await apiClient.get<{ success: true; data: Invoice }>(`/businesses/${businessId}/invoices/${invoiceId}`);
+  async getById(invoiceId: string): Promise<Invoice> {
+    const response = await apiClient.get<{
+      success: true;
+      data: Invoice;
+    }>(`/invoices/${invoiceId}`);
+
     return response.data.data;
   },
 };

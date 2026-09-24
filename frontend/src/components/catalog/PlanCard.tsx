@@ -1,11 +1,10 @@
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
-import type { Plan } from "@/api/plans";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
-
+import type { CatalogPlan } from "@/api/catalog";
 interface PlanCardProps {
-  plan: Plan;
+  plan: CatalogPlan;
   href: string;
   className?: string;
 }
