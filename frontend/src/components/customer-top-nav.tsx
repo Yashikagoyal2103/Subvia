@@ -1,199 +1,171 @@
-import { Link, useLocation } from "react-router-dom";
-import { AppLogo } from "./app-logo";
-import { LogoutButton } from "./auth/LogoutButton";
-import { cn } from "../lib/utils";
-import { Menu, X, ChevronDown, UserRound, ArrowUpRight, Zap } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import {
+  Building2,
+  ChevronDown,
+  CreditCard,
+  History,
+  LayoutDashboard,
+  Receipt,
+  Sparkles,
+  UserCircle2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CustomerTopNavProps {
   businessId: string;
 }
 
+const PRIMARY_LINKS = (id: string) => [
+  { to: `/customer/${id}/dashboard`,     label: "Dashboard",     icon: LayoutDashboard },
+  { to: `/customer/${id}/services`,      label: "Services",      icon: Sparkles },
+  { to: `/customer/${id}/subscriptions`, label: "Subscriptions", icon: CreditCard },
+  { to: `/customer/${id}/invoices`,      label: "Invoices",      icon: Receipt },
+];
+
+const MORE_LINKS = (id: string) => [
+  { to: `/customer/${id}/credits`, label: "Credits",         icon: CreditCard },
+  { to: `/customer/${id}/billing`, label: "Billing History", icon: History },
+];
+
 export function CustomerTopNav({ businessId }: CustomerTopNavProps) {
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
-  const base = `/customer/${businessId}`;
-
-  const mainNav = [
-    { label: "Dashboard", href: `${base}/dashboard` },
-    { label: "Services", href: `${base}/services` },
-    { label: "Subscriptions", href: `${base}/subscriptions` },
-    { label: "Invoices", href: `${base}/invoices` },
-  ];
-
-  const moreNav = [
-    { label: "Credits", href: `${base}/credits` },
-    { label: "Billing History", href: `${base}/billing` },
-  ];
-
-  const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(`${path}/`);
+  // Close the dropdown on click outside — NOT onBlur (onBlur kills Link clicks).
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/60 bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
-      <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-10">
-        
-        <div className="flex items-center gap-10">
-          <Link to={base} className="flex items-center gap-3 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-200 transition-transform group-hover:scale-105">
-              <Zap className="h-5 w-5 fill-current" />
-            </div>
-            <span className="font-semibold tracking-tight text-slate-900 text-lg hidden sm:block">SaaS Billing</span>
-          </Link>
+    <header className="sticky top-0 z-40 border-b border-[var(--color-border-soft)] bg-[var(--color-surface)]/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <Link
+          to={`/customer/${businessId}/dashboard`}
+          className="flex items-center gap-2.5"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-ink)] text-[11px] font-bold text-[var(--color-accent)]">
+            SB
+          </span>
+          <span className="hidden text-sm font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
+            Billing
+          </span>
+        </Link>
 
-          <nav className="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100/50 border border-slate-200/50">
-            {mainNav.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className={cn(
-                    "relative rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ease-out",
-                    active 
-                      ? "bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50" 
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-
-            <div
-              className="relative"
-              onMouseEnter={() => setIsMoreOpen(true)}
-              onMouseLeave={() => setIsMoreOpen(false)}
-            >
-              <button
+        <nav className="ml-2 hidden items-center gap-1 md:flex">
+          {PRIMARY_LINKS(businessId).map(({ to, label, icon: Icon }) => {
+            const active = location.pathname.startsWith(to);
+            return (
+              <NavLink
+                key={to}
+                to={to}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ease-out",
-                  moreNav.some((n) => isActive(n.href))
-                    ? "bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200/50"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80"
+                  "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition",
+                  active
+                    ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-[var(--shadow-pill)]"
+                    : "text-[var(--color-ink-muted)] hover:bg-white hover:text-[var(--color-ink)]",
                 )}
               >
-                More
-                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-              </button>
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </NavLink>
+            );
+          })}
 
-              {isMoreOpen && (
-                <div className="absolute left-0 top-full pt-2">
-                  <div className="w-48 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-sm p-1.5 shadow-xl shadow-slate-900/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    {moreNav.map((item) => (
-                      <Link
-                        key={item.href}
-                        to={item.href}
-                        className={cn(
-                          "block rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
-                          isActive(item.href) ? "bg-indigo-50/80 text-indigo-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        )}
-                        onClick={() => setIsMoreOpen(false)}
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+          <div className="relative" ref={moreRef}>
+            <button
+              type="button"
+              onClick={() => setMoreOpen((o) => !o)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition",
+                moreOpen
+                  ? "bg-white text-[var(--color-ink)]"
+                  : "text-[var(--color-ink-muted)] hover:bg-white hover:text-[var(--color-ink)]",
               )}
-            </div>
-          </nav>
-        </div>
-
-        <div className="hidden items-center gap-4 md:flex">
-          <Link
-            to="/workspace"
-            className="group flex items-center gap-2 rounded-full border border-slate-200/80 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-indigo-200 hover:text-indigo-600"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1" />
-            Switch context 
-          </Link>
-
-          <div className="w-px h-6 bg-slate-200/80" />
-
-          <div
-            className="relative"
-            onMouseEnter={() => setIsProfileOpen(true)}
-            onMouseLeave={() => setIsProfileOpen(false)}
-          >
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-500 shadow-sm transition-all hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md">
-              <UserRound className="h-4 w-4" />
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+            >
+              More
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
 
-            {isProfileOpen && (
-              <div className="absolute right-0 top-full pt-2">
-                <div className="w-64 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-sm p-1.5 shadow-xl shadow-slate-900/5 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="px-4 py-3 mb-1 bg-slate-50/50 rounded-xl">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Account</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">Customer Workspace</p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{businessId}</p>
-                  </div>
+            {moreOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white p-1.5 shadow-[var(--shadow-card)]"
+              >
+                {MORE_LINKS(businessId).map(({ to, label, icon: Icon }) => (
                   <Link
-                    to={`/admin/${businessId}/dashboard`}
-                    className="flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    key={to}
+                    to={to}
+                    onClick={() => setMoreOpen(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--color-ink)] transition hover:bg-[var(--color-surface)]"
                   >
-                    Go to Admin View <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+                    <Icon className="h-4 w-4 text-[var(--color-ink-muted)]" />
+                    {label}
                   </Link>
-                  <div className="my-1 h-px bg-slate-100" />
-                  <div className="px-1.5 py-1">
-                    <LogoutButton />
-                  </div>
-                </div>
+                ))}
               </div>
-            )}
+            ) : null}
           </div>
-        </div>
+        </nav>
 
-        <button
-          className="text-slate-500 hover:text-slate-900 md:hidden p-2 -mr-2"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            to="/workspace"
+            className="hidden items-center gap-2 rounded-full border border-[var(--color-border-soft)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--color-ink)] transition hover:border-[var(--color-border-strong)] sm:inline-flex"
+          >
+            <Building2 className="h-3.5 w-3.5 text-[var(--color-ink-muted)]" />
+            Workspace
+          </Link>
+
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border-soft)] bg-white text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
+            aria-label="Account"
+          >
+            <UserCircle2 className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      {isMobileMenuOpen && (
-        <div className="border-t border-slate-200 bg-white/95 backdrop-blur-xl md:hidden animate-in slide-in-from-top-2">
-          <div className="space-y-1 p-4">
-            {[...mainNav, ...moreNav].map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
+      <div className="flex items-center gap-1 overflow-x-auto px-4 pb-3 md:hidden">
+        {[...PRIMARY_LINKS(businessId), ...MORE_LINKS(businessId)].map(
+          ({ to, label, icon: Icon }) => {
+            const active = location.pathname.startsWith(to);
+            return (
+              <NavLink
+                key={to}
+                to={to}
                 className={cn(
-                  "block rounded-xl px-4 py-3 text-base font-medium transition-colors",
-                  isActive(item.href)
-                    ? "bg-indigo-50/80 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition",
+                  active
+                    ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)]"
+                    : "text-[var(--color-ink-muted)] hover:bg-white",
                 )}
-                onClick={() => setIsMobileMenuOpen(false)}
               >
-                {item.label}
-              </Link>
-            ))}
-            <div className="my-4 h-px bg-slate-100" />
-            <Link
-              to="/workspace"
-              className="block rounded-xl px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Switch Workspace
-            </Link>
-            <Link
-              to={`/admin/${businessId}/dashboard`}
-              className="block rounded-xl px-4 py-3 text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Admin View
-            </Link>
-            <div className="mt-4 px-2">
-              <LogoutButton />
-            </div>
-          </div>
-        </div>
-      )}
+                <Icon className="h-3 w-3" />
+                {label}
+              </NavLink>
+            );
+          },
+        )}
+      </div>
     </header>
   );
 }

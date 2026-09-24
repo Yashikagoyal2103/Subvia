@@ -1,16 +1,28 @@
 import { Loader2 } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 
 interface LoadingStateProps {
-  className?: string;
   message?: string;
+  className?: string;
 }
 
-export function LoadingState({ className, message = "Loading..." }: LoadingStateProps) {
+export function LoadingState({
+  message = "Loading…",
+  className,
+}: LoadingStateProps) {
   return (
-    <div className={cn("flex min-h-[200px] flex-col items-center justify-center p-8", className)}>
-      <Loader2 className="mb-4 h-8 w-8 animate-spin text-gray-400" />
-      <p className="text-sm font-medium text-gray-500">{message}</p>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-3 rounded-2xl",
+        "border border-[var(--color-border-soft)] bg-white/70 px-6 py-14",
+        "shadow-[var(--shadow-soft)] backdrop-blur-sm",
+        className,
+      )}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)]">
+        <Loader2 className="h-5 w-5 animate-spin text-[var(--color-ink)]" />
+      </span>
+      <p className="text-sm font-medium text-[var(--color-ink-muted)]">{message}</p>
     </div>
   );
 }

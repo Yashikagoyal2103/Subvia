@@ -3,6 +3,7 @@ import type {
   CreateSubscriptionInput,
   UpgradeSubscriptionInput,
   DowngradeSubscriptionInput,
+  CreateCustomerSubscriptionInput,
 } from "./subscription.schema.js";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
@@ -48,10 +49,19 @@ export async function createSubscription(
     const plan = await tx.plan.findFirst({
       where: {
         id: input.planId,
+        isActive: true,
         service: {
+          isActive: true,
           businessId,
         },
-        isActive: true,
+      },
+      include: {
+        service: {
+          select: {
+            id: true,
+            businessId: true,
+          },
+        },
       },
     });
 
@@ -804,4 +814,47 @@ export async function cancelSubscription(
 
     return result;
   });
+}
+
+export async function createCustomerSubscription(
+  userId: string,
+  input: CreateCustomerSubscriptionInput,
+  idempotencyKey: string
+) {
+  const plan = await prisma.plan.findFirst({
+    where: {
+      id: input.planId,
+      isActive: true,
+      service: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+      currency: true,
+      service: {
+        select: {
+          businessId: true,
+        },
+      },
+    },
+  });
+
+  if (!plan) {
+    throw new Error("PLAN_NOT_FOUND");
+  }
+
+  if (plan.currency !== input.currency) {
+    throw new Error("CURRENCY_NOT_SUPPORTED");
+  }
+
+  return createSubscription(
+    userId,
+    plan.service.businessId,
+    {
+      planId: plan.id,
+      currency: input.currency,
+    },
+    idempotencyKey
+  );
 }

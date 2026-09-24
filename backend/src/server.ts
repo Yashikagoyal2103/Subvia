@@ -1,11 +1,12 @@
 import app from "./app.js";
-import { startWebhookWorker } from "./modules/webhooks/webhook.worker.js";
+import { env } from "./config/env.js";
+import {
+  startWebhookWorker,
+} from "./modules/webhooks/webhook.worker.js";
 
-const PORT = 3000;
-
-app.listen(PORT, () => {
+app.listen(env.PORT, () => {
   console.log(
-    `Server running on http://localhost:${PORT}`
+    `Server running on http://localhost:${env.PORT}`
   );
 
   startWebhookWorker();

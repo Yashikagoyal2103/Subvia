@@ -1,85 +1,201 @@
-@import "tailwindcss";
 @import "@fontsource-variable/geist";
+@import "tailwindcss";
+@import "tw-animate-css";
 
+/* ─────────────────────────────────────────────────────────────
+   Design tokens
+   ───────────────────────────────────────────────────────────── */
 @theme {
-  --animate-wave: wave 2s infinite;
-  --animate-fade-in-up: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-fade-in: fadeIn 0.4s ease-out forwards;
-  
-  @keyframes wave {
-    0% { transform: rotate(0.0deg) }
-    10% { transform: rotate(14.0deg) }
-    20% { transform: rotate(-8.0deg) }
-    30% { transform: rotate(14.0deg) }
-    40% { transform: rotate(-4.0deg) }
-    50% { transform: rotate(10.0deg) }
-    60% { transform: rotate(0.0deg) }
-    100% { transform: rotate(0.0deg) }
-  }
-  
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  --font-sans: "Geist Variable", Geist, Inter, ui-sans-serif, system-ui, sans-serif;
+
+  --color-accent: #d7f24c;
+  --color-accent-foreground: #14140f;
+  --color-accent-soft: #ecf9b7;
+
+  --color-surface: #f7f8fa;
+  --color-surface-raised: #ffffff;
+  --color-surface-dark: #14161a;
+
+  --color-border-soft: #e7e9ed;
+  --color-border-strong: #d6d9df;
+
+  --color-ink: #14161a;
+  --color-ink-muted: #5b6472;
+  --color-ink-subtle: #8a92a1;
+
+  --shadow-soft: 0 1px 2px rgba(16, 24, 40, 0.04),
+    0 1px 3px rgba(16, 24, 40, 0.03);
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.04),
+    0 8px 24px -8px rgba(16, 24, 40, 0.06);
+  --shadow-pill: 0 1px 2px rgba(16, 24, 40, 0.06);
+
+  --radius-soft: 14px;
+  --radius-card: 18px;
+  --radius-pill: 999px;
 }
 
 :root {
-  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
+  font-family: var(--font-sans);
+  color: #0f172a;
+  background: #edf0f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: #edf0f5;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-.customer-shell {
-  background: 
-    radial-gradient(120% 100% at 50% 0%, rgba(224, 231, 255, 0.5) 0%, rgba(248, 250, 252, 0) 100%),
-    radial-gradient(circle at 15% 50%, rgba(238, 242, 255, 0.6) 0%, transparent 40%),
-    #f8fafc;
   min-height: 100vh;
+  margin: 0;
+  color: #0f172a;
+  background-color: #edf0f5;
 }
 
-.surface-panel {
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 12px 32px -8px rgba(15, 23, 42, 0.04);
-  backdrop-filter: blur(12px);
+button,
+a,
+input,
+textarea,
+select {
+  font: inherit;
 }
 
-.glass-panel {
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 100%);
-  box-shadow: 0 8px 32px -4px rgba(30, 41, 59, 0.05), inset 0 2px 4px rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(20px);
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
-.premium-card {
+::selection {
+  background: rgba(99, 102, 241, 0.16);
+  color: #312e81;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   App canvas — light cool grey with soft lime/indigo/cyan
+   atmosphere + extremely subtle grid, masked before the fold.
+   ───────────────────────────────────────────────────────────── */
+.app-canvas {
   position: relative;
-  border-radius: 16px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 100vh;
+  isolation: isolate;
+  background-color: #edf0f5;
+  background-image:
+    radial-gradient(
+      ellipse 900px 620px at 8% -10%,
+      rgba(215, 242, 76, 0.28),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 1150px 720px at 98% 0%,
+      rgba(129, 140, 248, 0.2),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 900px 620px at 50% 115%,
+      rgba(56, 189, 248, 0.12),
+      transparent 65%
+    ),
+    linear-gradient(180deg, #f1f3f8 0%, #e5eaf2 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
-.premium-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08), 0 4px 12px -3px rgba(15, 23, 42, 0.04);
-  border-color: #cbd5e1;
+.app-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.9),
+    transparent 62%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.9),
+    transparent 62%
+  );
 }
 
-.text-gradient {
-  background: linear-gradient(135deg, #312e81 0%, #4f46e5 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* ─────────────────────────────────────────────────────────────
+   Reusable surface helpers (safe to use in any customer page)
+   ───────────────────────────────────────────────────────────── */
+@layer components {
+  .surface {
+    background: #fcfcfd;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.04),
+      0 12px 40px -16px rgba(16, 24, 40, 0.12);
+  }
+
+  .surface-panel {
+    background: #fcfcfd;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 1.25rem;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.035),
+      0 8px 28px -14px rgba(16, 24, 40, 0.1);
+  }
+
+  .premium-card {
+    background: #fcfcfd;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: 1rem;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.035),
+      0 6px 20px -12px rgba(16, 24, 40, 0.1);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .premium-card:hover {
+    border-color: rgba(99, 102, 241, 0.22);
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.04),
+      0 10px 30px -14px rgba(79, 70, 229, 0.18);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 320ms ease-out both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

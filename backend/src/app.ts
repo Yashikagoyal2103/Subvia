@@ -16,6 +16,8 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import webhookRoutes from "./modules/webhooks/webhook.routes.js";
 import apiKeyRoutes from "./modules/api-keys/api-key.routes.js";
 import publicApiRoutes from "./modules/public-api/public-api.routes.js";
+import catalogRoutes from "./modules/catalog/catalog.routes.js";
+import customerPortalRoutes from "./modules/customer-portal/customer-portal.routes.js";
 
 const app = express();
 
@@ -57,6 +59,8 @@ app.use("/api/v1/businesses", adminRoutes);
 app.use("/api/v1/businesses", webhookRoutes);
 app.use("/api/v1/businesses", apiKeyRoutes);
 app.use("/api/v1/public", publicApiRoutes);
+app.use("/api/v1/catalog", catalogRoutes);
+app.use("/api/v1",customerPortalRoutes);
 
 app.use(errorHandler);
 

@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
-import { createSubscriptionSchema, subscriptionParamsSchema ,upgradeSubscriptionSchema, downgradeSubscriptionSchema, cancelSubscriptionSchema } from "./subscription.schema.js";
+import { createSubscriptionSchema, subscriptionParamsSchema ,upgradeSubscriptionSchema, downgradeSubscriptionSchema, cancelSubscriptionSchema, createCustomerSubscriptionSchema } from "./subscription.schema.js";
 import { paginationSchema } from "../../shared/utils/pagination.js";
 import {
   createSubscription,
@@ -10,6 +10,7 @@ import {
   upgradeSubscription,
   downgradeSubscription,
   cancelSubscription,
+  createCustomerSubscription,
 } from "./subscription.service.js";
 
 export async function create(req: AuthenticatedRequest, res: Response) {
@@ -179,5 +180,36 @@ export async function events(
   return res.status(200).json({
     success: true,
     data: result,
+  });
+}
+
+export async function createCustomer(
+  req: AuthenticatedRequest,
+  res: Response
+) {
+  const input =
+    createCustomerSubscriptionSchema.parse(
+      req.body
+    );
+
+  const idempotencyKey =
+    req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error(
+      "IDEMPOTENCY_KEY_REQUIRED"
+    );
+  }
+
+  const subscription =
+    await createCustomerSubscription(
+      req.userId,
+      input,
+      idempotencyKey
+    );
+
+  return res.status(201).json({
+    success: true,
+    data: subscription,
   });
 }

@@ -1,7 +1,10 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateBusinessInput, UpdateBusinessInput, } from "./business.schema.js";
 
-export async function createBusiness( userId: string, input: CreateBusinessInput ) {
+export async function createBusiness(
+  userId: string,
+  input: CreateBusinessInput
+) {
   return prisma.business.create({
     data: {
       name: input.name,
@@ -15,7 +18,6 @@ export async function createBusiness( userId: string, input: CreateBusinessInput
     },
   });
 }
-
 export async function getBusiness(
   userId: string,
   businessId: string
@@ -67,43 +69,29 @@ export async function updateBusiness(
   });
 }
 
-export async function getMyBusinesses(userId: string) {
-  const memberships = await prisma.businessMember.findMany({
-    where: {
-      userId,
-    },
-    include: {
-      business: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
-
-  const customerProfiles =
-    await prisma.customerProfile.findMany({
+export async function getMyBusinesses(
+  userId: string
+) {
+  const memberships =
+    await prisma.businessMember.findMany({
       where: {
         userId,
+        role: "BUSINESS_ADMIN",
       },
-      select: {
-        businessId: true,
-        id: true,
+      include: {
+        business: true,
+      },
+      orderBy: {
+        createdAt: "asc",
       },
     });
-
-  const customerByBusiness = new Map(
-    customerProfiles.map((profile) => [
-      profile.businessId,
-      profile.id,
-    ])
-  );
 
   return memberships.map((membership) => ({
     id: membership.business.id,
     name: membership.business.name,
     taxRate: membership.business.taxRate,
     role: membership.role,
-    customerProfileId:
-      customerByBusiness.get(membership.business.id) ?? null,
+    createdAt: membership.business.createdAt,
+    updatedAt: membership.business.updatedAt,
   }));
 }

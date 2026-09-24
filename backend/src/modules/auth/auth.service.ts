@@ -40,18 +40,27 @@ export async function registerUser(input: RegisterInput) {
     throw new Error("USER_ALREADY_EXISTS");
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(
+    input.password,
+    12
+  );
 
   const user = await prisma.user.create({
     data: {
+      firstName: input.firstName,
+      lastName: input.lastName,
       email,
       passwordHash,
+      accountType: input.intent,
     },
   });
 
   return {
     id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
     email: user.email,
+    accountType: user.accountType,
   };
 }
 
@@ -98,6 +107,13 @@ export async function loginUser(input: LoginInput) {
   return {
     accessToken,
     refreshToken,
+    user: {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      accountType: user.accountType,
+    },
   };
 }
 

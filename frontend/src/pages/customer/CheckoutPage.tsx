@@ -1,214 +1,241 @@
 import { useState } from "react";
-import {
-  ArrowLeft, CheckCircle2, CreditCard, Loader2, ShieldCheck, XCircle, FileText
-} from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { toast } from "sonner";
+import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react";
 
-import { plansApi } from "../../api/plans";
-import { paymentsApi } from "../../api/payments";
-import { subscriptionsApi } from "../../api/subscriptions";
-import { Button } from "../../components/ui/button";
-import { queryClient } from "../../lib/query-client";
-import { cn } from "../../lib/utils";
+import { plansApi } from "@/api/plans";
+import { servicesApi } from "@/api/services";
+import { subscriptionsApi } from "@/api/subscriptions";
+import { paymentsApi } from "@/api/payments";
 
-const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
-function formatMoney(amount: number, currency: "INR" | "USD") {
-  return `${currencySymbol[currency]}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { PageHeader } from "@/components/page-header";
+import { LoadingState } from "@/components/loading-state";
+import { ErrorState } from "@/components/error-state";
+import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/format";
+
+type SimResult = "SUCCESS" | "FAILED";
 
 export function CheckoutPage() {
+  const { businessId = "", serviceId = "", planId = "" } = useParams();
   const navigate = useNavigate();
-  const { businessId, serviceId, planId } = useParams<{ businessId: string; serviceId: string; planId: string }>();
-  const [result, setResult] = useState<"SUCCESS" | "FAILED">("SUCCESS");
+  const [result, setResult] = useState<SimResult>("SUCCESS");
 
-  const planQuery = useQuery({
+  const serviceQ = useQuery({
+    queryKey: ["service", businessId, serviceId],
+    queryFn: () => servicesApi.getById(businessId, serviceId),
+  });
+  const planQ = useQuery({
     queryKey: ["plan", businessId, serviceId, planId],
-    queryFn: () => plansApi.getById(businessId!, serviceId!, planId!),
-    enabled: Boolean(businessId && serviceId && planId),
+    queryFn: () => plansApi.getById(businessId, serviceId, planId),
   });
 
-  const checkoutMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: async () => {
-      if (!businessId || !planQuery.data) throw new Error("CHECKOUT_CONTEXT_MISSING");
+      if (!planQ.data) throw new Error("Plan not loaded");
 
-      const created = await subscriptionsApi.create(businessId, { planId: planQuery.data.id, currency: planQuery.data.currency });
-      const payment = await paymentsApi.create(businessId, { invoiceId: created.invoice.id, paymentMethod: "DEMO", result });
+      // TODO: replace `as never` casts once we confirm actual input/result shapes.
+      const sub = (await subscriptionsApi.create(businessId, {
+        planId,
+        currency: planQ.data.currency,
+      } as never)) as unknown as {
+        id?: string;
+        subscriptionId?: string;
+        subscription?: { id?: string };
+      };
 
-      return { ...created, payment };
+      const subId = sub.id ?? sub.subscriptionId ?? sub.subscription?.id ?? "";
+
+      await paymentsApi.create(businessId, {
+        subscriptionId: subId,
+        result,
+      } as never);
+
+      return subId;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["subscriptions", businessId] });
-      queryClient.invalidateQueries({ queryKey: ["invoices", businessId] });
-      queryClient.invalidateQueries({ queryKey: ["payments", businessId] });
-      queryClient.invalidateQueries({ queryKey: ["credit-balance", businessId] });
-
-      if (data.payment.success) {
-        toast.success("Payment successful. Subscription activated.");
-        navigate(`/customer/${businessId}/subscriptions/${data.subscription.id}`, { replace: true });
-        return;
+    onSuccess: () => {
+      if (result === "SUCCESS") {
+        toast.success("Subscription activated");
+      } else {
+        toast.error("Payment failed — subscription not activated");
       }
-
-      toast.error("Payment failed. You can retry the invoice.");
-      navigate(`/customer/${businessId}/invoices/${data.invoice.id}`, { replace: true });
+      navigate(`/customer/${businessId}/subscriptions`);
     },
-    onError: (error) => {
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.error?.message ?? "Checkout failed.");
-        return;
-      }
-      toast.error("Checkout failed.");
+    onError: (err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : "Checkout failed. Please try again.";
+      toast.error(message);
     },
   });
 
-  if (!businessId || !serviceId || !planId) {
-    return <div className="rounded-3xl border bg-white p-10 text-center"><h2 className="text-lg font-semibold text-slate-900">Checkout context is missing</h2></div>;
-  }
-
-  if (planQuery.isLoading) {
-    return <div className="flex min-h-[500px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>;
-  }
-
-  if (planQuery.isError || !planQuery.data) {
+  if (serviceQ.isLoading || planQ.isLoading)
+    return <LoadingState message="Preparing checkout…" />;
+  if (serviceQ.isError || planQ.isError || !planQ.data)
     return (
-      <div className="rounded-[32px] border bg-white p-12 text-center max-w-2xl mx-auto shadow-sm">
-        <XCircle className="mx-auto h-12 w-12 text-red-500 mb-6" />
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">Unable to load plan</h2>
-        <p className="text-sm text-slate-500">The selected plan could not be loaded for checkout.</p>
-      </div>
+      <ErrorState
+        description="We couldn't load the plan for checkout."
+        retryAction={() => {
+          serviceQ.refetch();
+          planQ.refetch();
+        }}
+      />
     );
-  }
 
-  const plan = planQuery.data;
+  const service = serviceQ.data;
+  const plan = planQ.data;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-fade-in pb-12">
-      <div>
-        <Link to={`/customer/${businessId}/services/${serviceId}/plans`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Return to plans
-        </Link>
+    <div className="space-y-8">
+      <PageHeader
+        title="Checkout"
+        description="Simulated payment — no real charge is made."
+      />
 
-        <div className="mt-8 flex items-end justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Complete your subscription</h1>
-            <p className="mt-3 text-base text-slate-500">Review your selection and process the demo payment.</p>
-          </div>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)]">
+            <h2 className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
+              Demo payment simulator
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+              Choose how this payment should resolve. This is a simulated flow —
+              no card, UPI, or bank details are collected.
+            </p>
 
-      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] items-start">
-        
-        {/* Payment Configuration */}
-        <section className="glass-panel overflow-hidden p-1 lg:p-2">
-          <div className="bg-white rounded-[20px] p-6 sm:p-8">
-            <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100/50">
-                <CreditCard className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 tracking-tight">Payment Configuration</h2>
-                <p className="text-sm text-slate-500 mt-1">Select simulation mode</p>
-              </div>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <SimOption
+                value="SUCCESS"
+                selected={result === "SUCCESS"}
+                onSelect={setResult}
+                title="Successful payment"
+                description="Subscription will be activated."
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                tone="success"
+              />
+              <SimOption
+                value="FAILED"
+                selected={result === "FAILED"}
+                onSelect={setResult}
+                title="Failed payment"
+                description="Subscription will not be activated."
+                icon={<XCircle className="h-4 w-4" />}
+                tone="danger"
+              />
             </div>
 
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => setResult("SUCCESS")}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-5 text-left transition-all duration-200 group",
-                  result === "SUCCESS" ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500/20 shadow-sm" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn("p-2 rounded-full", result === "SUCCESS" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600")}>
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className={cn("font-semibold", result === "SUCCESS" ? "text-emerald-900" : "text-slate-700")}>Successful Payment</p>
-                    <p className="text-xs text-slate-500 mt-1">Simulates a successful charge and activates the subscription.</p>
-                  </div>
-                </div>
-                {result === "SUCCESS" && <div className="h-3 w-3 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setResult("FAILED")}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-2xl border p-5 text-left transition-all duration-200 group",
-                  result === "FAILED" ? "border-rose-500 bg-rose-50/30 ring-1 ring-rose-500/20 shadow-sm" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn("p-2 rounded-full", result === "FAILED" ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-400 group-hover:text-slate-600")}>
-                    <XCircle className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className={cn("font-semibold", result === "FAILED" ? "text-rose-900" : "text-slate-700")}>Failed Payment</p>
-                    <p className="text-xs text-slate-500 mt-1">Simulates a declined card to test the failed payment workflow.</p>
-                  </div>
-                </div>
-                {result === "FAILED" && <div className="h-3 w-3 rounded-full bg-rose-500 ring-4 ring-rose-100" />}
-              </button>
-            </div>
-
-            <div className="mt-8 flex gap-3 rounded-xl bg-slate-50/80 border border-slate-100 p-4">
-              <ShieldCheck className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
-              <p className="text-xs leading-5 text-slate-500">
-                This environment is for demonstration purposes. No real money or card information is processed. The backend will simulate the complete billing lifecycle based on your selection.
+            <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-[var(--color-surface)] p-3.5 text-xs text-[var(--color-ink-muted)]">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink)]" />
+              <p>
+                Taxes and the final invoice are generated by the billing service
+                after successful payment. Historical invoices remain unchanged.
               </p>
             </div>
+          </section>
+        </div>
+
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface-dark)] p-6 text-white shadow-[var(--shadow-card)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
+              Order summary
+            </p>
+            <h3 className="mt-2 text-lg font-semibold tracking-tight">
+              {plan.name}
+            </h3>
+            <p className="text-sm text-white/60">{service?.name}</p>
+
+            <dl className="mt-6 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-white/60">Interval</dt>
+                <dd className="font-medium">
+                  {plan.interval === "MONTHLY" ? "Monthly" : "Yearly"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-white/60">Currency</dt>
+                <dd className="font-medium">{plan.currency}</dd>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                <dt className="text-white/60">Total today</dt>
+                <dd className="text-base font-semibold tabular-nums text-[var(--color-accent)]">
+                  {formatMoney(plan.price, plan.currency)}
+                </dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
+              className={cn(
+                "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full",
+                "bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-accent-foreground)]",
+                "transition hover:brightness-105 disabled:opacity-60",
+              )}
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing…
+                </>
+              ) : (
+                `Pay ${formatMoney(plan.price, plan.currency)}`
+              )}
+            </button>
           </div>
-        </section>
-
-        {/* Order Summary */}
-        <aside className="premium-card p-6 sm:p-8 sticky top-24">
-          <div className="flex items-center gap-3 mb-6 pb-6 border-b border-slate-100">
-            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><FileText className="h-5 w-5" /></div>
-            <h2 className="text-lg font-semibold text-slate-900">Order Summary</h2>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-            <p className="text-sm leading-6 text-slate-500">{plan.description ?? "Premium subscription"}</p>
-          </div>
-
-          <div className="space-y-4 bg-slate-50 p-5 rounded-2xl mb-8">
-            <div className="flex justify-between items-center text-sm">
-              <span className="font-medium text-slate-500">Plan price</span>
-              <span className="font-semibold text-slate-900">{formatMoney(plan.price, plan.currency)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="font-medium text-slate-500">Billing interval</span>
-              <span className="font-semibold text-slate-900 capitalize">{plan.interval.toLowerCase()}</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-400 mb-8 leading-5 text-center px-4">
-            Final tax calculations and invoice totals are generated by the billing engine upon subscription creation.
-          </p>
-
-          <Button
-            type="button"
-            className={cn("w-full h-14 rounded-xl text-base font-semibold shadow-md transition-all duration-300", 
-              result === 'SUCCESS' ? "bg-slate-900 hover:bg-indigo-600 text-white" : "bg-rose-600 hover:bg-rose-700 text-white"
-            )}
-            disabled={checkoutMutation.isPending}
-            onClick={() => checkoutMutation.mutate()}
-          >
-            {checkoutMutation.isPending ? (
-              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing order...</>
-            ) : result === "SUCCESS" ? (
-              "Subscribe & Pay"
-            ) : (
-              "Run Failed Payment"
-            )}
-          </Button>
         </aside>
       </div>
     </div>
+  );
+}
+
+interface SimOptionProps {
+  value: SimResult;
+  selected: boolean;
+  onSelect: (v: SimResult) => void;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  tone: "success" | "danger";
+}
+
+function SimOption({
+  value,
+  selected,
+  onSelect,
+  title,
+  description,
+  icon,
+  tone,
+}: SimOptionProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={cn(
+        "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition",
+        selected
+          ? "border-[var(--color-ink)] bg-[var(--color-surface)] shadow-[var(--shadow-soft)]"
+          : "border-[var(--color-border-soft)] bg-white hover:border-[var(--color-border-strong)]",
+      )}
+      aria-pressed={selected}
+    >
+      <span
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full",
+          tone === "success"
+            ? "bg-emerald-50 text-emerald-600"
+            : "bg-rose-50 text-rose-600",
+        )}
+      >
+        {icon}
+      </span>
+      <span className="text-sm font-semibold text-[var(--color-ink)]">
+        {title}
+      </span>
+      <span className="text-xs text-[var(--color-ink-muted)]">
+        {description}
+      </span>
+    </button>
   );
 }

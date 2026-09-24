@@ -1,7 +1,7 @@
-import { ArrowRight, Package2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { cn } from "cn";
-import type { Service } from "../../api/services";
+import { ArrowUpRight, Sparkles } from "lucide-react";
+import type { Service } from "@/api/services";
+import { cn } from "@/lib/utils";
 
 interface ServiceCardProps {
   service: Service;
@@ -14,35 +14,50 @@ export function ServiceCard({ service, href, className }: ServiceCardProps) {
     <Link
       to={href}
       className={cn(
-        "group relative flex min-h-59.5 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.55)] backdrop-blur-sm",
-        "transition-all duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:bg-white hover:shadow-[0_18px_38px_-24px_rgba(79,70,229,0.45)]",
-        className
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl",
+        "border border-[var(--color-border-soft)] bg-white p-5",
+        "shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-card)]",
+        className,
       )}
     >
-      {/* Active indicator stripe */}
-      {service.isActive && (
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-indigo-500 to-purple-500" />
-      )}
-
-      {/* Icon + arrow row */}
-      <div className="mb-5 flex items-start justify-between">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-indigo-50 to-cyan-50 text-indigo-600 ring-1 ring-indigo-100 transition-colors group-hover:from-indigo-100 group-hover:to-cyan-100">
-          <Package2 className="h-5 w-5" />
+      <div>
+        <div className="flex items-start justify-between">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+              service.isActive
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-slate-100 text-slate-600",
+            )}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                service.isActive ? "bg-emerald-500" : "bg-slate-400",
+              )}
+            />
+            {service.isActive ? "Active" : "Inactive"}
+          </span>
         </div>
 
-        <ArrowRight className="h-4 w-4 translate-x-0 text-gray-300 transition-all duration-200 group-hover:translate-x-1 group-hover:text-indigo-500" />
+        <h3 className="mt-4 text-base font-semibold tracking-tight text-[var(--color-ink)]">
+          {service.name}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-sm text-[var(--color-ink-muted)]">
+          {service.description || "No description provided."}
+        </p>
       </div>
 
-      {/* Content */}
-      <h2 className="text-[17px] font-semibold tracking-tight text-slate-900">{service.name}</h2>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-500 line-clamp-3">
-        {service.description || "Explore subscription plans for this service."}
-      </p>
-
-      {/* CTA */}
-      <div className="mt-5 flex items-center gap-1.5 text-sm font-medium text-indigo-600 transition-colors group-hover:text-indigo-700">
-        Explore plans
-        <ArrowRight className="h-3.5 w-3.5 translate-x-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+      <div className="mt-5 flex items-center justify-between border-t border-[var(--color-border-soft)] pt-3">
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--color-ink-subtle)]">
+          View plans
+        </span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-ink)] transition group-hover:bg-[var(--color-accent)]">
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </span>
       </div>
     </Link>
   );

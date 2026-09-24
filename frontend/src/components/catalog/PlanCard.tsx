@@ -1,76 +1,70 @@
-import { cn } from "cn";
-import type { Plan } from "../../api/plans";
+import { Link } from "react-router-dom";
+import { Check } from "lucide-react";
+import type { Plan } from "@/api/plans";
+import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/format";
 
 interface PlanCardProps {
   plan: Plan;
-  action?: React.ReactNode;
+  href: string;
   className?: string;
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = {
-  INR: "₹",
-  USD: "$",
-};
-
-const INTERVAL_LABEL: Record<string, string> = {
-  MONTHLY: "month",
-  YEARLY: "year",
-};
-
-function formatMinorUnits(amount: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOL[currency] ?? currency;
-  const value = (amount / 100).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `${symbol}${value}`;
-}
-
-export function PlanCard({ plan, action, className }: PlanCardProps) {
-  const formattedPrice = formatMinorUnits(plan.price, plan.currency);
-  const intervalLabel = INTERVAL_LABEL[plan.interval] ?? plan.interval.toLowerCase();
-
+export function PlanCard({ plan, href, className }: PlanCardProps) {
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm",
-        "transition-shadow duration-200 hover:shadow-md",
-        !plan.isActive && "opacity-60",
-        className
+        "flex flex-col justify-between rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-card)]",
+        className,
       )}
     >
-      {/* Top accent */}
-      <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl bg-gradient-to-r from-indigo-400 to-purple-400" />
+      <div>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">
+              {plan.name}
+            </h3>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-ink-subtle)]">
+              {plan.interval === "MONTHLY" ? "Billed monthly" : "Billed yearly"}
+            </p>
+          </div>
+          {plan.isActive ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Active
+            </span>
+          ) : null}
+        </div>
 
-      {/* Plan name + status */}
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <h3 className="text-lg font-semibold text-gray-900 leading-tight">{plan.name}</h3>
-        {!plan.isActive && (
-          <span className="mt-0.5 shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 border border-gray-200">
-            Inactive
+        <div className="mt-5 flex items-baseline gap-1.5">
+          <span className="text-3xl font-semibold tracking-tight text-[var(--color-ink)] tabular-nums">
+            {formatMoney(plan.price, plan.currency)}
           </span>
+          <span className="text-sm text-[var(--color-ink-muted)]">
+            /{plan.interval === "MONTHLY" ? "mo" : "yr"}
+          </span>
+        </div>
+
+        {plan.description ? (
+          <p className="mt-3 line-clamp-3 text-sm text-[var(--color-ink-muted)]">
+            {plan.description}
+          </p>
+        ) : null}
+      </div>
+
+      <Link
+        to={href}
+        className={cn(
+          "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full",
+          "bg-[var(--color-ink)] px-4 py-2.5 text-sm font-semibold text-white",
+          "transition hover:bg-[var(--color-surface-dark)]",
+          !plan.isActive && "pointer-events-none opacity-40",
         )}
-      </div>
-
-      {/* Description */}
-      <p className="mb-6 min-h-[40px] text-sm text-gray-500 line-clamp-2">
-        {plan.description || "A subscription plan for this service."}
-      </p>
-
-      {/* Price block */}
-      <div className="mb-1 flex items-baseline gap-1">
-        <span className="text-4xl font-bold tracking-tight text-gray-900">
-          {formattedPrice}
-        </span>
-        <span className="text-sm font-medium text-gray-400">/ {intervalLabel}</span>
-      </div>
-
-      <p className="mb-6 text-xs font-medium tracking-wide text-gray-400 uppercase">
-        Billed {plan.interval.toLowerCase()}
-      </p>
-
-      {/* CTA slot */}
-      {action && <div className="mt-auto">{action}</div>}
+        aria-disabled={!plan.isActive}
+      >
+        <Check className="h-4 w-4" />
+        Select {plan.name}
+      </Link>
     </div>
   );
 }

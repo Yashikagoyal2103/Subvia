@@ -1,18 +1,13 @@
-import { Outlet, useParams } from "react-router-dom";
-import { CustomerTopNav } from "../components/customer-top-nav";
+import { Outlet } from "react-router-dom";
+import { CustomerTopNav } from "@/components/customer-top-nav";
+import { useParams } from "react-router-dom";
 
 export function CustomerLayout() {
-  const { businessId } = useParams<{ businessId: string }>();
-
-  if (!businessId) {
-    return null;
-  }
-
+  const { businessId = "" } = useParams();
   return (
-    <div className="customer-shell min-h-screen text-slate-950 selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="app-canvas min-h-screen">
       <CustomerTopNav businessId={businessId} />
-
-      <main className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+      <main className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <Outlet />
       </main>
     </div>

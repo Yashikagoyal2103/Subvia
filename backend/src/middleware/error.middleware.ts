@@ -25,6 +25,27 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     });
   }
 
+  if (error.message === "USER_NOT_FOUND") {
+  return res.status(401).json({
+    success: false,
+    error: {
+      code: "USER_NOT_FOUND",
+      message: "Authenticated user was not found.",
+    },
+  });
+}
+
+if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
+  return res.status(403).json({
+    success: false,
+    error: {
+      code: "ACCOUNT_TYPE_NOT_ALLOWED",
+      message:
+        "This account type cannot access this resource.",
+    },
+  });
+}
+
   if (error.message === "INVALID_CREDENTIALS") {
     return res.status(401).json({
       success: false,

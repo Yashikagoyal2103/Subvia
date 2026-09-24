@@ -1,88 +1,128 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Wallet, Info, Activity } from "lucide-react";
+import { Info, Wallet } from "lucide-react";
 
-import { creditsApi } from "../../api/credits";
-import { LoadingState } from "../../components/loading-state";
-import { ErrorState } from "../../components/error-state";
+import { creditsApi } from "@/api/credits";
+import { PageHeader } from "@/components/page-header";
+import { LoadingState } from "@/components/loading-state";
+import { ErrorState } from "@/components/error-state";
+import { formatMoney } from "@/lib/format";
 
-const symbols: Record<string, string> = { INR: "₹", USD: "$" };
-const money = (amount: number, currency: string) => `${symbols[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function readBalance(d: unknown): { INR: number; USD: number } {
+  if (!d || typeof d !== "object") return { INR: 0, USD: 0 };
+  const o = d as Record<string, unknown>;
+  const n = (v: unknown) => (typeof v === "number" ? v : 0);
+  return {
+    INR: n(o.INR) || n(o.inr) || 0,
+    USD: n(o.USD) || n(o.usd) || 0,
+  };
+}
 
 export function CustomerCreditsPage() {
-  const { businessId } = useParams<{ businessId: string }>();
+  const { businessId = "" } = useParams();
+  const hasBusiness = !!businessId;
 
-  const { data: credits, isLoading, isError, refetch } = useQuery({
-    queryKey: ["credit-balance", businessId],
-    queryFn: () => creditsApi.getBalance(businessId!),
-    enabled: Boolean(businessId),
+  const q = useQuery({
+    queryKey: ["credits", businessId],
+    queryFn: () => creditsApi.getBalance(businessId),
+    enabled: hasBusiness,
+    retry: false,
   });
 
-  if (!businessId) return <ErrorState description="Context missing." />;
-  if (isLoading) return <LoadingState message="Loading your balance..." />;
-  if (isError || !credits) return <ErrorState description="Unable to load credits." retryAction={() => refetch()} />;
+  if (!hasBusiness)
+    return <ErrorState description="A valid business context is required." />;
+  if (q.isPending) return <LoadingState message="Loading credit balance…" />;
 
-  const hasBalance = credits.INR > 0 || credits.USD > 0;
+  // Missing endpoint / 404 → treat as zero balance, not an error.
+  const { INR, USD } = q.isError ? { INR: 0, USD: 0 } : readBalance(q.data);
+  const hasAny = INR > 0 || USD > 0;
+  const endpointMissing = q.isError;
 
   return (
-    <div className="space-y-10 pb-12 animate-fade-in max-w-5xl mx-auto">
-      <header className="flex flex-col gap-3 text-center items-center py-8">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 mb-2 shadow-sm">
-          <Wallet className="h-8 w-8" />
-        </div>
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Billing Credits</h1>
-        <p className="text-base text-slate-500 max-w-xl">Available account balance that automatically reduces your eligible future invoices.</p>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        title="Credits"
+        description="Account credits are automatically applied to eligible future invoices."
+      />
 
-      {/* Balances Hero */}
-      <div className="grid gap-6 md:grid-cols-2 max-w-3xl mx-auto">
-        
-        <div className="glass-panel overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-violet-600 opacity-95" />
-          <div className="absolute right-0 top-0 h-40 w-40 translate-x-8 -translate-y-8 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative p-8 sm:p-10 text-white flex flex-col h-full justify-between min-h-[220px]">
-            <p className="text-sm font-bold uppercase tracking-widest text-indigo-100">INR Balance</p>
-            <div>
-              <p className="text-6xl font-bold tracking-tight mb-2">{money(credits.INR, "INR")}</p>
-              <p className="text-sm text-indigo-100 font-medium">Auto-applied to INR invoices</p>
-            </div>
+      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <BalancePanel currency="INR" amount={INR} />
+        <BalancePanel currency="USD" amount={USD} />
+      </section>
+
+      {!hasAny ? (
+        <div className="rounded-2xl border border-dashed border-[var(--color-border-soft)] bg-white/60 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-[var(--color-ink)]">
+            No credits available
+          </p>
+          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+            Credits issued to your account will appear here.
+          </p>
+          {endpointMissing ? (
+            <p className="mt-3 text-xs text-[var(--color-ink-subtle)]">
+              Note: the credit balance endpoint is not reachable for this
+              workspace, so balances are shown as zero.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-5 shadow-[var(--shadow-soft)]">
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface)]">
+            <Info className="h-4 w-4 text-[var(--color-ink-muted)]" />
+          </span>
+          <div className="text-sm text-[var(--color-ink-muted)]">
+            <p className="font-semibold text-[var(--color-ink)]">
+              How credits work
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>
+                Credits are monetary account credits, applied automatically to
+                eligible future invoices.
+              </li>
+              <li>Credits are non-withdrawable and non-transferable.</li>
+              <li>
+                Detailed credit ledger history is available to workspace
+                administrators, not from the customer view.
+              </li>
+            </ul>
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
 
-        <div className="glass-panel overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 opacity-95" />
-          <div className="relative p-8 sm:p-10 text-white flex flex-col h-full justify-between min-h-[220px]">
-            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">USD Balance</p>
-            <div>
-              <p className="text-6xl font-bold tracking-tight mb-2">{money(credits.USD, "USD")}</p>
-              <p className="text-sm text-slate-400 font-medium">Auto-applied to USD invoices</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {!hasBalance && (
-        <div className="max-w-3xl mx-auto mt-8 flex items-start gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100">
-          <Info className="h-5 w-5 text-slate-400 mt-0.5 shrink-0" />
-          <p className="text-sm text-slate-500 leading-relaxed">
-            You currently have no billing credits. Credits are typically generated through prorated plan downgrades or cancellations, and are strictly non-withdrawable. They will automatically be applied to your next eligible invoice.
+function BalancePanel({
+  currency,
+  amount,
+}: {
+  currency: "INR" | "USD";
+  amount: number;
+}) {
+  const has = amount > 0;
+  return (
+    <div className="overflow-hidden rounded-2xl bg-[var(--color-surface-dark)] p-6 text-white shadow-[var(--shadow-card)]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
+            {currency} balance
+          </p>
+          <p className="mt-2 text-3xl font-semibold tabular-nums text-[var(--color-accent)]">
+            {formatMoney(amount, currency)}
+          </p>
+          <p className="mt-1 text-xs text-white/60">
+            {has ? "Available for eligible invoices" : "No credits in this currency"}
           </p>
         </div>
-      )}
-
-      {/* Ledger placeholder if backend supports it in the future, for now show standard UI */}
-      {hasBalance && (
-        <div className="max-w-3xl mx-auto mt-12 space-y-6">
-          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-indigo-500" /> Recent Activity
-          </h3>
-          <div className="surface-panel p-10 text-center flex flex-col items-center">
-            <p className="text-sm text-slate-500">Detailed ledger history is available through the admin view. Your balance will automatically be deducted upon your next invoice generation.</p>
-          </div>
-        </div>
-      )}
-
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
+          <Wallet className="h-4 w-4 text-white/70" />
+        </span>
+      </div>
+      <p className="mt-6 border-t border-white/10 pt-3 text-[11px] text-white/40">
+        Minor units · {currency === "INR" ? "₹" : "$"}1 = 100 minor units
+      </p>
     </div>
   );
 }

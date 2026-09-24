@@ -18,7 +18,13 @@ export const downgradeSubscriptionSchema = z.object({
 export const cancelSubscriptionSchema = z.object({
   mode: z.enum(["PERIOD_END", "IMMEDIATE"]),
 });
+export const createCustomerSubscriptionSchema =
+  z.object({
+    planId: z.uuid(),
+    currency: z.enum(["INR", "USD"]),
+  });
 
+export type CreateCustomerSubscriptionInput = z.infer<typeof createCustomerSubscriptionSchema>;
 export type DowngradeSubscriptionInput = z.infer<typeof downgradeSubscriptionSchema>;
 export type UpgradeSubscriptionInput = z.infer<typeof upgradeSubscriptionSchema>;
 export type CreateSubscriptionInput = z.infer<typeof createSubscriptionSchema>;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../../middleware/auth.middleware.js";
-import { requireBusinessRole } from "../../middleware/auhtorization.middleware.js";
+import { requireBusinessRole } from "../../middleware/authorization.middleware.js";
 import { authRoute } from "../../shared/utils/route-wrapper.js";
 import { listCustomers, getCustomer, listSubscriptions, getSubscription, listInvoices, getInvoice, listPayments, getPayment, listBillingActivity } from "./admin.controller.js";
 

@@ -1,12 +1,24 @@
 import { z } from "zod";
 
-export const registerSchema = z.object({
- email: z.email(),
-  password: z.string().min(8),
-});
+export const registerSchema = z
+  .object({
+    firstName: z.string().trim().min(2).max(50),
+    lastName: z.string().trim().min(2).max(50),
+    email: z.email(),
+    password: z.string().min(8),
+    confirmPassword: z.string().min(8),
+    intent: z.enum(["ADMIN", "CUSTOMER"]),
+  })
+  .refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: "Passwords do not match.",
+      path: ["confirmPassword"],
+    }
+  );
 
 export const loginSchema = z.object({
- email: z.email(),
+  email: z.email(),
   password: z.string().min(8),
 });
 
@@ -14,6 +26,12 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterInput = z.infer<
+  typeof registerSchema
+>;
+
 export type LoginInput = z.infer<typeof loginSchema>;
-export type RefreshInput = z.infer<typeof refreshSchema>;
+
+export type RefreshInput = z.infer<
+  typeof refreshSchema
+>;
