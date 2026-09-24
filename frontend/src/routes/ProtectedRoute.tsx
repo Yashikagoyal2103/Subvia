@@ -1,30 +1,19 @@
-// import { Navigate, Outlet } from "react-router-dom";
-// import { useAuthStore } from "../stores/auth.store";
-
-// export function ProtectedRoute() {
-//   const { userId, isAuthenticated } = useAuthStore();
-
-//   if (!isAuthenticated || !userId) {
-//     return <Navigate to="/login" replace />;
-//   }
-
-//   return <Outlet />;
-// }
-
 import { Navigate, Outlet } from "react-router-dom";
+
 import { useAuthStore } from "../stores/auth.store";
 
 export function ProtectedRoute() {
-  const { userId, isAuthenticated } = useAuthStore();
+  const {
+    isAuthenticated,
+    isInitialized,
+    user,
+  } = useAuthStore();
 
-  const bypassAuth =
-    import.meta.env.DEV &&
-    import.meta.env.VITE_BYPASS_AUTH === "true";
+  if (!isInitialized) {
+    return null;
+  }
 
-  if (
-    !bypassAuth &&
-    (!isAuthenticated || !userId)
-  ) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 

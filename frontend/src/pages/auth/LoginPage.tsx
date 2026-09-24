@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Receipt, Sparkles, Layers } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { authApi } from "../../api/auth";
 import { useAuthStore } from "../../stores/auth.store";
@@ -9,7 +9,13 @@ import { AuthBrandPanel } from "../../components/auth/AuthBrandPanel";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setTokens, setUser, setInitialized, clearAuth } = useAuthStore();
+
+  const {
+    setTokens,
+    setUser,
+    setInitialized,
+    clearAuth,
+  } = useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +28,7 @@ export function LoginPage() {
 
   const validate = () => {
     let ok = true;
+
     setEmailError("");
     setPasswordError("");
     setFormError("");
@@ -45,22 +52,34 @@ export function LoginPage() {
     return ok;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (!validate()) return;
 
     setIsLoading(true);
+
     try {
-      const tokens = await authApi.login({ email, password });
+      const tokens = await authApi.login({
+        email: email.trim(),
+        password,
+      });
+
       setTokens(tokens.accessToken, tokens.refreshToken);
 
       const user = await authApi.me();
-      setUser(user.userId);
+      setUser(user);
       setInitialized(true);
 
-      navigate("/workspace", { replace: true });
+      navigate(
+        user.accountType === "CUSTOMER"
+          ? "/customer/dashboard"
+          : "/workspace",
+        { replace: true },
+      );
     } catch (error) {
       clearAuth();
+
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.error?.message;
         setFormError(message ?? "Unable to sign in. Please try again.");
@@ -76,45 +95,27 @@ export function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <AuthBrandPanel
         headline="Welcome back."
-        supporting="Sign in to manage your subscriptions, invoices and payments from one place."
-        bullets={[
-          {
-            icon: Sparkles,
-            title: "Subscriptions",
-            description: "Activate, upgrade, downgrade, cancel — all tracked.",
-          },
-          {
-            icon: Receipt,
-            title: "Invoices",
-            description: "Automatic, tax-aware, multi-currency documents.",
-          },
-          {
-            icon: Layers,
-            title: "Audit trail",
-            description: "Every subscription event is recorded.",
-          },
-        ]}
+        supporting="Log in to manage your billing workspace."
       />
 
       <main className="app-canvas flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20">
         <div className="mx-auto w-full max-w-[400px]">
-          {/* Mobile brand */}
           <div className="mb-10 flex items-center gap-2.5 lg:hidden">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-ink)] text-[13px] font-bold text-[var(--color-accent)]">
-              SB
+              B
             </span>
             <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              SaaS Billing
+              BillingOS
             </span>
           </div>
 
           <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-7 shadow-[var(--shadow-card)] sm:p-8">
             <div className="mb-6">
               <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-ink)]">
-                Welcome back
+                Sign in
               </h1>
               <p className="mt-1.5 text-sm text-[var(--color-ink-muted)]">
-                Sign in to continue to your account.
+                Use your email and password to continue.
               </p>
             </div>
 

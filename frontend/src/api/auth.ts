@@ -1,13 +1,20 @@
 import { apiClient } from "./client";
 
+export type AccountType = "ADMIN" | "CUSTOMER";
+export type RegistrationIntent = "ADMIN" | "CUSTOMER";
+
 export interface LoginInput {
   email: string;
   password: string;
 }
 
 export interface RegisterInput {
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
+  confirmPassword: string;
+  intent: RegistrationIntent;
 }
 
 export interface AuthTokens {
@@ -16,7 +23,11 @@ export interface AuthTokens {
 }
 
 export interface CurrentUser {
-  userId: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  accountType: AccountType;
 }
 
 export const authApi = {
@@ -29,16 +40,10 @@ export const authApi = {
     return response.data.data;
   },
 
-  async register(input: RegisterInput): Promise<{
-    id: string;
-    email: string;
-  }> {
+  async register(input: RegisterInput): Promise<CurrentUser> {
     const response = await apiClient.post<{
       success: true;
-      data: {
-        id: string;
-        email: string;
-      };
+      data: CurrentUser;
     }>("/auth/register", input);
 
     return response.data.data;

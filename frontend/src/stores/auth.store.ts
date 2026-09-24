@@ -1,28 +1,41 @@
 import { create } from "zustand";
 
+import type { CurrentUser } from "../api/auth";
+
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  userId: string | null;
+  user: CurrentUser | null;
   isAuthenticated: boolean;
   isInitialized: boolean;
 
   setTokens: (accessToken: string, refreshToken: string) => void;
-  setUser: (userId: string) => void;
+  setUser: (user: CurrentUser) => void;
   setInitialized: (value: boolean) => void;
   clearAuth: () => void;
 }
 
 const storedAccessToken = localStorage.getItem("accessToken");
 const storedRefreshToken = localStorage.getItem("refreshToken");
-const storedUserId = localStorage.getItem("userId");
+const storedUser = localStorage.getItem("user");
+
+let parsedUser: CurrentUser | null = null;
+
+try {
+  parsedUser = storedUser
+    ? (JSON.parse(storedUser) as CurrentUser)
+    : null;
+} catch {
+  parsedUser = null;
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: storedAccessToken,
   refreshToken: storedRefreshToken,
-  userId: storedUserId,
+  user: parsedUser,
 
   isAuthenticated: Boolean(storedAccessToken),
+
   isInitialized: false,
 
   setTokens: (accessToken, refreshToken) => {
@@ -36,11 +49,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  setUser: (userId) => {
-    localStorage.setItem("userId", userId);
+  setUser: (user) => {
+    localStorage.setItem("user", JSON.stringify(user));
 
     set({
-      userId,
+      user,
     });
   },
 
@@ -53,12 +66,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearAuth: () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userId");
+    localStorage.removeItem("user");
 
     set({
       accessToken: null,
       refreshToken: null,
-      userId: null,
+      user: null,
       isAuthenticated: false,
       isInitialized: true,
     });

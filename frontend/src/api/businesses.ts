@@ -10,7 +10,6 @@ export interface Business {
 
 export interface MyBusiness extends Business {
   role: "BUSINESS_ADMIN";
-  customerProfileId: string | null;
 }
 
 export const businessesApi = {

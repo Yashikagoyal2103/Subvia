@@ -16,6 +16,7 @@ export function AuthInitializer({
     isInitialized,
     setUser,
     setInitialized,
+    clearAuth,
   } = useAuthStore();
 
   const {
@@ -23,34 +24,30 @@ export function AuthInitializer({
     isLoading,
     isError,
     refetch,
-  } = useCurrentUser();
+  } = useCurrentUser(Boolean(accessToken));
 
   useEffect(() => {
-    if (isInitialized) {
-      return;
-    }
-
     if (!accessToken) {
       setInitialized(true);
       return;
     }
 
     if (data) {
-      setUser(data.userId);
+      setUser(data);
       setInitialized(true);
       return;
     }
 
     if (isError) {
-      setInitialized(true);
+      clearAuth();
     }
   }, [
     accessToken,
     data,
     isError,
-    isInitialized,
-    setInitialized,
     setUser,
+    setInitialized,
+    clearAuth,
   ]);
 
   if (!isInitialized && isLoading) {
@@ -69,14 +66,14 @@ export function AuthInitializer({
             Unable to verify your session
           </h1>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            Please try again.
+          <p className="mt-2 text-sm text-gray-500">
+            Your session could not be verified.
           </p>
 
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="mt-4 rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-[var(--color-accent-foreground)]"
           >
             Try again
           </button>
