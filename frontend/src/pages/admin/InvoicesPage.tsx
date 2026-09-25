@@ -5,6 +5,7 @@ import { adminApi } from "../../api/admin";
 import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
 import { StatusBadge } from "../../components/status-badge";
+import  { useState } from "react";
 
 const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
 
@@ -18,8 +19,13 @@ function date(value: string) {
 
 export function AdminInvoicesPage() {
   const { businessId } = useParams<{ businessId: string }>();
-  const query = useQuery({ queryKey: ["admin-invoices", businessId], queryFn: () => adminApi.invoices(businessId!), enabled: Boolean(businessId) });
+  const [page] = useState(1);
 
+  const query = useQuery({
+    queryKey: ["admin-invoices", businessId, page],
+    queryFn: () => adminApi.invoices(businessId!, page),
+    enabled: Boolean(businessId),
+  });
   if (!businessId) return <ErrorState description="A valid business context is required." />;
   if (query.isLoading) return <LoadingState message="Loading invoices..." />;
   if (query.isError) return <ErrorState description="We couldn't load the invoices." retryAction={() => query.refetch()} />;

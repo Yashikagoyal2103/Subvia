@@ -5,6 +5,7 @@ import { adminApi } from "../../api/admin";
 import { LoadingState } from "../../components/loading-state";
 import { ErrorState } from "../../components/error-state";
 import { StatusBadge } from "../../components/status-badge";
+import  { useState } from "react";
 
 const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
 
@@ -18,7 +19,13 @@ function date(value: string) {
 
 export function AdminSubscriptionsPage() {
   const { businessId } = useParams<{ businessId: string }>();
-  const query = useQuery({ queryKey: ["admin-subscriptions", businessId], queryFn: () => adminApi.subscriptions(businessId!), enabled: Boolean(businessId) });
+  const [page, setPage] = useState(1);
+
+  const query = useQuery({
+    queryKey: ["admin-subscriptions", businessId, page],
+    queryFn: () => adminApi.subscriptions(businessId!, page),
+    enabled: Boolean(businessId),
+  });
 
   if (!businessId) return <ErrorState description="A valid business context is required." />;
   if (query.isLoading) return <LoadingState message="Loading subscriptions..." />;
@@ -91,6 +98,31 @@ export function AdminSubscriptionsPage() {
                 </div>
               </Link>
             ))}
+            {query.data?.pagination.hasNextPage || page > 1 ? (
+              <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
+                <button
+                  type="button"
+                  disabled={page === 1}
+                  onClick={() => setPage((value) => value - 1)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium disabled:opacity-40"
+                >
+                  Previous
+                </button>
+
+                <span className="text-sm text-gray-500">
+                  Page {page}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={!query.data?.pagination.hasNextPage}
+                  onClick={() => setPage((value) => value + 1)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
