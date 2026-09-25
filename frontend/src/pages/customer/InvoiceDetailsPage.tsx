@@ -1,27 +1,21 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Receipt } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 import { invoicesApi } from "@/api/invoices";
-import { PageHeader } from "@/components/page-header";
-import { StatusBadge } from "@/components/status-badge";
-import { LoadingState } from "@/components/loading-state";
-import { ErrorState } from "@/components/error-state";
+import { useAuthStore } from "@/stores/auth.store";
 import { formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/customer-utils";
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { CustomerErrorState } from "@/components/customer/CustomerErrorState";
+import { CustomerLoadingState } from "@/components/customer/CustomerLoadingState";
+import { GlassPanel } from "@/components/customer/GlassPanel";
+import { MoneyText } from "@/components/customer/MoneyText";
+import { StatusPill } from "@/components/customer/StatusPill";
 
 export function CustomerInvoiceDetailsPage() {
   const { invoiceId = "" } = useParams();
+  const user = useAuthStore((s) => s.user);
 
   const query = useQuery({
     queryKey: ["customer-invoice", invoiceId],
@@ -30,181 +24,250 @@ export function CustomerInvoiceDetailsPage() {
   });
 
   if (!invoiceId) {
-    return <ErrorState description="Invoice context is missing." />;
+    return <CustomerErrorState description="Invoice context is missing." />;
   }
-
-  if (query.isPending) {
-    return <LoadingState message="Loading invoice…" />;
-  }
-
+  if (query.isPending) return <CustomerLoadingState message="Loading invoice…" />;
   if (query.isError || !query.data) {
     return (
-      <ErrorState
+      <CustomerErrorState
         description="We couldn't load this invoice."
         retryAction={() => query.refetch()}
       />
     );
   }
 
-  const invoice = query.data;
+  const inv = query.data;
+  const creditApplied = inv.subtotal + inv.taxAmount - inv.total;
+  const showCreditApplied = creditApplied > 0;
+  const provider = inv.subscription?.plan.service.business?.name ?? null;
 
   return (
     <div className="space-y-6">
       <Link
         to="/customer/invoices"
-        className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
+        className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to invoices
       </Link>
 
-      <PageHeader
-        title={`Invoice ${invoice.invoiceNumber}`}
-        description="Invoice details and billing information."
-      />
-
-      <section className="overflow-hidden rounded-2xl border border-[var(--color-border-soft)] bg-white shadow-[var(--shadow-card)]">
-        <div className="bg-[var(--color-surface-dark)] p-6 text-white">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
-                Invoice
-              </p>
-
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-                {invoice.invoiceNumber}
-              </h1>
-
-              <p className="mt-2 text-sm text-white/60">
-                Issued {formatDate(invoice.issuedAt)}
-              </p>
-            </div>
-
-            <StatusBadge status={invoice.status} />
-          </div>
+      {inv.subscription ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={`/customer/subscriptions/${inv.subscription.id}`}
+            className="glass inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-[var(--color-ink)] transition hover:-translate-y-0.5"
+          >
+            View subscription
+          </Link>
         </div>
-
-        <div className="grid gap-6 border-b border-[var(--color-border-soft)] p-6 sm:grid-cols-3">
-          <InfoItem
-            label="Subtotal"
-            value={formatMoney(invoice.subtotal, invoice.currency)}
-          />
-
-          <InfoItem
-            label="Tax"
-            value={formatMoney(invoice.taxAmount, invoice.currency)}
-          />
-
-          <InfoItem
-            label="Total"
-            value={formatMoney(invoice.total, invoice.currency)}
-            strong
-          />
-        </div>
-
-        <div className="border-b border-[var(--color-border-soft)] p-6">
-          <h2 className="text-sm font-semibold text-[var(--color-ink)]">
-            Invoice items
-          </h2>
-
-          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--color-border-soft)]">
-            <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-[var(--color-border-soft)] bg-[var(--color-surface)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
-              <span>Description</span>
-              <span>Amount</span>
-            </div>
-
-            <div className="divide-y divide-[var(--color-border-soft)]">
-              {invoice.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-[1fr_auto] gap-4 px-4 py-4"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-[var(--color-ink)]">
-                      {item.description}
-                    </p>
-
-                    <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-                      {item.quantity} ×{" "}
-                      {formatMoney(item.unitPrice, invoice.currency)}
-                    </p>
-                  </div>
-
-                  <p className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
-                    {formatMoney(item.amount, invoice.currency)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 p-6 sm:grid-cols-3">
-          <InfoItem
-            label="Issued"
-            value={formatDate(invoice.issuedAt)}
-          />
-
-          <InfoItem
-            label="Due"
-            value={formatDate(invoice.dueAt)}
-          />
-
-          <InfoItem
-            label="Paid"
-            value={formatDate(invoice.paidAt)}
-          />
-        </div>
-      </section>
-
-      {invoice.subscription ? (
-        <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)]">
-              <Receipt className="h-4 w-4 text-[var(--color-ink-muted)]" />
-            </span>
-
-            <div>
-              <h2 className="text-sm font-semibold text-[var(--color-ink)]">
-                Related subscription
-              </h2>
-
-              <p className="text-xs text-[var(--color-ink-muted)]">
-                {invoice.subscription.plan.service.name} ·{" "}
-                {invoice.subscription.plan.name}
-              </p>
-            </div>
-          </div>
-        </section>
       ) : null}
+
+      {/* Document sheet */}
+      <GlassPanel strong className="overflow-hidden">
+        {/* Header band */}
+        <div className="relative border-b border-[rgba(20,22,26,0.06)] bg-gradient-to-br from-[#fbf3e7] via-[#f3ecf6] to-[#f7ecec] px-6 py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--color-charcoal)] text-[11px] font-bold text-[var(--color-accent)]">
+                  B
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+                  Invoice
+                </span>
+              </div>
+              <h1 className="font-display mt-4 text-3xl font-semibold tracking-tight text-[var(--color-ink)]">
+                {inv.invoiceNumber}
+              </h1>
+            </div>
+            <div className="flex flex-col items-start gap-3 sm:items-end">
+              <StatusPill status={inv.status} />
+              <MoneyText amount={inv.total} currency={inv.currency} size="hero" />
+            </div>
+          </div>
+        </div>
+
+        {/* Billed by / to */}
+        <div className="grid gap-6 border-b border-[rgba(20,22,26,0.06)] px-6 py-6 sm:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              Billed by
+            </p>
+            <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">
+              {provider ?? "—"}
+            </p>
+            {inv.subscription ? (
+              <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                {inv.subscription.plan.service.name}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              Billed to
+            </p>
+            {user ? (
+              <>
+                <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                  {user.email}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-[var(--color-ink-muted)]">—</p>
+            )}
+          </div>
+        </div>
+
+        {/* Meta grid */}
+        <div className="grid grid-cols-2 gap-6 border-b border-[rgba(20,22,26,0.06)] px-6 py-5 sm:grid-cols-4">
+          <Meta label="Issued" value={formatDate(inv.issuedAt)} />
+          <Meta label="Due" value={formatDate(inv.dueAt)} />
+          <Meta label="Paid" value={inv.paidAt ? formatDate(inv.paidAt) : "—"} />
+          <Meta label="Currency" value={inv.currency} />
+        </div>
+
+        {/* Subscription context */}
+        {inv.subscription ? (
+          <div className="border-b border-[rgba(20,22,26,0.06)] px-6 py-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              Subscription
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-[var(--color-ink)]">
+              <span className="font-medium">
+                {inv.subscription.plan.service.name} · {inv.subscription.plan.name}
+              </span>
+              <span className="text-[var(--color-ink-muted)]">
+                {formatDate(inv.subscription.billingPeriodStart)} →{" "}
+                {formatDate(inv.subscription.billingPeriodEnd)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Line items */}
+        <div className="px-6 py-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Line items
+          </p>
+
+          <div className="mt-3 hidden grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 border-b border-[rgba(20,22,26,0.06)] pb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)] sm:grid">
+            <span>Description</span>
+            <span className="text-right">Qty</span>
+            <span className="text-right">Unit price</span>
+            <span className="text-right">Amount</span>
+          </div>
+
+          <ul className="divide-y divide-[rgba(20,22,26,0.06)]">
+            {inv.items.map((it) => {
+              const negative = it.amount < 0;
+              return (
+                <li
+                  key={it.id}
+                  className="grid grid-cols-1 gap-2 py-3 sm:grid-cols-[minmax(0,3fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-4"
+                >
+                  <span className="text-sm text-[var(--color-ink)]">
+                    {it.description}
+                  </span>
+                  <span className="text-sm tabular-nums text-[var(--color-ink-muted)] sm:text-right">
+                    {it.quantity}
+                  </span>
+                  <span className="text-sm tabular-nums text-[var(--color-ink-muted)] sm:text-right">
+                    {formatMoney(it.unitPrice, inv.currency)}
+                  </span>
+                  <span
+                    className={
+                      negative
+                        ? "text-sm font-semibold tabular-nums text-[var(--color-positive)] sm:text-right"
+                        : "text-sm font-semibold tabular-nums text-[var(--color-ink)] sm:text-right"
+                    }
+                  >
+                    {formatMoney(it.amount, inv.currency)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Totals */}
+        <div className="border-t border-[rgba(20,22,26,0.06)] bg-white/40 px-6 py-6">
+          <div className="ml-auto max-w-[320px] space-y-2 text-sm">
+            <TotalRow label="Subtotal" value={formatMoney(inv.subtotal, inv.currency)} />
+            <TotalRow
+              label={`Tax (${inv.taxRate}%)`}
+              value={formatMoney(inv.taxAmount, inv.currency)}
+            />
+            {showCreditApplied ? (
+              <TotalRow
+                label="Credit applied"
+                value={`-${formatMoney(creditApplied, inv.currency)}`}
+                positive
+              />
+            ) : null}
+            <div className="mt-3 flex items-center justify-between border-t border-[rgba(20,22,26,0.08)] pt-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+                Total
+              </span>
+              <MoneyText amount={inv.total} currency={inv.currency} size="lg" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer status */}
+        <div className="border-t border-[rgba(20,22,26,0.06)] px-6 py-4 text-xs text-[var(--color-ink-muted)]">
+          {inv.status === "PAID" && inv.paidAt ? (
+            <>Paid on {formatDate(inv.paidAt)}.</>
+          ) : inv.status === "OPEN" ? (
+            <>
+              Payment due {formatDate(inv.dueAt)}. This is a demo billing
+              environment — no real payments are processed.
+            </>
+          ) : inv.status === "VOID" ? (
+            <>This invoice was voided.</>
+          ) : inv.status === "DRAFT" ? (
+            <>This invoice is a draft and has not been issued.</>
+          ) : null}
+        </div>
+      </GlassPanel>
     </div>
   );
 }
 
-function InfoItem({
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">{value}</p>
+    </div>
+  );
+}
+
+function TotalRow({
   label,
   value,
-  strong = false,
+  positive = false,
 }: {
   label: string;
   value: string;
-  strong?: boolean;
+  positive?: boolean;
 }) {
   return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
-        {label}
-      </p>
-
-      <p
+    <div className="flex items-center justify-between">
+      <span className="text-[var(--color-ink-muted)]">{label}</span>
+      <span
         className={
-          strong
-            ? "mt-1 text-lg font-semibold tabular-nums text-[var(--color-ink)]"
-            : "mt-1 text-sm font-medium tabular-nums text-[var(--color-ink)]"
+          positive
+            ? "font-medium tabular-nums text-[var(--color-positive)]"
+            : "font-medium tabular-nums text-[var(--color-ink)]"
         }
       >
         {value}
-      </p>
+      </span>
     </div>
   );
 }

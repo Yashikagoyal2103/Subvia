@@ -3,12 +3,14 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowDownCircle,
   ArrowLeft,
   ArrowUpCircle,
   Ban,
   CalendarClock,
   CheckCircle2,
+  FileText,
   RefreshCw,
   Sparkles,
   XCircle,
@@ -16,74 +18,44 @@ import {
 
 import {
   subscriptionsApi,
+  type Subscription,
   type SubscriptionEvent,
 } from "@/api/subscriptions";
-import { PageHeader } from "@/components/page-header";
-import { StatusBadge } from "@/components/status-badge";
-import { LoadingState } from "@/components/loading-state";
-import { ErrorState } from "@/components/error-state";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { invoicesApi } from "@/api/invoices";
 import { formatMoney } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/customer-utils";
+
+import { CustomerConfirmDialog } from "@/components/customer/CustomerConfirmDialog";
+import { CustomerErrorState } from "@/components/customer/CustomerErrorState";
+import { CustomerLoadingState } from "@/components/customer/CustomerLoadingState";
+import { GlassPanel } from "@/components/customer/GlassPanel";
+import { MoneyText } from "@/components/customer/MoneyText";
+import { PanelHeader } from "@/components/customer/PanelHeader";
+import { ServiceAvatar } from "@/components/customer/ServiceAvatar";
+import { StatusPill } from "@/components/customer/StatusPill";
 
 type CancelMode = "PERIOD_END" | "IMMEDIATE";
 
-function eventIcon(type: string) {
-  const normalized = type.toUpperCase();
-
-  if (normalized.includes("UPGRADE")) return ArrowUpCircle;
-  if (normalized.includes("DOWNGRADE")) return ArrowDownCircle;
-  if (normalized.includes("CANCEL")) return Ban;
-  if (normalized.includes("RENEW")) return RefreshCw;
-  if (normalized.includes("SUCCEED")) return CheckCircle2;
-  if (normalized.includes("FAIL")) return XCircle;
-  if (normalized.includes("CREATE")) return Sparkles;
-
-  return CalendarClock;
-}
-
-function eventLabel(type: string) {
-  return type
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function formatDate(value?: string | null, withTime = false) {
-  if (!value) return "—";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
+/** Local fallback if getApiErrorMessage isn't exported by your api-shape.ts. */
+function readApiError(err: unknown): string {
+  if (err && typeof err === "object") {
+    const resp = (err as { response?: { data?: { error?: { message?: string } } } })
+      .response;
+    const msg = resp?.data?.error?.message;
+    if (typeof msg === "string" && msg.length > 0) return msg;
+    if (err instanceof Error && err.message) return err.message;
   }
-
-  return withTime
-    ? date.toLocaleString()
-    : date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-}
-
-function eventMetadata(event: SubscriptionEvent) {
-  if (!event.metadata || typeof event.metadata !== "object") {
-    return null;
-  }
-
-  return event.metadata as Record<string, unknown>;
+  return "Something went wrong. Please try again.";
 }
 
 export function SubscriptionDetailsPage() {
   const { subscriptionId = "" } = useParams();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
 
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelMode, setCancelMode] =
-    useState<CancelMode>("PERIOD_END");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelMode, setCancelMode] = useState<CancelMode>("PERIOD_END");
 
-  const subscriptionQuery = useQuery({
+  const subQuery = useQuery({
     queryKey: ["customer-subscription", subscriptionId],
     queryFn: () => subscriptionsApi.getById(subscriptionId),
     enabled: Boolean(subscriptionId),
@@ -95,71 +67,69 @@ export function SubscriptionDetailsPage() {
     enabled: Boolean(subscriptionId),
   });
 
+  const invoicesQuery = useQuery({
+    queryKey: ["customer-invoices", "all"],
+    queryFn: () => invoicesApi.list(1, 100),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (mode: CancelMode) =>
       subscriptionsApi.cancel(subscriptionId, { mode }),
-
     onSuccess: () => {
       toast.success(
         cancelMode === "IMMEDIATE"
           ? "Subscription cancelled."
-          : "Subscription cancellation scheduled.",
+          : "Cancellation scheduled at period end.",
       );
-
-      setCancelOpen(false);
-
-      queryClient.invalidateQueries({
-        queryKey: ["customer-subscription", subscriptionId],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["customer-subscription-events", subscriptionId],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["customer-subscriptions"],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["subscriptions"],
-      });
+      setConfirmOpen(false);
+      const keys = [
+        ["customer-subscription", subscriptionId],
+        ["customer-subscription-events", subscriptionId],
+        ["customer-subscriptions"],
+        ["customer-plans"],
+        ["customer-credits"],
+        ["customer-billing-activity"],
+        ["customer-invoices"],
+      ];
+      for (const k of keys) qc.invalidateQueries({ queryKey: k });
     },
-
-    onError: () => {
-      toast.error("We couldn't cancel this subscription.");
-    },
+    onError: (err) => toast.error(readApiError(err)),
   });
 
   if (!subscriptionId) {
-    return (
-      <ErrorState description="Subscription context is missing." />
-    );
+    return <CustomerErrorState description="Subscription context is missing." />;
   }
-
-  if (subscriptionQuery.isPending) {
-    return <LoadingState message="Loading subscription…" />;
-  }
-
-  if (subscriptionQuery.isError || !subscriptionQuery.data) {
+  if (subQuery.isPending) return <CustomerLoadingState message="Loading subscription…" />;
+  if (subQuery.isError || !subQuery.data) {
     return (
-      <ErrorState
+      <CustomerErrorState
         description="We couldn't load this subscription."
-        retryAction={() => subscriptionQuery.refetch()}
+        retryAction={() => subQuery.refetch()}
       />
     );
   }
 
-  const subscription = subscriptionQuery.data;
+  const sub = subQuery.data;
   const events = eventsQuery.data ?? [];
+  const invoicesForSub = (invoicesQuery.data?.data ?? []).filter(
+    (inv) => inv.subscription?.id === sub.id,
+  );
 
   const canCancel =
-    subscription.status === "ACTIVE" ||
-    subscription.status === "PAST_DUE";
+    sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd && !sub.cancelledAt;
 
-  const hasPendingPlan = Boolean(subscription.pendingPlan);
+  const providerName = sub.plan?.service?.name ?? "Service";
+  const businessName =
+    (sub.plan?.service as { business?: { name: string } } | undefined)?.business?.name ??
+    null;
+
+  const openCancel = (mode: CancelMode) => {
+    setCancelMode(mode);
+    setConfirmOpen(true);
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <Link
         to="/customer/subscriptions"
         className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-ink-muted)] transition hover:text-[var(--color-ink)]"
@@ -168,250 +138,265 @@ export function SubscriptionDetailsPage() {
         Back to subscriptions
       </Link>
 
-      <PageHeader
-        title={subscription.plan?.name ?? "Subscription"}
-        description="View your subscription, billing period, changes, and history."
-      />
-
-      <section className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      {/* Hero */}
+      <section className="glass relative overflow-hidden rounded-3xl p-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-              Current subscription
-            </p>
-
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--color-ink)]">
-              {subscription.plan?.name ?? "Plan"}
-            </h2>
-
-            {subscription.plan?.description && (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-ink-muted)]">
-                {subscription.plan.description}
-              </p>
-            )}
-          </div>
-
-          <StatusBadge status={subscription.status} />
-        </div>
-
-        <div className="mt-8 grid gap-5 border-t border-[var(--color-border-soft)] pt-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <p className="text-xs font-medium text-[var(--color-ink-subtle)]">
-              Price
-            </p>
-
-            <p className="mt-1 text-lg font-semibold text-[var(--color-ink)]">
-              {formatMoney(
-                subscription.price,
-                subscription.currency,
-              )}
-              <span className="ml-1 text-sm font-normal text-[var(--color-ink-muted)]">
-                /{subscription.billingInterval === "MONTHLY" ? "mo" : "yr"}
-              </span>
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-[var(--color-ink-subtle)]">
-              Billing period
-            </p>
-
-            <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">
-              {formatDate(subscription.billingPeriodStart)}
-              {" — "}
-              {formatDate(subscription.billingPeriodEnd)}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-[var(--color-ink-subtle)]">
-              Created
-            </p>
-
-            <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">
-              {formatDate(subscription.createdAt)}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-medium text-[var(--color-ink-subtle)]">
-              Cancellation
-            </p>
-
-            <p className="mt-1 text-sm font-medium text-[var(--color-ink)]">
-              {subscription.cancelAtPeriodEnd
-                ? `Ends ${formatDate(subscription.billingPeriodEnd)}`
-                : subscription.cancelledAt
-                  ? `Cancelled ${formatDate(subscription.cancelledAt)}`
-                  : "Not scheduled"}
-            </p>
-          </div>
-        </div>
-
-        {hasPendingPlan && subscription.pendingPlan && (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-950">
-              Plan change scheduled
-            </p>
-
-            <p className="mt-1 text-sm leading-6 text-amber-900">
-              Your subscription is scheduled to move to{" "}
-              <span className="font-semibold">
-                {subscription.pendingPlan.name}
-              </span>{" "}
-              at the next billing period.
-            </p>
-          </div>
-        )}
-
-        {subscription.cancelAtPeriodEnd && (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-950">
-              Cancellation scheduled
-            </p>
-
-            <p className="mt-1 text-sm leading-6 text-amber-900">
-              Your subscription remains active until{" "}
-              <span className="font-semibold">
-                {formatDate(subscription.billingPeriodEnd)}
-              </span>
-              .
-            </p>
-          </div>
-        )}
-
-        {canCancel && !subscription.cancelAtPeriodEnd && (
-          <div className="mt-8 flex flex-col gap-3 border-t border-[var(--color-border-soft)] pt-6 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => {
-                setCancelMode("PERIOD_END");
-                setCancelOpen(true);
-              }}
-              className="rounded-xl border border-[var(--color-border-soft)] px-4 py-2.5 text-sm font-medium text-[var(--color-ink)] transition hover:bg-[var(--color-surface-muted)]"
-            >
-              Cancel at period end
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCancelMode("IMMEDIATE");
-                setCancelOpen(true);
-              }}
-              className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-50"
-            >
-              Cancel immediately
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-sm">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-            History
-          </p>
-
-          <h2 className="mt-1 text-xl font-semibold text-[var(--color-ink)]">
-            Subscription activity
-          </h2>
-
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            A timeline of changes and billing events for this subscription.
-          </p>
-        </div>
-
-        {eventsQuery.isPending ? (
-          <div className="py-10">
-            <LoadingState message="Loading activity…" />
-          </div>
-        ) : eventsQuery.isError ? (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5">
-            <p className="text-sm font-medium text-red-900">
-              We couldn't load subscription activity.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => eventsQuery.refetch()}
-              className="mt-2 text-sm font-medium text-red-700 underline underline-offset-4"
-            >
-              Try again
-            </button>
-          </div>
-        ) : events.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-[var(--color-border-soft)] px-6 py-12 text-center">
-            <p className="text-sm font-medium text-[var(--color-ink)]">
-              No activity yet
-            </p>
-
-            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-              Subscription events will appear here as changes occur.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-6 divide-y divide-[var(--color-border-soft)]">
-            {events.map((event) => {
-              const Icon = eventIcon(event.type);
-              const metadata = eventMetadata(event);
-
-              return (
-                <div
-                  key={event.id}
-                  className="flex gap-4 py-5 first:pt-0 last:pb-0"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-surface-muted)]">
-                    <Icon className="h-4 w-4 text-[var(--color-ink-muted)]" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm font-semibold text-[var(--color-ink)]">
-                        {eventLabel(event.type)}
-                      </p>
-
-                      <p className="text-xs text-[var(--color-ink-subtle)]">
-                        {formatDate(event.createdAt, true)}
-                      </p>
-                    </div>
-
-                    {metadata && Object.keys(metadata).length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {Object.entries(metadata).map(
-                          ([key, value]) => (
-                            <span
-                              key={key}
-                              className="rounded-lg bg-[var(--color-surface-muted)] px-2.5 py-1 text-xs text-[var(--color-ink-muted)]"
-                            >
-                              {key}:{" "}
-                              {typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value)}
-                            </span>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <ServiceAvatar name={providerName} size="lg" />
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+                    {businessName ? `${businessName} · ` : ""}
+                    {providerName}
+                  </p>
+                  <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight text-[var(--color-ink)] sm:text-3xl">
+                    {sub.plan?.name ?? "Plan"}
+                  </h1>
                 </div>
-              );
-            })}
+              </div>
+              <StatusPill status={sub.status} />
+            </div>
+
+            {sub.plan?.description ? (
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--color-ink-muted)]">
+                {sub.plan.description}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex items-baseline gap-1.5">
+              <MoneyText amount={sub.price} currency={sub.currency} size="hero" />
+              <span className="text-sm text-[var(--color-ink-muted)]">
+                /{sub.billingInterval === "MONTHLY" ? "month" : "year"}
+              </span>
+            </div>
           </div>
-        )}
+
+          <aside className="rounded-2xl border border-[rgba(20,22,26,0.08)] bg-white/60 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              {sub.status === "CANCELLED"
+                ? "Status"
+                : sub.cancelAtPeriodEnd
+                  ? "Ends on"
+                  : "Next payment"}
+            </p>
+            <p className="font-display mt-1.5 text-lg font-semibold tracking-tight text-[var(--color-ink)]">
+              {sub.status === "CANCELLED"
+                ? sub.cancelledAt
+                  ? `Cancelled ${formatDate(sub.cancelledAt)}`
+                  : "Cancelled"
+                : formatDate(sub.billingPeriodEnd)}
+            </p>
+            {sub.status !== "CANCELLED" && !sub.cancelAtPeriodEnd ? (
+              <div className="mt-2">
+                <MoneyText amount={sub.price} currency={sub.currency} size="sm" />
+              </div>
+            ) : null}
+          </aside>
+        </div>
       </section>
 
-      <ConfirmDialog
-        isOpen={cancelOpen}
+      {/* Banners */}
+      <NoticeBanners sub={sub} />
+
+      {/* Two-column */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* LEFT */}
+        <div className="space-y-6 lg:col-span-7">
+          <GlassPanel className="overflow-hidden">
+            <PanelHeader title="Subscription" />
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 px-6 py-5 text-sm">
+              <Row label="Plan" value={sub.plan?.name ?? "—"} />
+              <Row label="Service" value={providerName} />
+              <Row label="Provider" value={businessName ?? "—"} />
+              <Row
+                label="Billing"
+                value={sub.billingInterval === "MONTHLY" ? "Monthly" : "Yearly"}
+              />
+              <Row
+                label="Price"
+                value={formatMoney(sub.price, sub.currency)}
+              />
+              <Row label="Status" value={sub.status} />
+              <Row
+                label="Period start"
+                value={formatDate(sub.billingPeriodStart)}
+              />
+              <Row
+                label="Period end"
+                value={formatDate(sub.billingPeriodEnd)}
+              />
+              <Row label="Started" value={formatDate(sub.createdAt)} />
+            </dl>
+          </GlassPanel>
+
+          <GlassPanel className="overflow-hidden">
+            <PanelHeader
+              title="Invoices for this subscription"
+              description={
+                invoicesQuery.isPending
+                  ? "Loading…"
+                  : `${invoicesForSub.length} invoice${invoicesForSub.length === 1 ? "" : "s"}`
+              }
+            />
+            {invoicesQuery.isPending ? (
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
+                Loading invoices…
+              </p>
+            ) : invoicesQuery.isError ? (
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
+                We couldn't load invoices.
+              </p>
+            ) : invoicesForSub.length === 0 ? (
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
+                No invoices yet for this subscription.
+              </p>
+            ) : (
+              <ul className="divide-y divide-[rgba(20,22,26,0.06)]">
+                {invoicesForSub.map((inv) => (
+                  <li key={inv.id}>
+                    <Link
+                      to={`/customer/invoices/${inv.id}`}
+                      className="flex items-center gap-3 px-6 py-3.5 transition hover:bg-white/50"
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/70 text-[var(--color-ink-muted)] ring-1 ring-white/60">
+                        <FileText className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--color-ink)]">
+                          {inv.invoiceNumber}
+                        </p>
+                        <p className="truncate text-xs text-[var(--color-ink-muted)]">
+                          Issued {formatDate(inv.issuedAt)}
+                        </p>
+                      </div>
+                      <MoneyText amount={inv.total} currency={inv.currency} size="sm" />
+                      <StatusPill status={inv.status} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </GlassPanel>
+        </div>
+
+        {/* RIGHT */}
+        <div className="lg:col-span-5">
+          <GlassPanel className="overflow-hidden">
+            <PanelHeader title="Activity" />
+            {eventsQuery.isPending ? (
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
+                Loading activity…
+              </p>
+            ) : eventsQuery.isError ? (
+              <div className="px-6 py-8 text-center">
+                <p className="text-sm text-[var(--color-ink-muted)]">
+                  We couldn't load activity.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => eventsQuery.refetch()}
+                  className="mt-2 text-xs font-semibold text-[var(--color-ink)] underline underline-offset-4"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : events.length === 0 ? (
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
+                No events yet.
+              </p>
+            ) : (
+              <ol className="relative px-6 py-5">
+                <span
+                  aria-hidden
+                  className="absolute bottom-6 left-[2.05rem] top-6 w-px bg-[rgba(20,22,26,0.08)]"
+                />
+                {events.map((ev) => {
+                  const { title, subtitle, invoiceId } = describeEvent(ev);
+                  const Icon = eventIcon(ev.type);
+                  return (
+                    <li key={ev.id} className="relative flex items-start gap-3 py-3">
+                      <span className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-white/60">
+                        <Icon className="h-3.5 w-3.5 text-[var(--color-ink-muted)]" />
+                      </span>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <p className="text-sm font-medium leading-5 text-[var(--color-ink)]">
+                          {title}
+                        </p>
+                        {subtitle ? (
+                          <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                            {subtitle}
+                          </p>
+                        ) : null}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-ink-subtle)]">
+                          <span>{formatDateTime(ev.createdAt)}</span>
+                          {invoiceId ? (
+                            <Link
+                              to={`/customer/invoices/${invoiceId}`}
+                              className="font-semibold text-[var(--color-ink)] underline underline-offset-4"
+                            >
+                              View invoice
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </GlassPanel>
+        </div>
+      </div>
+
+      {/* Actions */}
+      {canCancel ? (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => openCancel("PERIOD_END")}
+            className="glass flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-left transition hover:-translate-y-0.5"
+          >
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-ink)]">
+                Cancel at period end
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                Stay active until {formatDate(sub.billingPeriodEnd)}.
+              </p>
+            </div>
+            <CalendarClock className="h-5 w-5 text-[var(--color-ink-muted)]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openCancel("IMMEDIATE")}
+            className="glass flex items-center justify-between gap-3 rounded-3xl px-5 py-4 text-left transition hover:-translate-y-0.5"
+          >
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-negative)]">
+                Cancel immediately
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
+                Unused time may be added as credit.
+              </p>
+            </div>
+            <Ban className="h-5 w-5 text-[var(--color-negative)]" />
+          </button>
+        </section>
+      ) : null}
+
+      <CustomerConfirmDialog
+        isOpen={confirmOpen}
         title={
           cancelMode === "IMMEDIATE"
-            ? "Cancel subscription immediately?"
-            : "Cancel subscription at period end?"
+            ? "Cancel immediately?"
+            : "Cancel at period end?"
         }
         description={
           cancelMode === "IMMEDIATE"
-            ? "Your subscription will be cancelled immediately. This action cannot be undone."
-            : "Your subscription will remain active until the current billing period ends."
+            ? "The subscription will be cancelled immediately. Any unused time may be added to your account as credit. This can't be undone."
+            : `The subscription will remain active until the current billing period ends on ${formatDate(sub.billingPeriodEnd)}.`
         }
         confirmLabel={
           cancelMode === "IMMEDIATE"
@@ -420,10 +405,237 @@ export function SubscriptionDetailsPage() {
         }
         cancelLabel="Keep subscription"
         onConfirm={() => cancelMutation.mutate(cancelMode)}
-        onCancel={() => setCancelOpen(false)}
+        onCancel={() => setConfirmOpen(false)}
         isLoading={cancelMutation.isPending}
         isDestructive
       />
     </div>
   );
+}
+
+/* ────────── Sub-components ────────── */
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm text-[var(--color-ink)]">{value}</dd>
+    </div>
+  );
+}
+
+function NoticeBanners({ sub }: { sub: Subscription }) {
+  const items: { tone: "amber" | "red" | "grey"; text: React.ReactNode }[] = [];
+
+  if (sub.pendingPlanId) {
+    const pendingName = sub.pendingPlan?.name;
+    items.push({
+      tone: "amber",
+      text: pendingName ? (
+        <>
+          Plan change scheduled — you&apos;ll move to{" "}
+          <span className="font-semibold">{pendingName}</span> at the next
+          renewal.
+        </>
+      ) : (
+        <>A plan change is scheduled for your next renewal.</>
+      ),
+    });
+  }
+
+  if (sub.cancelAtPeriodEnd && !sub.cancelledAt) {
+    items.push({
+      tone: "amber",
+      text: (
+        <>
+          Cancellation scheduled — your subscription stays active until{" "}
+          <span className="font-semibold">{formatDate(sub.billingPeriodEnd)}</span>
+          .
+        </>
+      ),
+    });
+  }
+
+  if (sub.status === "PAST_DUE") {
+    items.push({
+      tone: "red",
+      text: (
+        <>
+          Your last payment failed.{" "}
+          <Link
+            to="/customer/invoices"
+            className="font-semibold underline underline-offset-4"
+          >
+            Review invoices
+          </Link>
+        </>
+      ),
+    });
+  }
+
+  if (sub.status === "PENDING") {
+    items.push({
+      tone: "amber",
+      text: (
+        <>
+          Awaiting payment.{" "}
+          <Link
+            to="/customer/invoices"
+            className="font-semibold underline underline-offset-4"
+          >
+            View invoice
+          </Link>
+        </>
+      ),
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className={
+            item.tone === "red"
+              ? "flex items-start gap-3 rounded-2xl border-l-4 border-[var(--color-negative)] bg-[var(--color-negative-soft)] px-4 py-3 text-sm text-[#8f2f28]"
+              : "flex items-start gap-3 rounded-2xl border-l-4 border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-4 py-3 text-sm text-[#7c540f]"
+          }
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0">{item.text}</div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function eventIcon(type: string) {
+  const t = type.toUpperCase();
+  if (t.includes("UPGRADE")) return ArrowUpCircle;
+  if (t.includes("DOWNGRADE")) return ArrowDownCircle;
+  if (t.includes("CANCEL")) return Ban;
+  if (t.includes("RENEW")) return RefreshCw;
+  if (t.includes("SUCCEED")) return CheckCircle2;
+  if (t.includes("FAIL")) return XCircle;
+  if (t.includes("CREATE")) return Sparkles;
+  return CalendarClock;
+}
+
+function describeEvent(ev: SubscriptionEvent): {
+  title: string;
+  subtitle?: string;
+  invoiceId?: string;
+} {
+  const m = (ev.metadata ?? {}) as Record<string, unknown>;
+  const s = (k: string) => (typeof m[k] === "string" ? (m[k] as string) : undefined);
+  const n = (k: string) => (typeof m[k] === "number" ? (m[k] as number) : undefined);
+  const currency = s("currency") ?? "INR";
+
+  switch (String(ev.type)) {
+    case "CREATED": {
+      const plan = s("planName");
+      const price = n("price");
+      const interval = s("billingInterval");
+      return {
+        title: plan ? `Subscribed to ${plan}` : "Subscription created",
+        subtitle:
+          price !== undefined
+            ? `${formatMoney(price, currency)} / ${interval === "YEARLY" ? "yr" : "mo"}`
+            : undefined,
+      };
+    }
+    case "PAYMENT_SUCCEEDED": {
+      const amount = n("amount");
+      const method = s("paymentMethod");
+      return {
+        title:
+          amount !== undefined
+            ? `Payment of ${formatMoney(amount, currency)} succeeded`
+            : "Payment succeeded",
+        subtitle: method,
+        invoiceId: s("invoiceId"),
+      };
+    }
+    case "PAYMENT_FAILED": {
+      const amount = n("amount");
+      return {
+        title:
+          amount !== undefined
+            ? `Payment of ${formatMoney(amount, currency)} failed`
+            : "Payment failed",
+        invoiceId: s("invoiceId"),
+      };
+    }
+    case "RENEWED": {
+      const plan = s("planName");
+      const recovered = m["recoveredFromPastDue"] === true;
+      return {
+        title: plan ? `Renewed on ${plan}` : "Subscription renewed",
+        subtitle: recovered ? "Recovered from past due" : undefined,
+        invoiceId: s("invoiceId"),
+      };
+    }
+    case "UPGRADED": {
+      const from = s("fromPlanName");
+      const to = s("toPlanName");
+      return {
+        title:
+          from && to ? `Upgraded from ${from} to ${to}` : "Plan upgraded",
+      };
+    }
+    case "DOWNGRADE_SCHEDULED": {
+      const from = s("fromPlanName");
+      const to = s("toPlanName");
+      const eff = s("effectiveAt");
+      return {
+        title:
+          from && to
+            ? `Downgrade from ${from} to ${to} scheduled`
+            : "Downgrade scheduled",
+        subtitle: eff ? `Effective ${formatDate(eff)}` : undefined,
+      };
+    }
+    case "DOWNGRADE_APPLIED": {
+      const from = s("fromPlanName");
+      const to = s("toPlanName");
+      return {
+        title:
+          from && to ? `Downgraded from ${from} to ${to}` : "Plan downgraded",
+      };
+    }
+    case "CANCEL_REQUESTED": {
+      const eff = s("effectiveAt");
+      return {
+        title: "Cancellation requested",
+        subtitle: eff ? `Effective ${formatDate(eff)}` : undefined,
+      };
+    }
+    case "CANCELLED": {
+      const mode = s("mode");
+      const credit = n("creditCreated");
+      if (mode === "IMMEDIATE" && credit && credit > 0) {
+        return {
+          title: `Cancelled immediately · ${formatMoney(credit, currency)} added as credit`,
+        };
+      }
+      return {
+        title:
+          mode === "IMMEDIATE"
+            ? "Cancelled immediately"
+            : "Subscription cancelled",
+      };
+    }
+      default:
+        return {
+          title: String(ev.type)
+            .toLowerCase()
+            .split("_")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" "),
+        };
+  }
 }

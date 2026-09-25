@@ -39,6 +39,11 @@ export interface Invoice {
       service: {
         id: string;
         name: string;
+        businessId: string;
+        business: {
+          id: string;
+          name: string;
+        };
       };
     };
   };

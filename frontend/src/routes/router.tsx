@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import App from "../App";
 import { AdminLayout } from "../layouts/AdminLayout";
@@ -70,49 +70,19 @@ export const router = createBrowserRouter([
             path: "customer",
             element: <CustomerLayout />,
             children: [
-              {
-                index: true,
-                element: <CustomerDashboardPage />,
-              },
-              {
-                path: "explore",
-                element: <CustomerServicesPage />,
-              },
-              {
-                path: "services/:serviceId",
-                element: <ServiceDetailsPage />,
-              },
-              {
-                path: "plans",
-                element: <CustomerPlansPage />,
-              },
-              {
-                path: "checkout/:planId",
-                element: <CheckoutPage />,
-              },
-              {
-                path: "subscriptions",
-                element: <CustomerSubscriptionsPage />,
-              },
-              {
-                path: "subscriptions/:subscriptionId",
-                element: <SubscriptionDetailsPage />,
-              },
-              {
-                path: "invoices",
-                element: <CustomerInvoicesPage />,
-              },
-              {
-                path: "invoices/:invoiceId",
-                element: <CustomerInvoiceDetailsPage />,
-              },
-              {
-                path: "billing",
-                element: <CustomerBillingHistoryPage />,
-              },
+              { index: true, element: <CustomerDashboardPage /> },
+              { path: "dashboard", element: <Navigate to="/customer" replace /> },
+              { path: "explore", element: <CustomerServicesPage /> },
+              { path: "services/:serviceId", element: <ServiceDetailsPage /> },
+              { path: "plans", element: <CustomerPlansPage /> },
+              { path: "checkout/:planId", element: <CheckoutPage /> },
+              { path: "subscriptions", element: <CustomerSubscriptionsPage /> },
+              { path: "subscriptions/:subscriptionId", element: <SubscriptionDetailsPage /> },
+              { path: "invoices", element: <CustomerInvoicesPage /> },
+              { path: "invoices/:invoiceId", element: <CustomerInvoiceDetailsPage /> },
+              { path: "billing", element: <CustomerBillingHistoryPage /> },
             ],
           },
-
           {
             path: "admin/:businessId",
             element: <AdminLayout />,

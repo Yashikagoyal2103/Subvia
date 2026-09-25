@@ -1,23 +1,29 @@
 import { apiClient } from "./client";
 
-export interface BillingActivity {
+export interface BillingActivityInvoice {
   id: string;
-  type: string;
-  metadata: unknown;
+  type: "INVOICE";
   createdAt: string;
-  subscription: {
-    id: string;
-    status: string;
-    plan: {
-      id: string;
-      name: string;
-      service: {
-        id: string;
-        name: string;
-      };
-    };
-  } | null;
+  invoiceId: string;
+  invoiceNumber: string;
+  status: string;
+  amount: number;
+  currency: "INR" | "USD";
+  service: string;
 }
+
+export interface BillingActivityPayment {
+  id: string;
+  type: "PAYMENT";
+  createdAt: string;
+  invoiceId: string;
+  status: string;
+  amount: number;
+  currency: "INR" | "USD";
+  paymentMethod: string;
+}
+
+export type BillingActivity = BillingActivityInvoice | BillingActivityPayment;
 
 export interface BillingActivityResponse {
   data: BillingActivity[];
@@ -29,17 +35,12 @@ export interface BillingActivityResponse {
 }
 
 export const billingActivityApi = {
-  async list(
-    page = 1,
-    limit = 20,
-  ): Promise<BillingActivityResponse> {
+  async list(page = 1, limit = 20): Promise<BillingActivityResponse> {
     const response = await apiClient.get<{
       success: true;
       data: BillingActivity[];
       pagination: BillingActivityResponse["pagination"];
-    }>("/billing-activity", {
-      params: { page, limit },
-    });
+    }>("/billing-activity", { params: { page, limit } });
 
     return {
       data: response.data.data,

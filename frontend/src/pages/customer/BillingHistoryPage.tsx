@@ -1,147 +1,330 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
-  ArrowDownCircle,
-  ArrowUpCircle,
+  ArrowRight,
   CheckCircle2,
   Clock,
-  FileText,
+  Inbox,
+  Loader2,
   Receipt,
-  RefreshCw,
   XCircle,
 } from "lucide-react";
 
-import { billingActivityApi } from "@/api/billing-activity";
-import { PageHeader } from "@/components/page-header";
-import { LoadingState } from "@/components/loading-state";
-import { ErrorState } from "@/components/error-state";
-import { StatusBadge } from "@/components/status-badge";
+import {
+  billingActivityApi,
+  type BillingActivity,
+} from "@/api/billing-activity";
+import { formatMoney } from "@/lib/format";
+import { dayGroupLabel, formatDate, groupBy } from "@/lib/customer-utils";
 
-function iconFor(type: string) {
-  const value = type.toUpperCase();
+import { CustomerEmptyState } from "@/components/customer/CustomerEmptyState";
+import { CustomerErrorState } from "@/components/customer/CustomerErrorState";
+import { CustomerPageHeader } from "@/components/customer/CustomerPageHeader";
+import { GlassPanel } from "@/components/customer/GlassPanel";
+import { PanelHeader } from "@/components/customer/PanelHeader";
+import { PageSkeleton } from "@/components/customer/Skeleton";
 
-  if (value.includes("UPGRADE")) return ArrowUpCircle;
-  if (value.includes("DOWNGRADE")) return ArrowDownCircle;
-  if (value.includes("RENEW")) return RefreshCw;
-  if (value.includes("FAIL")) return XCircle;
-  if (value.includes("SUCCEED")) return CheckCircle2;
-  if (value.includes("INVOICE")) return Receipt;
-
-  return Clock;
-}
-
-function labelFor(type: string) {
-  return type
-    .toLowerCase()
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+const PAGE_SIZE = 20;
 
 export function CustomerBillingHistoryPage() {
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["customer-billing-activity"],
-    queryFn: () => billingActivityApi.list(),
+    queryFn: ({ pageParam }) =>
+      billingActivityApi.list(pageParam as number, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (last) => {
+      // Guard — react-query calls this even before the first page resolves.
+      if (!last || !last.pagination) return undefined;
+      return last.pagination.hasNextPage
+        ? last.pagination.page + 1
+        : undefined;
+    },
   });
 
-  if (query.isPending) {
-    return <LoadingState message="Loading billing activity…" />;
-  }
+  const activities = useMemo(
+    () => query.data?.pages.flatMap((p) => p.data) ?? [],
+    [query.data],
+  );
+
+  const invoiceIndex = useMemo(() => {
+    const map = new Map<string, { invoiceNumber: string; service: string }>();
+    for (const item of activities) {
+      if (item.type === "INVOICE") {
+        map.set(item.invoiceId, {
+          invoiceNumber: item.invoiceNumber,
+          service: item.service,
+        });
+      }
+    }
+    return map;
+  }, [activities]);
+
+  const grouped = useMemo(
+    () => groupBy(activities, (i) => dayGroupLabel(i.createdAt)),
+    [activities],
+  );
+
+  if (query.isPending) return <PageSkeleton />;
 
   if (query.isError) {
     return (
-      <ErrorState
+      <CustomerErrorState
         description="We couldn't load your billing activity."
         retryAction={() => query.refetch()}
       />
     );
   }
 
-  const activities = query.data.data;
-
-  return (
+    return (
     <div className="space-y-8">
-      <PageHeader
+      <CustomerPageHeader
+        eyebrow="Activity"
         title="Billing"
-        description="A chronological view of your billing activity."
+        description="Track subscription and invoice activity across your account."
       />
 
       {activities.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border-soft)] bg-white/60 px-6 py-16 text-center">
-          <FileText className="mx-auto h-8 w-8 text-[var(--color-ink-subtle)]" />
-
-          <p className="mt-4 text-sm font-medium text-[var(--color-ink)]">
-            No billing activity yet
-          </p>
-
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            Your invoices and subscription activity will appear here.
-          </p>
-        </div>
+        <CustomerEmptyState
+          icon={Inbox}
+          title="Billing activity will appear here"
+          description="Once subscriptions and invoices are created, every event shows up in this timeline."
+          action={
+            <Link
+              to="/customer/explore"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-charcoal)] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Explore services
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
       ) : (
-        <ol className="relative space-y-3">
-          <span
-            aria-hidden
-            className="absolute bottom-4 left-5 top-4 w-px bg-[var(--color-border-soft)]"
-          />
+        <div className="space-y-6">
+          {grouped.map(([label, items]) => (
+            <GlassPanel key={String(label)} className="overflow-hidden">
+              <PanelHeader title={String(label)} />
+              <ul className="divide-y divide-[rgba(20,22,26,0.06)]">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <ActivityRow item={item} invoiceIndex={invoiceIndex} />
+                  </li>
+                ))}
+              </ul>
+            </GlassPanel>
+          ))}
 
-          {activities.map((activity) => {
-            const Icon = iconFor(activity.type);
-
-            return (
-              <li key={activity.id} className="relative">
-                <div className="flex items-start gap-3">
-                  <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-soft)] bg-white">
-                    <Icon className="h-4 w-4 text-[var(--color-ink-muted)]" />
-                  </span>
-
-                  <div className="min-w-0 flex-1 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[var(--shadow-soft)]">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-[var(--color-ink)]">
-                          {labelFor(activity.type)}
-                        </p>
-
-                        {activity.subscription?.status ? (
-                          <StatusBadge
-                            status={activity.subscription.status}
-                          />
-                        ) : null}
-                      </div>
-
-                      <span className="text-xs text-[var(--color-ink-muted)]">
-                        {new Date(activity.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-
-                    {activity.subscription ? (
-                      <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
-                        {activity.subscription.plan.service.name} ·{" "}
-                        {activity.subscription.plan.name}
-                      </p>
-                    ) : null}
-
-                    {activity.type.toUpperCase().includes("INVOICE") &&
-                    activity.metadata &&
-                    typeof activity.metadata === "object" &&
-                    "invoiceId" in activity.metadata ? (
-                      <Link
-                        to={`/customer/invoices/${String(
-                          activity.metadata.invoiceId,
-                        )}`}
-                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-ink)] underline underline-offset-2"
-                      >
-                        <Receipt className="h-3.5 w-3.5" />
-                        View invoice
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+          {query.hasNextPage ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => query.fetchNextPage()}
+                disabled={query.isFetchingNextPage}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-charcoal)] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {query.isFetchingNextPage ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  "Load more"
+                )}
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   );
+
+}
+
+/* ────────── Row ────────── */
+
+interface RowProps {
+  item: BillingActivity;
+  invoiceIndex: Map<string, { invoiceNumber: string; service: string }>;
+}
+
+function ActivityRow({ item, invoiceIndex }: RowProps) {
+  if (item.type === "INVOICE") {
+    const isPaid = item.status === "PAID";
+    const isVoid = item.status === "VOID";
+    const isDraft = item.status === "DRAFT";
+
+    const title = isPaid
+      ? "Invoice paid"
+      : isVoid
+        ? "Invoice voided"
+        : isDraft
+          ? "Draft invoice"
+          : "Invoice issued";
+
+    const tone = isPaid
+      ? "positive"
+      : isVoid || isDraft
+        ? "grey"
+        : "warning";
+
+    const Icon = isPaid ? CheckCircle2 : isVoid || isDraft ? Receipt : Clock;
+
+    return (
+      <RowShell to={`/customer/invoices/${item.invoiceId}`}>
+        <IconTile tone={tone}>
+          <Icon className="h-4 w-4" />
+        </IconTile>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-[var(--color-ink)]">
+            {title}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-[var(--color-ink-muted)]">
+            {item.invoiceNumber} · {item.service} · {formatDate(item.createdAt)}
+          </p>
+        </div>
+        <AmountAndStatus
+          amount={item.amount}
+          currency={item.currency}
+          status={item.status}
+          tone="neutral"
+        />
+      </RowShell>
+    );
+  }
+
+  // PAYMENT
+  const isSuccess = item.status === "SUCCESS";
+  const isPending = item.status === "PENDING";
+  const isFailed = item.status === "FAILED";
+
+  const title = isSuccess
+    ? "Payment successful"
+    : isPending
+      ? "Payment pending"
+      : "Payment failed";
+
+  const tone = isSuccess ? "positive" : isPending ? "warning" : "negative";
+
+  const Icon = isSuccess ? CheckCircle2 : isPending ? Clock : XCircle;
+
+  const invoiceMeta = invoiceIndex.get(item.invoiceId);
+  const subtitle = invoiceMeta
+    ? `${invoiceMeta.invoiceNumber} · ${invoiceMeta.service} · ${formatDate(item.createdAt)}`
+    : `Invoice payment · ${formatDate(item.createdAt)}`;
+
+  return (
+    <RowShell to={`/customer/invoices/${item.invoiceId}`}>
+      <IconTile tone={tone}>
+        <Icon className="h-4 w-4" />
+      </IconTile>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-[var(--color-ink)]">
+          {title}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-[var(--color-ink-muted)]">
+          {subtitle}
+        </p>
+      </div>
+      <AmountAndStatus
+        amount={item.amount}
+        currency={item.currency}
+        status={item.status}
+        tone={isSuccess ? "positive" : isFailed ? "negative" : "neutral"}
+        prefix={isSuccess ? "+" : ""}
+      />
+    </RowShell>
+  );
+}
+
+/* ────────── Primitives ────────── */
+
+function RowShell({
+  to,
+  children,
+}: {
+  to: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex items-center gap-3 px-6 py-4 transition hover:bg-white/50"
+    >
+      {children}
+      <ArrowRight className="hidden h-4 w-4 text-[var(--color-ink-subtle)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-ink)] sm:block" />
+    </Link>
+  );
+}
+
+function IconTile({
+  tone,
+  children,
+}: {
+  tone: "positive" | "warning" | "negative" | "grey";
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === "positive"
+      ? "bg-[var(--color-positive-soft)] text-[var(--color-positive)]"
+      : tone === "warning"
+        ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
+        : tone === "negative"
+          ? "bg-[var(--color-negative-soft)] text-[var(--color-negative)]"
+          : "bg-white/70 text-[var(--color-ink-muted)]";
+  return (
+    <span
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/60 ${cls}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function AmountAndStatus({
+  amount,
+  currency,
+  status,
+  tone,
+  prefix = "",
+}: {
+  amount: number;
+  currency: string;
+  status: string;
+  tone: "positive" | "negative" | "neutral";
+  prefix?: string;
+}) {
+  const amountCls =
+    tone === "positive"
+      ? "text-[var(--color-positive)]"
+      : tone === "negative"
+        ? "text-[var(--color-negative)]"
+        : "text-[var(--color-ink)]";
+
+  const statusLabel = humanize(status);
+  const statusCls =
+    tone === "positive"
+      ? "text-[var(--color-positive)]"
+      : tone === "negative"
+        ? "text-[var(--color-negative)]"
+        : "text-[var(--color-ink-subtle)]";
+
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-0.5">
+      <span className={`text-sm font-semibold tabular-nums ${amountCls}`}>
+        {prefix}
+        {formatMoney(amount, currency)}
+      </span>
+      <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${statusCls}`}>
+        {statusLabel}
+      </span>
+    </div>
+  );
+}
+
+function humanize(s: string) {
+  return s
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
