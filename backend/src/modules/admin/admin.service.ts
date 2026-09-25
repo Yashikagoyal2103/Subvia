@@ -208,3 +208,55 @@ export async function getAdminBillingActivity(businessId: string, pagination: Pa
     pagination: { page: pagination.page, limit: pagination.limit, hasNextPage },
   };
 }
+
+export async function addCustomerToBusiness(
+  businessId: string,
+  email: string,
+) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      accountType: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  if (user.accountType !== "CUSTOMER") {
+    throw new Error("CUSTOMER_ACCOUNT_REQUIRED");
+  }
+
+  const existingProfile =
+    await prisma.customerProfile.findUnique({
+      where: {
+        userId_businessId: {
+          userId: user.id,
+          businessId,
+        },
+      },
+    });
+
+  if (existingProfile) {
+    throw new Error("CUSTOMER_ALREADY_EXISTS");
+  }
+
+  return prisma.customerProfile.create({
+    data: {
+      userId: user.id,
+      businessId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+}

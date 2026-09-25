@@ -24,6 +24,7 @@ type SimResult = "SUCCESS" | "FAILED";
 export function CheckoutPage() {
   const { planId = "" } = useParams();
   const navigate = useNavigate();
+
   const [result, setResult] = useState<SimResult>("SUCCESS");
 
   const planQuery = useQuery({
@@ -79,7 +80,9 @@ export function CheckoutPage() {
       if (result === "SUCCESS") {
         toast.success("Subscription activated");
       } else {
-        toast.error("Payment failed — subscription remains inactive");
+        toast.error(
+          "Payment failed — subscription remains inactive",
+        );
       }
 
       navigate(
@@ -97,18 +100,30 @@ export function CheckoutPage() {
   });
 
   if (!planId) {
-    return <ErrorState description="Plan context is missing." />;
+    return (
+      <ErrorState description="Plan context is missing." />
+    );
   }
 
   if (planQuery.isPending) {
-    return <LoadingState message="Preparing checkout…" />;
+    return (
+      <LoadingState message="Preparing checkout…" />
+    );
   }
 
-  if (planQuery.isError || !planQuery.data) {
+  if (planQuery.isError) {
     return (
       <ErrorState
-        description="We couldn't load this plan for checkout."
+        description="We couldn't load this plan."
         retryAction={() => planQuery.refetch()}
+      />
+    );
+  }
+
+  if (!planQuery.data) {
+    return (
+      <ErrorState
+        description="This plan is no longer available."
       />
     );
   }
@@ -119,164 +134,171 @@ export function CheckoutPage() {
     <div className="space-y-8">
       <PageHeader
         title="Checkout"
-        description="Demo payment only — no real money or payment details are collected."
+        description={`Subscribe to ${service.name}`}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)]">
-          <h2 className="text-sm font-semibold text-[var(--color-ink)]">
-            Payment simulator
-          </h2>
+      <div className="grid gap-8 lg:grid-cols-[1fr_420px]">
+        <section className="surface-panel p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
 
-          <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-            Choose the simulated payment result.
-          </p>
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                {service.name}
+              </p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <SimOption
-              value="SUCCESS"
-              selected={result === "SUCCESS"}
-              onSelect={setResult}
-              title="Successful payment"
-              description="The subscription will become active."
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              tone="success"
-            />
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                {plan.name}
+              </h2>
 
-            <SimOption
-              value="FAILED"
-              selected={result === "FAILED"}
-              onSelect={setResult}
-              title="Failed payment"
-              description="The payment attempt will fail."
-              icon={<XCircle className="h-4 w-4" />}
-              tone="danger"
-            />
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {plan.description ||
+                  "A recurring plan for this service."}
+              </p>
+            </div>
           </div>
 
-          <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-[var(--color-surface)] p-3.5 text-xs text-[var(--color-ink-muted)]">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink)]" />
+          <div className="mt-8 border-t border-slate-100 pt-6">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Payment simulator
+            </h3>
 
-            <p>
-              This is a controlled demo payment flow. No card,
-              UPI, bank, or real payment information is collected.
+            <p className="mt-1 text-sm text-slate-500">
+              Choose the simulated payment result for this
+              checkout.
             </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setResult("SUCCESS")}
+                className={cn(
+                  "rounded-2xl border p-4 text-left transition",
+                  result === "SUCCESS"
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:border-slate-300",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Successful payment
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Simulate a successful payment.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setResult("FAILED")}
+                className={cn(
+                  "rounded-2xl border p-4 text-left transition",
+                  result === "FAILED"
+                    ? "border-rose-300 bg-rose-50"
+                    : "border-slate-200 bg-white hover:border-slate-300",
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <XCircle className="h-5 w-5 text-rose-600" />
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Failed payment
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Simulate a failed payment.
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         </section>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-2xl bg-[var(--color-surface-dark)] p-6 text-white shadow-[var(--shadow-card)]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
-              Order summary
+        <aside className="surface-panel p-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Order summary
+          </p>
+
+          <div className="mt-6">
+            <p className="text-lg font-semibold text-slate-950">
+              {plan.name}
             </p>
 
-            <h2 className="mt-2 text-xl font-semibold">
-              {plan.name}
-            </h2>
-
-            <p className="mt-1 text-sm text-white/60">
+            <p className="mt-1 text-sm text-slate-500">
               {service.name}
             </p>
-
-            <dl className="mt-6 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-white/60">Billing</dt>
-                <dd>
-                  {plan.interval === "MONTHLY"
-                    ? "Monthly"
-                    : "Yearly"}
-                </dd>
-              </div>
-
-              <div className="flex justify-between">
-                <dt className="text-white/60">Currency</dt>
-                <dd>{plan.currency}</dd>
-              </div>
-
-              <div className="flex justify-between border-t border-white/10 pt-3">
-                <dt className="text-white/60">Today</dt>
-                <dd className="font-semibold text-[var(--color-accent)]">
-                  {formatMoney(plan.price, plan.currency)}
-                </dd>
-              </div>
-            </dl>
-
-            <button
-              type="button"
-              disabled={mutation.isPending}
-              onClick={() => mutation.mutate()}
-              className={cn(
-                "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full",
-                "bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-[var(--color-accent-foreground)]",
-                "disabled:opacity-60",
-              )}
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing…
-                </>
-              ) : (
-                `Pay ${formatMoney(plan.price, plan.currency)}`
-              )}
-            </button>
           </div>
+
+          <div className="mt-6 space-y-4 border-y border-slate-100 py-6">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-500">
+                Price
+              </span>
+
+              <span className="font-semibold text-slate-900">
+                {formatMoney(plan.price, plan.currency)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-500">
+                Billing interval
+              </span>
+
+              <span className="font-semibold text-slate-900">
+                {plan.interval.toLowerCase()}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-500">
+                Currency
+              </span>
+
+              <span className="font-semibold text-slate-900">
+                {plan.currency}
+              </span>
+            </div>
+          </div>
+
+          <p className="mb-6 text-xs leading-5 text-slate-400">
+            Final tax calculations and invoice totals are
+            generated by the billing engine when the
+            subscription is created.
+          </p>
+
+          <button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+            className={cn(
+              "flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white shadow-md transition",
+              result === "SUCCESS"
+                ? "bg-slate-900 hover:bg-indigo-600"
+                : "bg-rose-600 hover:bg-rose-700",
+            )}
+          >
+            {mutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Processing order...
+              </>
+            ) : result === "SUCCESS" ? (
+              "Subscribe & Pay"
+            ) : (
+              "Run Failed Payment"
+            )}
+          </button>
         </aside>
       </div>
     </div>
-  );
-}
-
-interface SimOptionProps {
-  value: SimResult;
-  selected: boolean;
-  onSelect: (value: SimResult) => void;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  tone: "success" | "danger";
-}
-
-function SimOption({
-  value,
-  selected,
-  onSelect,
-  title,
-  description,
-  icon,
-  tone,
-}: SimOptionProps) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(value)}
-      className={cn(
-        "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition",
-        selected
-          ? tone === "success"
-            ? "border-emerald-400 bg-emerald-50"
-            : "border-rose-400 bg-rose-50"
-          : "border-[var(--color-border-soft)] hover:border-[var(--color-border-strong)]",
-      )}
-    >
-      <span
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full",
-          tone === "success"
-            ? "bg-emerald-100 text-emerald-700"
-            : "bg-rose-100 text-rose-700",
-        )}
-      >
-        {icon}
-      </span>
-
-      <span className="text-sm font-semibold text-[var(--color-ink)]">
-        {title}
-      </span>
-
-      <span className="text-xs leading-5 text-[var(--color-ink-muted)]">
-        {description}
-      </span>
-    </button>
   );
 }
