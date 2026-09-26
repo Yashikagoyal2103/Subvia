@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  Copy,
-  Globe,
-  Loader2,
-  Plus,
-  Trash2,
-  Webhook,
-} from "lucide-react";
+import { Copy, Globe, Loader2, Plus, Trash2, Webhook } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import axios from "axios";
@@ -14,66 +7,65 @@ import { toast } from "sonner";
 
 import {
   webhooksApi,
+  type WebhookEndpoint,
   type WebhookEndpointStatus,
 } from "../../api/webhooks";
 import { Button } from "../../components/ui/button";
-import { LoadingState } from "../../components/loading-state";
-import { ErrorState } from "../../components/error-state";
 import { queryClient } from "../../lib/query-client";
+import { useCurrentBusinessName } from "@/hooks/useCurrentBusinessName";
+
+import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminErrorState } from "@/components/admin/AdminErrorState";
+import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { ConfirmActionDialog } from "@/components/admin/ConfirmActionDialog";
+import { ListRow } from "@/components/admin/ListRow";
+import { StatusBadge } from "@/components/status-badge";
 
 function date(value: string) {
-  return new Date(value).toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
+type ConfirmKind =
+  | { type: "disable"; endpoint: WebhookEndpoint }
+  | { type: "delete"; endpoint: WebhookEndpoint }
+  | null;
+
 export function AdminWebhooksPage() {
-  const { businessId } =
-    useParams<{ businessId: string }>();
+  const { businessId } = useParams<{ businessId: string }>();
+  const businessName = useCurrentBusinessName();
 
   const [url, setUrl] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [secret, setSecret] = useState<string | null>(
-    null,
-  );
+  const [secret, setSecret] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmKind>(null);
 
   const query = useQuery({
     queryKey: ["webhooks", businessId],
-    queryFn: () =>
-      webhooksApi.list(businessId!),
+    queryFn: () => webhooksApi.list(businessId!),
     enabled: Boolean(businessId),
   });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      webhooksApi.create(
-        businessId!,
-        { url: url.trim() },
-      ),
+    mutationFn: () => webhooksApi.create(businessId!, { url: url.trim() }),
     onSuccess: async (endpoint) => {
       setUrl("");
       setShowCreate(false);
       setSecret(endpoint.secret);
-
       await queryClient.invalidateQueries({
         queryKey: ["webhooks", businessId],
       });
-
       toast.success("Webhook endpoint created.");
     },
     onError: (error) => {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error?.message
         : undefined;
-
-      toast.error(
-        message ?? "Unable to create webhook.",
-      );
+      toast.error(message ?? "Unable to create webhook.");
     },
   });
 
@@ -82,50 +74,38 @@ export function AdminWebhooksPage() {
       endpointId: string;
       status: WebhookEndpointStatus;
     }) =>
-      webhooksApi.update(
-        businessId!,
-        input.endpointId,
-        { status: input.status },
-      ),
+      webhooksApi.update(businessId!, input.endpointId, {
+        status: input.status,
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["webhooks", businessId],
       });
-
       toast.success("Webhook status updated.");
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (endpointId: string) =>
-      webhooksApi.remove(
-        businessId!,
-        endpointId,
-      ),
+      webhooksApi.remove(businessId!, endpointId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["webhooks", businessId],
       });
-
       toast.success("Webhook endpoint removed.");
+      setConfirm(null);
     },
   });
 
   if (!businessId) {
-    return (
-      <ErrorState description="A valid business context is required." />
-    );
+    return <AdminErrorState message="A valid business context is required." />;
   }
-
-  if (query.isLoading) {
-    return <LoadingState message="Loading webhooks..." />;
-  }
-
+  if (query.isLoading) return <AdminLoadingState variant="list" rows={4} />;
   if (query.isError) {
     return (
-      <ErrorState
-        description="We couldn't load webhook endpoints."
-        retryAction={() => query.refetch()}
+      <AdminErrorState
+        message="We couldn't load webhook endpoints."
+        onRetry={() => query.refetch()}
       />
     );
   }
@@ -133,225 +113,192 @@ export function AdminWebhooksPage() {
   const endpoints = query.data ?? [];
 
   const copySecret = async () => {
-    if (!secret) {
-      return;
-    }
-
+    if (!secret) return;
     await navigator.clipboard.writeText(secret);
     toast.success("Webhook secret copied.");
   };
 
+  const handleConfirm = () => {
+    if (!confirm) return;
+    if (confirm.type === "disable") {
+      toggleMutation.mutate({
+        endpointId: confirm.endpoint.id,
+        status: "DISABLED",
+      });
+      setConfirm(null);
+    } else {
+      deleteMutation.mutate(confirm.endpoint.id);
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-            Integrations
-          </p>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow={businessName ? `${businessName} / Webhooks` : "Admin / Webhooks"}
+        title="Webhooks"
+        description="Receive subscription and payment lifecycle events from your billing platform."
+        actions={
+          <Button
+            onClick={() => {
+              setShowCreate(true);
+              setSecret(null);
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add endpoint
+          </Button>
+        }
+      />
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-950">
-            Webhooks
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Receive subscription and payment lifecycle events
-            from your billing platform.
-          </p>
-        </div>
-
-        <Button
-          onClick={() => {
-            setShowCreate(true);
-            setSecret(null);
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add endpoint
-        </Button>
-      </header>
-
-      {secret && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+      {secret ? (
+        <div className="rounded-2xl border border-[var(--a-amber)]/30 bg-[var(--a-amber-soft)] px-5 py-4">
           <div className="flex items-start gap-3">
-            <Webhook className="mt-0.5 h-5 w-5 text-amber-700" />
-
+            <Webhook className="mt-0.5 h-5 w-5 text-[var(--a-amber)]" />
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-amber-950">
+              <h2 className="text-sm font-semibold text-[#7c540f]">
                 Save this webhook secret
               </h2>
-
-              <p className="mt-1 text-sm text-amber-800">
-                This secret is shown only when the endpoint is
-                created.
+              <p className="mt-1 text-xs text-[#7c540f]/80">
+                This secret is shown only when the endpoint is created.
               </p>
-
-              <div className="mt-4 flex gap-2">
-                <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-gray-700">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-[var(--a-amber)]/30 bg-white px-3 py-2 font-mono text-xs text-[var(--a-ink)]">
                   {secret}
                 </code>
-
-                <Button
-                  variant="outline"
-                  onClick={copySecret}
-                >
+                <Button variant="outline" onClick={copySecret}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy
                 </Button>
               </div>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      ) : null}
 
-      {showCreate && (
-        <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-gray-900">
+      {showCreate ? (
+        <AdminCard>
+          <h2 className="text-sm font-semibold text-[var(--a-ink)]">
             New webhook endpoint
           </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Use an HTTPS endpoint in a real integration.
+          <p className="mt-1 text-xs text-[var(--a-ink-2)]">
+            Webhook deliveries are signed and retried by BillingOS.
           </p>
-
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <input
               value={url}
-              onChange={(event) =>
-                setUrl(event.target.value)
-              }
+              onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhooks"
-              className="h-10 flex-1 rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="h-11 flex-1 rounded-xl border border-[var(--a-border)] px-3.5 text-sm outline-none transition focus:border-[var(--a-indigo)]"
             />
-
             <Button
-              disabled={
-                !url.trim() ||
-                createMutation.isPending
-              }
-              onClick={() =>
-                createMutation.mutate()
-              }
+              disabled={!url.trim() || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Create endpoint
             </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => setShowCreate(false)}
-            >
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
               Cancel
             </Button>
           </div>
-        </section>
-      )}
+        </AdminCard>
+      ) : null}
 
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="font-semibold text-gray-900">
+      <AdminCard variant="flush">
+        <div className="border-b border-[var(--a-border)] px-6 py-5">
+          <h2 className="text-sm font-semibold text-[var(--a-ink)]">
             Configured endpoints
           </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            {endpoints.length} endpoint
-            {endpoints.length === 1 ? "" : "s"} configured.
+          <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
+            {endpoints.length} endpoint{endpoints.length === 1 ? "" : "s"}{" "}
+            configured
           </p>
         </div>
 
         {endpoints.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <Globe className="mx-auto h-10 w-10 text-gray-300" />
-
-            <h3 className="mt-4 font-semibold text-gray-900">
+          <div className="px-6 py-14 text-center">
+            <Globe className="mx-auto h-8 w-8 text-[var(--a-ink-3)]" />
+            <p className="mt-3 text-sm font-semibold text-[var(--a-ink)]">
               No webhook endpoints
-            </h3>
-
-            <p className="mt-1 text-sm text-gray-500">
+            </p>
+            <p className="mt-1 text-sm text-[var(--a-ink-2)]">
               Add an endpoint to receive billing events.
             </p>
           </div>
         ) : (
-          <div className="divide-y">
+          <ul className="divide-y divide-[var(--a-border)] px-4 py-2">
             {endpoints.map((endpoint) => {
-              const active =
-                endpoint.status === "ACTIVE";
-
+              const active = endpoint.status === "ACTIVE";
               return (
-                <div
-                  key={endpoint.id}
-                  className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                      <Webhook className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">
-                        {endpoint.url}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        Created {date(endpoint.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        active
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {endpoint.status}
-                    </span>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        toggleMutation.isPending
-                      }
-                      onClick={() =>
-                        toggleMutation.mutate({
-                          endpointId: endpoint.id,
-                          status: active
-                            ? "DISABLED"
-                            : "ACTIVE",
-                        })
-                      }
-                    >
-                      {active
-                        ? "Disable"
-                        : "Enable"}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        deleteMutation.isPending
-                      }
-                      onClick={() =>
-                        deleteMutation.mutate(
-                          endpoint.id,
-                        )
-                      }
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
+                <li key={endpoint.id}>
+                  <ListRow
+                    icon={<Webhook className="h-4 w-4" />}
+                    leadingBadgeTone={active ? "indigo" : "rose"}
+                    title={endpoint.url}
+                    subtitle={`Created ${date(endpoint.createdAt)}`}
+                    trailing={
+                      <>
+                        <StatusBadge status={endpoint.status} />
+                        <button
+                          type="button"
+                          disabled={toggleMutation.isPending}
+                          onClick={() => {
+                            if (active) {
+                              setConfirm({ type: "disable", endpoint });
+                            } else {
+                              toggleMutation.mutate({
+                                endpointId: endpoint.id,
+                                status: "ACTIVE",
+                              });
+                            }
+                          }}
+                          className="rounded-full border border-[var(--a-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:opacity-50"
+                        >
+                          {active ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleteMutation.isPending}
+                          onClick={() =>
+                            setConfirm({ type: "delete", endpoint })
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--a-ink-3)] transition hover:bg-[var(--a-rose-soft)] hover:text-[var(--a-rose)] disabled:opacity-50"
+                          aria-label="Delete endpoint"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    }
+                  />
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </section>
+      </AdminCard>
+
+      <ConfirmActionDialog
+        isOpen={confirm !== null}
+        title={
+          confirm?.type === "delete"
+            ? "Delete webhook endpoint?"
+            : "Disable webhook?"
+        }
+        description={
+          confirm?.type === "delete"
+            ? "This action cannot be undone. Deliveries to this endpoint will stop immediately."
+            : "This endpoint will no longer receive new deliveries."
+        }
+        confirmLabel={
+          confirm?.type === "delete" ? "Delete endpoint" : "Disable endpoint"
+        }
+        isDestructive
+        isLoading={deleteMutation.isPending || toggleMutation.isPending}
+        onCancel={() => setConfirm(null)}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

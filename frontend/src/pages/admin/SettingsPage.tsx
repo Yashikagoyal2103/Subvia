@@ -1,127 +1,77 @@
 import { useEffect, useState } from "react";
-import {
-  Building2,
-  CheckCircle2,
-  Save,
-  User,
-} from "lucide-react";
-import {
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
-import {
-  useParams,
-} from "react-router-dom";
+import { Building2, Save, User } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 
 import { businessesApi } from "../../api/businesses";
 import { useAuthStore } from "../../stores/auth.store";
-import { LoadingState } from "../../components/loading-state";
-import { ErrorState } from "../../components/error-state";
 import { Button } from "../../components/ui/button";
 import { queryClient } from "../../lib/query-client";
+import { useCurrentBusinessName } from "@/hooks/useCurrentBusinessName";
+
+import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminErrorState } from "@/components/admin/AdminErrorState";
+import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { IconBadge } from "@/components/admin/IconBadge";
+import { InsightBanner } from "@/components/admin/InsightBanner";
 
 export function AdminSettingsPage() {
-  const { businessId } =
-    useParams<{ businessId: string }>();
-
-  const user = useAuthStore(
-    (state) => state.user,
-  );
+  const { businessId } = useParams<{ businessId: string }>();
+  const businessName = useCurrentBusinessName();
+  const user = useAuthStore((s) => s.user);
 
   const [name, setName] = useState("");
-  const [taxRate, setTaxRate] =
-    useState("");
+  const [taxRate, setTaxRate] = useState("");
 
   const query = useQuery({
-    queryKey: [
-      "admin-business",
-      businessId,
-    ],
-    queryFn: () =>
-      businessesApi.getById(
-        businessId!,
-      ),
+    queryKey: ["admin-business", businessId],
+    queryFn: () => businessesApi.getById(businessId!),
     enabled: Boolean(businessId),
   });
 
   useEffect(() => {
-    if (!query.data) {
-      return;
-    }
-
+    if (!query.data) return;
     setName(query.data.name);
-    setTaxRate(
-      String(query.data.taxRate),
-    );
+    setTaxRate(String(query.data.taxRate));
   }, [query.data]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
-      businessesApi.update(
-        businessId!,
-        {
-          name: name.trim(),
-          taxRate: Number(taxRate),
-        },
-      ),
-
+      businessesApi.update(businessId!, {
+        name: name.trim(),
+        taxRate: Number(taxRate),
+      }),
     onSuccess: async (business) => {
       setName(business.name);
-      setTaxRate(
-        String(business.taxRate),
-      );
-
+      setTaxRate(String(business.taxRate));
       await queryClient.invalidateQueries({
-        queryKey: [
-          "admin-business",
-          businessId,
-        ],
+        queryKey: ["admin-business", businessId],
       });
-
       await queryClient.invalidateQueries({
         queryKey: ["admin-businesses"],
       });
-
-      toast.success(
-        "Business settings updated.",
-      );
+      toast.success("Business settings updated.");
     },
-
     onError: (error) => {
       const message = axios.isAxiosError(error)
         ? error.response?.data?.error?.message
         : undefined;
-
-      toast.error(
-        message ??
-          "Unable to update business settings.",
-      );
+      toast.error(message ?? "Unable to update business settings.");
     },
   });
 
   if (!businessId) {
-    return (
-      <ErrorState
-        description="A valid business context is required."
-      />
-    );
+    return <AdminErrorState message="A valid business context is required." />;
   }
-
-  if (query.isLoading) {
-    return (
-      <LoadingState message="Loading business settings..." />
-    );
-  }
-
+  if (query.isLoading) return <AdminLoadingState variant="detail" />;
   if (query.isError || !query.data) {
     return (
-      <ErrorState
-        description="We couldn't load the business settings."
-        retryAction={() =>
-          query.refetch()
-        }
+      <AdminErrorState
+        message="We couldn't load the business settings."
+        onRetry={() => query.refetch()}
       />
     );
   }
@@ -134,63 +84,47 @@ export function AdminSettingsPage() {
     updateMutation.isPending;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-          Administration
-        </p>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow={businessName ? `${businessName} / Settings` : "Admin / Settings"}
+        title="Settings"
+        description="Manage the business information used throughout your billing workspace."
+      />
 
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">
-          Settings
-        </h1>
-
-        <p className="mt-2 max-w-2xl text-sm text-gray-500">
-          Manage the business information used
-          throughout your billing workspace.
-        </p>
-      </header>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-            <Building2 className="h-5 w-5" />
-          </div>
-
+      <AdminCard>
+        <div className="flex items-start gap-4 border-b border-[var(--a-border)] pb-5">
+          <IconBadge
+            icon={<Building2 className="h-4 w-4" />}
+            tone="indigo"
+            size="md"
+          />
           <div>
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="text-sm font-semibold text-[var(--a-ink)]">
               Business profile
             </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              These details identify the current
-              billing business.
+            <p className="mt-0.5 text-xs text-[var(--a-ink-2)]">
+              These details identify the current billing business.
             </p>
           </div>
         </div>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-xs font-semibold text-[var(--a-ink)]">
               Business name
             </span>
-
             <input
               value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-              disabled={
-                updateMutation.isPending
-              }
-              className="mt-2 h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-50"
+              onChange={(e) => setName(e.target.value)}
+              disabled={updateMutation.isPending}
+              className="mt-2 h-11 w-full rounded-xl border border-[var(--a-border)] px-3.5 text-sm outline-none transition focus:border-[var(--a-indigo)] disabled:bg-[var(--a-canvas-2)]"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-xs font-semibold text-[var(--a-ink)]">
               Tax rate
             </span>
-
             <div className="relative mt-2">
               <input
                 type="number"
@@ -198,59 +132,44 @@ export function AdminSettingsPage() {
                 max={100}
                 step={1}
                 value={taxRate}
-                onChange={(event) =>
-                  setTaxRate(
-                    event.target.value,
-                  )
-                }
-                disabled={
-                  updateMutation.isPending
-                }
-                className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3.5 pr-10 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-50"
+                onChange={(e) => setTaxRate(e.target.value)}
+                disabled={updateMutation.isPending}
+                className="h-11 w-full rounded-xl border border-[var(--a-border)] px-3.5 pr-10 text-sm outline-none transition focus:border-[var(--a-indigo)] disabled:bg-[var(--a-canvas-2)]"
               />
-
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-[var(--a-ink-3)]">
                 %
               </span>
             </div>
-
-            <p className="mt-2 text-xs text-gray-400">
-              Applied to invoices generated for this
-              business.
+            <p className="mt-2 text-xs text-[var(--a-ink-3)]">
+              Applied to invoices generated for this business.
             </p>
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end border-t border-gray-100 pt-5">
+        <div className="mt-6 flex justify-end border-t border-[var(--a-border)] pt-5">
           <Button
             disabled={saveDisabled}
-            onClick={() =>
-              updateMutation.mutate()
-            }
+            onClick={() => updateMutation.mutate()}
           >
             <Save className="mr-2 h-4 w-4" />
-
-            {updateMutation.isPending
-              ? "Saving..."
-              : "Save changes"}
+            {updateMutation.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>
-      </section>
+      </AdminCard>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <User className="h-5 w-5" />
-          </div>
-
+      <AdminCard>
+        <div className="flex items-start gap-4 border-b border-[var(--a-border)] pb-5">
+          <IconBadge
+            icon={<User className="h-4 w-4" />}
+            tone="emerald"
+            size="md"
+          />
           <div>
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="text-sm font-semibold text-[var(--a-ink)]">
               Your account
             </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              The account currently managing this
-              business.
+            <p className="mt-0.5 text-xs text-[var(--a-ink-2)]">
+              The account currently managing this business.
             </p>
           </div>
         </div>
@@ -259,57 +178,31 @@ export function AdminSettingsPage() {
           <Info
             label="Name"
             value={
-              [user?.firstName, user?.lastName]
-                .filter(Boolean)
-                .join(" ") || "—"
+              [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "—"
             }
           />
-
-          <Info
-            label="Email"
-            value={user?.email ?? "—"}
-          />
-
-          <Info
-            label="Account type"
-            value={
-              user?.accountType ??
-              "ADMIN"
-            }
-          />
-
-          <Info
-            label="Business"
-            value={query.data.name}
-          />
+          <Info label="Email" value={user?.email ?? "—"} />
+          <Info label="Account type" value={user?.accountType ?? "ADMIN"} />
+          <Info label="Business" value={query.data.name} />
         </div>
 
-        <div className="mt-5 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>
-            You are an administrator of this
-            business.
-          </span>
+        <div className="mt-5">
+          <InsightBanner tone="positive">
+            You are an administrator of this business.
+          </InsightBanner>
         </div>
-      </section>
+      </AdminCard>
     </div>
   );
 }
 
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-gray-50 p-4">
-      <p className="text-xs text-gray-400">
+    <div className="rounded-xl bg-[var(--a-canvas-2)] p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--a-ink-3)]">
         {label}
       </p>
-
-      <p className="mt-1 text-sm font-medium text-gray-900">
+      <p className="mt-1 truncate text-sm font-medium text-[var(--a-ink)]">
         {value}
       </p>
     </div>

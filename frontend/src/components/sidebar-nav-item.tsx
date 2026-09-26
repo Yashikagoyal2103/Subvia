@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { cn } from "cn";
 import { Link } from "react-router-dom";
+
+import { cn } from "@/lib/utils";
 
 interface SidebarNavItemProps {
   icon?: ReactNode;
@@ -23,37 +24,47 @@ export function SidebarNavItem({
     <Link
       to={href}
       className={cn(
-        "group flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        isActive 
-          ? "bg-indigo-50 text-indigo-700" 
-          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-        className
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-[var(--a-indigo-soft)] text-[var(--a-indigo)]"
+          : "text-[var(--a-ink-2)] hover:bg-[rgba(15,15,10,0.035)] hover:text-[var(--a-ink)]",
+        className,
       )}
     >
-      <div className="flex items-center gap-3">
-        {icon && (
-          <div className={cn(
-            "flex-shrink-0",
-            isActive ? "text-indigo-700" : "text-gray-400 group-hover:text-gray-600"
-          )}>
-            {icon}
-          </div>
-        )}
-        <span className="truncate">{label}</span>
-      </div>
-      
-      {badge !== undefined && (
+      {isActive ? (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[var(--a-indigo)]"
+        />
+      ) : null}
+
+      {icon ? (
         <span
           className={cn(
-            "ml-auto inline-block rounded-full px-2 py-0.5 text-xs font-semibold",
+            "flex h-4 w-4 shrink-0 items-center justify-center transition-colors",
             isActive
-              ? "bg-indigo-100 text-indigo-700"
-              : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
+              ? "text-[var(--a-indigo)]"
+              : "text-[var(--a-ink-3)] group-hover:text-[var(--a-ink-2)]",
+          )}
+        >
+          {icon}
+        </span>
+      ) : null}
+
+      <span className="truncate">{label}</span>
+
+      {badge !== undefined ? (
+        <span
+          className={cn(
+            "ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+            isActive
+              ? "bg-white text-[var(--a-indigo)]"
+              : "bg-[rgba(15,15,10,0.06)] text-[var(--a-ink-2)]",
           )}
         >
           {badge}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }

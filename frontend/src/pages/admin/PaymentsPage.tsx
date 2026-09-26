@@ -1,86 +1,113 @@
 import { CheckCircle2, CreditCard, XCircle } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+
 import { adminApi } from "../../api/admin";
-import { LoadingState } from "../../components/loading-state";
-import { ErrorState } from "../../components/error-state";
-import { StatusBadge } from "../../components/status-badge";
+import { formatMoney } from "@/lib/format";
+import { useCurrentBusinessName } from "@/hooks/useCurrentBusinessName";
 
-const currencySymbol: Record<string, string> = { INR: "₹", USD: "$" };
-
-function money(amount: number, currency: string) {
-  return `${currencySymbol[currency] ?? currency}${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminErrorState } from "@/components/admin/AdminErrorState";
+import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { ListRow } from "@/components/admin/ListRow";
+import { StatusBadge } from "@/components/status-badge";
 
 function date(value: string) {
-  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function AdminPaymentsPage() {
   const { businessId } = useParams<{ businessId: string }>();
-  const query = useQuery({ queryKey: ["admin-payments", businessId], queryFn: () => adminApi.payments(businessId!), enabled: Boolean(businessId) });
+  const businessName = useCurrentBusinessName();
 
-  if (!businessId) return <ErrorState description="A valid business context is required." />;
-  if (query.isLoading) return <LoadingState message="Loading payments..." />;
-  if (query.isError) return <ErrorState description="We couldn't load the payments." retryAction={() => query.refetch()} />;
+  const query = useQuery({
+    queryKey: ["admin-payments", businessId],
+    queryFn: () => adminApi.payments(businessId!),
+    enabled: Boolean(businessId),
+  });
+
+  if (!businessId) {
+    return <AdminErrorState message="A valid business context is required." />;
+  }
+  if (query.isLoading) return <AdminLoadingState variant="list" rows={6} />;
+  if (query.isError) {
+    return (
+      <AdminErrorState
+        message="We couldn't load the payments."
+        onRetry={() => query.refetch()}
+      />
+    );
+  }
 
   const payments = query.data?.data ?? [];
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Payments</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900">Payment activity</h1>
-        <p className="mt-2 text-sm text-gray-500">Successful and failed payment attempts across the business.</p>
-      </header>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow={businessName ? `${businessName} / Payments` : "Admin / Payments"}
+        title="Payment activity"
+        description="Successful and failed payment attempts across the business."
+      />
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-6 py-5">
-          <h2 className="font-semibold text-gray-900">Payment attempts</h2>
-          <p className="mt-1 text-sm text-gray-500">{payments.length} payments on this page</p>
+      <AdminCard variant="flush">
+        <div className="border-b border-[var(--a-border)] px-6 py-5">
+          <h2 className="text-sm font-semibold text-[var(--a-ink)]">
+            Payment attempts
+          </h2>
+          <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
+            {payments.length} payment{payments.length === 1 ? "" : "s"} on this
+            page
+          </p>
         </div>
 
         {payments.length === 0 ? (
-          <div className="py-16 text-center">
-            <CreditCard className="mx-auto h-10 w-10 text-gray-300" />
-            <p className="mt-4 font-semibold">No payment activity</p>
-            <p className="mt-1 text-sm text-gray-500">Payment attempts will appear here.</p>
+          <div className="px-6 py-14 text-center">
+            <CreditCard className="mx-auto h-8 w-8 text-[var(--a-ink-3)]" />
+            <p className="mt-3 text-sm font-semibold text-[var(--a-ink)]">
+              No payment activity
+            </p>
+            <p className="mt-1 text-sm text-[var(--a-ink-2)]">
+              Payment attempts will appear here.
+            </p>
           </div>
         ) : (
-          <div className="divide-y">
-            {payments.map((payment) => (
-              <Link
-                key={payment.id}
-                to={`/admin/${businessId}/payments/${payment.id}`}
-                className="block px-6 py-5 transition hover:bg-gray-50"
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${payment.status === "SUCCESS" ? "bg-emerald-50" : "bg-red-50"}`}>
-                      {payment.status === "SUCCESS" ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-red-500" />}
-                    </div>
-
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <p className="font-medium text-gray-900">{payment.invoice.invoiceNumber}</p>
+          <ul className="divide-y divide-[var(--a-border)] px-4 py-2">
+            {payments.map((payment) => {
+              const success = payment.status === "SUCCESS";
+              return (
+                <li key={payment.id}>
+                  <ListRow
+                    icon={
+                      success ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )
+                    }
+                    leadingBadgeTone={success ? "emerald" : "rose"}
+                    title={payment.invoice.invoiceNumber}
+                    subtitle={`${payment.invoice.customerProfile.user.email} · ${payment.paymentMethod} · ${date(payment.createdAt)}`}
+                    trailing={
+                      <>
+                        <span className="text-sm font-semibold tabular-nums text-[var(--a-ink)]">
+                          {formatMoney(payment.amount, payment.currency)}
+                        </span>
                         <StatusBadge status={payment.status} />
-                      </div>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {payment.invoice.customerProfile.user.email} · {payment.paymentMethod} · {date(payment.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-left md:text-right">
-                    <p className="font-semibold text-gray-900">{money(payment.amount, payment.currency)}</p>
-                    <p className="mt-1 text-xs text-gray-400">{payment.invoice.subscription?.plan.name ?? "Invoice payment"}</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                      </>
+                    }
+                    href={`/admin/${businessId}/payments/${payment.id}`}
+                  />
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
+      </AdminCard>
     </div>
   );
 }
