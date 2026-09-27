@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -22,6 +22,7 @@ import {
   type SubscriptionEvent,
 } from "@/api/subscriptions";
 import { invoicesApi } from "@/api/invoices";
+import { catalogApi } from "@/api/catalog";
 import { formatMoney } from "@/lib/format";
 import { formatDate, formatDateTime } from "@/lib/customer-utils";
 
@@ -51,6 +52,7 @@ function readApiError(err: unknown): string {
 export function SubscriptionDetailsPage() {
   const { subscriptionId = "" } = useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelMode, setCancelMode] = useState<CancelMode>("PERIOD_END");
@@ -72,6 +74,47 @@ export function SubscriptionDetailsPage() {
     queryFn: () => invoicesApi.list(1, 100),
   });
 
+  const catalogQuery = useQuery({
+    queryKey: [
+      "customer-subscription-plan-options",
+      subQuery.data?.plan?.service?.id,
+      subQuery.data?.plan?.service?.businessId,
+    ],
+    queryFn: () =>
+      catalogApi.list({
+        businessId: subQuery.data!.plan!.service!.businessId,
+      }),
+    enabled: Boolean(
+      subQuery.data?.plan?.service?.id &&
+      subQuery.data?.plan?.service?.businessId,
+    ),
+  });
+
+  const upgradeMutation = useMutation({
+    mutationFn: (planId: string) =>
+      subscriptionsApi.upgrade(subscriptionId, planId),
+    onSuccess: (result) => {
+      toast.success("Upgrade created. Review the invoice to complete payment.");
+      qc.invalidateQueries({ queryKey: ["customer-subscription", subscriptionId] });
+      qc.invalidateQueries({ queryKey: ["customer-subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["customer-invoices"] });
+      navigate(`/customer/invoices/${result.invoice.id}`);
+    },
+    onError: (err) => toast.error(readApiError(err)),
+  });
+
+  const downgradeMutation = useMutation({
+    mutationFn: (planId: string) =>
+      subscriptionsApi.downgrade(subscriptionId, planId),
+    onSuccess: () => {
+      toast.success("Downgrade scheduled for the next billing boundary.");
+      qc.invalidateQueries({ queryKey: ["customer-subscription", subscriptionId] });
+      qc.invalidateQueries({ queryKey: ["customer-subscription-events", subscriptionId] });
+      qc.invalidateQueries({ queryKey: ["customer-subscriptions"] });
+    },
+    onError: (err) => toast.error(readApiError(err)),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (mode: CancelMode) =>
       subscriptionsApi.cancel(subscriptionId, { mode }),
@@ -86,9 +129,9 @@ export function SubscriptionDetailsPage() {
         ["customer-subscription", subscriptionId],
         ["customer-subscription-events", subscriptionId],
         ["customer-subscriptions"],
-        ["customer-plans"],
         ["customer-credits"],
         ["customer-billing-activity"],
+        ["customer-billing-activity-infinite"],
         ["customer-invoices"],
       ];
       for (const k of keys) qc.invalidateQueries({ queryKey: k });
@@ -348,6 +391,66 @@ export function SubscriptionDetailsPage() {
           </GlassPanel>
         </div>
       </div>
+
+      {/* Plan changes */}
+      {sub.status === "ACTIVE" && !sub.pendingPlanId && !sub.cancelAtPeriodEnd ? (
+        <GlassPanel className="overflow-hidden">
+          <PanelHeader
+            title="Change plan"
+            description="Upgrades create a prorated invoice. Downgrades take effect at the next billing boundary."
+          />
+          {catalogQuery.isPending ? (
+            <p className="px-6 py-6 text-sm text-[var(--color-ink-muted)]">Loading available plans…</p>
+          ) : catalogQuery.isError ? (
+            <p className="px-6 py-6 text-sm text-[var(--color-ink-muted)]">We couldn't load other plans.</p>
+          ) : (
+            <div className="grid gap-3 p-6 sm:grid-cols-2">
+              {(catalogQuery.data ?? [])
+                .flatMap((business) => business.services)
+                .find((service) => service.id === sub.plan?.service?.id)?.plans
+                .filter(
+                  (plan) =>
+                    plan.id !== sub.planId &&
+                    plan.currency === sub.currency,
+                )
+                .map((plan) => {
+                  const upgrade = plan.price > sub.price;
+                  const pending = upgradeMutation.isPending || downgradeMutation.isPending;
+                  return (
+                    <div
+                      key={plan.id}
+                      className="rounded-2xl border border-[rgba(20,22,26,0.08)] bg-white/60 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--color-ink)]">{plan.name}</p>
+                          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
+                            {formatMoney(plan.price, plan.currency)} / {plan.interval === "MONTHLY" ? "month" : "year"}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
+                          {upgrade ? "Upgrade" : "Downgrade"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          upgrade
+                            ? upgradeMutation.mutate(plan.id)
+                            : downgradeMutation.mutate(plan.id)
+                        }
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-charcoal)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {upgrade ? "Upgrade" : "Schedule downgrade"}
+                      </button>
+                    </div>
+                  );
+                }) ?? null}
+            </div>
+          )}
+        </GlassPanel>
+      ) : null}
 
       {/* Actions */}
       {canCancel ? (
@@ -639,3 +742,4 @@ function describeEvent(ev: SubscriptionEvent): {
         };
   }
 }
+

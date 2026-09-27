@@ -14,6 +14,21 @@ export async function createPlan(
 
   if (!service) throw new Error("SERVICE_NOT_FOUND");
 
+  const existing = await prisma.plan.findFirst({
+    where: {
+      serviceId,
+      name: {
+        equals: input.name,
+        mode: "insensitive",
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("PLAN_NAME_ALREADY_EXISTS");
+  }
+
   return prisma.plan.create({
     data: { serviceId, ...input },
   });
@@ -90,6 +105,24 @@ export async function updatePlan(
   input: UpdatePlanInput
 ) {
   const plan = await getPlan(businessId, serviceId, planId);
+
+  if (input.name !== undefined) {
+    const existing = await prisma.plan.findFirst({
+      where: {
+        serviceId,
+        id: { not: plan.id },
+        name: {
+          equals: input.name,
+          mode: "insensitive",
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new Error("PLAN_NAME_ALREADY_EXISTS");
+    }
+  }
 
   return prisma.plan.update({
     where: { id: plan.id },

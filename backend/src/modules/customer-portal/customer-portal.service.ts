@@ -1,3 +1,4 @@
+
 import { prisma } from "../../config/prisma.js";
 import {
   getPagination,
@@ -26,6 +27,7 @@ export async function getCustomerSubscriptions(
           },
         },
       },
+      pendingPlan: true,
     },
     orderBy: [
       { createdAt: "desc" },
@@ -70,6 +72,7 @@ export async function getCustomerSubscription(
           },
         },
       },
+      pendingPlan: true,
     },
   });
 
@@ -232,47 +235,47 @@ export async function getCustomerBillingActivity(
   pagination: PaginationInput,
 ) {
   const { skip, take } = getPagination(pagination);
+  const fetchTake = skip + take + 1;
 
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      customerProfile: {
-        userId,
-      },
-    },
-    include: {
-      subscription: {
-        include: {
-          plan: {
-            include: {
-              service: true,
-            },
-          },
-        },
-      },
-      items: true,
-    },
-    orderBy: [
-      { createdAt: "desc" },
-      { id: "desc" },
-    ],
-    skip,
-    take: take + 1,
-  });
-
-  const payments = await prisma.payment.findMany({
-    where: {
-      invoice: {
+  const [invoices, payments] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
         customerProfile: {
           userId,
         },
       },
-    },
-    orderBy: [
-      { createdAt: "desc" },
-      { id: "desc" },
-    ],
-    take: take + 1,
-  });
+      include: {
+        subscription: {
+          include: {
+            plan: {
+              include: {
+                service: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
+      take: fetchTake,
+    }),
+    prisma.payment.findMany({
+      where: {
+        invoice: {
+          customerProfile: {
+            userId,
+          },
+        },
+      },
+      orderBy: [
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
+      take: fetchTake,
+    }),
+  ]);
 
   const activities = [
     ...invoices.map((invoice) => ({
@@ -286,7 +289,6 @@ export async function getCustomerBillingActivity(
       currency: invoice.currency,
       service: invoice.subscription.plan.service.name,
     })),
-
     ...payments.map((payment) => ({
       id: `payment-${payment.id}`,
       type: "PAYMENT" as const,
@@ -298,20 +300,20 @@ export async function getCustomerBillingActivity(
       paymentMethod: payment.paymentMethod,
     })),
   ]
-    .sort(
-      (a, b) =>
-        b.createdAt.getTime() - a.createdAt.getTime(),
-    )
-    .slice(0, take);
+    .sort((a, b) => {
+      const timeDiff =
+        b.createdAt.getTime() - a.createdAt.getTime();
+      return timeDiff !== 0 ? timeDiff : b.id.localeCompare(a.id);
+    });
+
+  const pageItems = activities.slice(skip, skip + take);
 
   return {
-    items: activities,
+    items: pageItems,
     pagination: {
       page: pagination.page,
       limit: pagination.limit,
-      hasNextPage:
-        invoices.length > take ||
-        payments.length > take,
+      hasNextPage: activities.length > skip + take,
     },
   };
 }

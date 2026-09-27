@@ -161,8 +161,7 @@ export function AdminPlansPage() {
                   </div>
 
                   <Link
-                    to={`/admin/${businessId}/plans/${plan.id}`}
-                    state={{ serviceId: selectedServiceId }}
+                    to={`/admin/${businessId}/services/${selectedServiceId}/plans/${plan.id}`}
                     className="mt-5 block"
                   >
                     <h2 className="text-base font-semibold text-[var(--a-ink)] transition hover:text-[var(--a-indigo)]">
@@ -387,10 +386,16 @@ function PlanModal({
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
-          <Button disabled={loading}>
+
+          <Button type="submit" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {plan ? "Save changes" : "Create plan"}
           </Button>

@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   Webhook,
+  UserRound,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -66,7 +67,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: null,
-    items: [{ key: "settings", label: "Settings", icon: Settings }],
+    items: [
+      { key: "settings", label: "Settings", icon: Settings },
+      { key: "profile", label: "Profile", icon: UserRound },
+    ],
   },
 ];
 

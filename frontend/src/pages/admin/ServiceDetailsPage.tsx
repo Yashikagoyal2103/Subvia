@@ -153,7 +153,7 @@ export function AdminServiceDetailsPage() {
                       />
                     </>
                   }
-                  href={`/admin/${businessId}/plans/${plan.id}`}
+                  href={`/admin/${businessId}/services/${serviceId}/plans/${plan.id}`}
                 />
               </li>
             ))}

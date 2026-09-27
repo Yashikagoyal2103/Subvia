@@ -1,7 +1,39 @@
+
+import { Prisma } from "../generated/prisma/client.js";
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    const target = JSON.stringify(error.meta?.target ?? "");
+
+    if (
+      target.includes("Service_businessId_normalized_name_key") ||
+      (target.includes("Service") && target.includes("businessId"))
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: "SERVICE_NAME_ALREADY_EXISTS",
+          message: "A service with this name already exists in this business.",
+        },
+      });
+    }
+
+    if (
+      target.includes("Plan_serviceId_normalized_name_key") ||
+      (target.includes("Plan") && target.includes("serviceId"))
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: "PLAN_NAME_ALREADY_EXISTS",
+          message: "A plan with this name already exists for this service.",
+        },
+      });
+    }
+  }
+
   // Zod validation errors
   if (error instanceof ZodError) {
     return res.status(400).json({
@@ -117,6 +149,26 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
       },
     });
   }
+  if (error.message === "SERVICE_NAME_ALREADY_EXISTS") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "SERVICE_NAME_ALREADY_EXISTS",
+        message: "A service with this name already exists in this business.",
+      },
+    });
+  }
+
+  if (error.message === "PLAN_NAME_ALREADY_EXISTS") {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: "PLAN_NAME_ALREADY_EXISTS",
+        message: "A plan with this name already exists for this service.",
+      },
+    });
+  }
+
 
   // ─── Subscription ───
   if (error.message === "SUBSCRIPTION_NOT_FOUND") {
@@ -366,3 +418,5 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
     },
   });
 };
+
+

@@ -1,9 +1,11 @@
+
 import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
 
 import { useAuthStore } from "../stores/auth.store";
+import { queryClient } from "../lib/query-client";
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -107,6 +109,7 @@ apiClient.interceptors.response.use(
 
       return apiClient(originalRequest);
     } catch {
+      queryClient.clear();
       useAuthStore.getState().clearAuth();
 
       if (window.location.pathname !== "/login") {

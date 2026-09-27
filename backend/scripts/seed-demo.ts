@@ -1,635 +1,600 @@
-// backend/scripts/seed-demo.ts
-
 import "dotenv/config";
-import crypto from "node:crypto";
+import bcrypt from "bcrypt";
+import { prisma } from "../src/config/prisma.js";
 
-const API =
-  process.env.SEED_API_URL ??
-  "http://localhost:3000/api/v1";
-
-const ADMIN_EMAIL = "demo.admin@saasbilling.local";
-const CUSTOMER_EMAIL = "demo.customer@saasbilling.local";
 const PASSWORD = "DemoPassword123!";
+const ADMIN_EMAIL = "seed.admin@billingos.local";
+const CUSTOMER_PREFIX = "seed.customer";
+const ADMIN_EMAILS = [
+  ADMIN_EMAIL,
+  "platform.manager@billingos.local",
+  "operations.admin@billingos.local",
+];
 
-type Json = Record<string, any>;
-
-async function request(
-  path: string,
-  options: RequestInit = {},
-  token?: string,
-) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      "content-type": "application/json",
-      ...(token
-        ? { authorization: `Bearer ${token}` }
-        : {}),
-      ...(options.headers ?? {}),
-    },
-  });
-
-  const body = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      `${options.method ?? "GET"} ${path} failed (${response.status}): ${JSON.stringify(body)}`,
-    );
-  }
-
-  return body as Json;
-}
-
-async function registerOrLogin(
-  email: string,
-  input: {
-    firstName: string;
-    lastName: string;
-    intent: "ADMIN" | "CUSTOMER";
-  }
-) {
-  try {
-    await request("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email,
-        password: PASSWORD,
-        confirmPassword: PASSWORD,
-        intent: input.intent,
-      }),
-    });
-  } catch (error) {
-    if (!String(error).includes("USER_ALREADY_EXISTS")) {
-      throw error;
-    }
-  }
-
-  const result = await request("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({
-      email,
-      password: PASSWORD,
-    }),
-  });
-
-  return result.data.accessToken as string;
-}
-
-async function createBusiness(
-  token: string,
-  name: string,
-) {
-  const result = await request(
-    "/businesses",
-    {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    },
-    token,
-  );
-
-  return result.data;
-}
-
-async function createService(
-  token: string,
-  businessId: string,
-  name: string,
-  description: string,
-) {
-  const result = await request(
-    `/businesses/${businessId}/services`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        name,
-        description,
-      }),
-    },
-    token,
-  );
-
-  return result.data;
-}
-
-async function createPlan(
-  token: string,
-  businessId: string,
-  serviceId: string,
-  input: {
-    name: string;
-    description: string;
-    price: number;
-    currency: "INR" | "USD";
-    interval: "MONTHLY" | "YEARLY";
+const BUSINESSES = [
+  {
+    name: "CloudHarbor",
+    taxRate: 18,
+    services: [
+      ["Object Storage", "Reliable cloud storage for files, backups, and shared assets."],
+      ["Managed PostgreSQL", "Managed PostgreSQL databases with backups and monitoring."],
+      ["Cloud Backup", "Automated backup retention for production workloads."],
+      ["Content Delivery", "Global content delivery for websites and applications."],
+      ["Compute Instances", "Flexible virtual compute for application workloads."],
+    ],
   },
-) {
-  const result = await request(
-    `/businesses/${businessId}/services/${serviceId}/plans`,
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-    },
-    token,
-  );
+  {
+    name: "MetricForge",
+    taxRate: 18,
+    services: [
+      ["Product Analytics", "Product funnels, retention, cohorts, and conversion analytics."],
+      ["Data Warehouse", "Central analytics warehouse for business and product data."],
+      ["Feature Flags", "Controlled feature rollouts and release management."],
+      ["Session Replay", "Understand product behavior with privacy-aware session replay."],
+      ["Experimentation", "A/B testing and experiment measurement for product teams."],
+    ],
+  },
+  {
+    name: "TeamFlow",
+    taxRate: 12,
+    services: [
+      ["Team Workspace", "Shared workspaces for distributed teams and departments."],
+      ["Project Management", "Projects, milestones, tasks, and delivery tracking."],
+      ["Knowledge Base", "Centralized documentation for teams and customers."],
+      ["Video Meetings", "Reliable video meetings with team collaboration tools."],
+      ["Team Calendar", "Shared calendars, scheduling, and availability management."],
+    ],
+  },
+  {
+    name: "SecureVault",
+    taxRate: 18,
+    services: [
+      ["Password Manager", "Secure credential storage and controlled team sharing."],
+      ["Secrets Vault", "Centralized secrets management for engineering teams."],
+      ["Device Security", "Device inventory, policy management, and security controls."],
+      ["Audit Logs", "Searchable security and administrative audit history."],
+      ["Access Reviews", "Periodic access reviews and permission visibility."],
+    ],
+  },
+  {
+    name: "MailPilot",
+    taxRate: 18,
+    services: [
+      ["Transactional Email", "Application email delivery with delivery monitoring."],
+      ["Email Campaigns", "Campaign creation, segmentation, and delivery analytics."],
+      ["Domain Verification", "Domain authentication and sender reputation tools."],
+      ["Inbox Analytics", "Monitor deliverability, engagement, and mailbox health."],
+      ["Template Studio", "Reusable responsive templates for product communication."],
+    ],
+  },
+  {
+    name: "LedgerDesk",
+    taxRate: 5,
+    services: [
+      ["Invoicing", "Professional invoices, recurring billing, and payment tracking."],
+      ["Expense Tracking", "Track business expenses and organize spending."],
+      ["Payment Reconciliation", "Match payments with invoices and financial records."],
+      ["Financial Reports", "Revenue, receivables, and financial reporting dashboards."],
+      ["Client Billing", "Customer billing profiles and recurring billing management."],
+    ],
+  },
+  {
+    name: "Supportly",
+    taxRate: 12,
+    services: [
+      ["Helpdesk", "Customer support tickets, queues, and agent workflows."],
+      ["Customer Knowledge Base", "Self-service support content for customers."],
+      ["Live Chat", "Real-time customer conversations and support routing."],
+      ["SLA Monitoring", "Service-level targets, alerts, and support reporting."],
+      ["Support Analytics", "Agent performance, response time, and resolution analytics."],
+    ],
+  },
+  {
+    name: "DevPulse",
+    taxRate: 18,
+    services: [
+      ["Error Monitoring", "Application error tracking with actionable diagnostics."],
+      ["Log Management", "Centralized application logs with search and retention."],
+      ["Uptime Monitoring", "Website and API availability monitoring with alerts."],
+      ["API Observability", "API latency, traffic, and reliability monitoring."],
+      ["Release Tracking", "Track deployments and correlate releases with incidents."],
+    ],
+  },
+] as const;
 
-  return result.data;
+const PLAN_TEMPLATES = [
+  { name: "Starter", multiplier: 1, description: "For individuals and small teams getting started." },
+  { name: "Growth", multiplier: 2.25, description: "For growing teams that need more capacity and automation." },
+  { name: "Pro", multiplier: 4.5, description: "For established teams with advanced requirements." },
+  { name: "Business", multiplier: 8.5, description: "For larger organizations with higher limits and support." },
+] as const;
+
+const CUSTOMER_NAMES = [
+  ["Aarav", "Sharma"], ["Aanya", "Mehta"], ["Aditya", "Kapoor"], ["Ananya", "Singh"],
+  ["Arjun", "Malhotra"], ["Diya", "Verma"], ["Ishaan", "Khanna"], ["Kiara", "Bhatia"],
+  ["Kabir", "Rao"], ["Meera", "Iyer"], ["Nisha", "Gupta"], ["Rohan", "Patel"],
+  ["Sana", "Khan"], ["Ved", "Joshi"], ["Tara", "Nair"], ["Rahul", "Shah"],
+  ["Anika", "Desai"], ["Kunal", "Sethi"], ["Priya", "Chopra"], ["Dev", "Agarwal"],
+  ["Maya", "Arora"], ["Yash", "Goyal"], ["Riya", "Saxena"], ["Neil", "Mishra"],
+  ["Sara", "Bansal"], ["Vikram", "Oberoi"], ["Ira", "Menon"], ["Manav", "Dutta"],
+  ["Zoya", "Reddy"], ["Karan", "Suri"], ["Avni", "Bhatt"], ["Sameer", "Gill"],
+  ["Simran", "Tandon"], ["Nakul", "Chawla"], ["Ishita", "Jain"], ["Ritvik", "Sood"],
+] as const;
+
+function daysAgo(days: number, hour = 10) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - days);
+  date.setUTCHours(hour, 0, 0, 0);
+  return date;
 }
 
-async function createSubscription(
-  token: string,
-  businessId: string,
-  planId: string,
-  key: string,
-) {
-  const result = await request(
-    `/businesses/${businessId}/subscriptions`,
-    {
-      method: "POST",
-      headers: {
-        "Idempotency-Key": key,
-      },
-      body: JSON.stringify({
-        planId,
-        currency: "INR",
-      }),
-    },
-    token,
-  );
-
-  return result.data;
+function daysFromNow(days: number) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  date.setUTCHours(10, 0, 0, 0);
+  return date;
 }
 
-async function pay(
-  token: string,
-  businessId: string,
-  invoiceId: string,
-  result: "SUCCESS" | "FAILED",
-) {
-  const response = await request(
-    `/businesses/${businessId}/payments`,
-    {
-      method: "POST",
-      headers: {
-        "Idempotency-Key": crypto.randomUUID(),
-      },
-      body: JSON.stringify({
-        invoiceId,
-        paymentMethod: "DEMO",
-        result,
-      }),
-    },
-    token,
-  );
-
-  return response.data;
+async function nextInvoiceNumber(date: Date) {
+  const rows = await prisma.$queryRaw<Array<{ number: bigint }>>`
+    SELECT nextval('invoice_number_seq') AS number
+  `;
+  return `INV-${date.getUTCFullYear()}-${rows[0].number.toString().padStart(6, "0")}`;
 }
 
 async function main() {
-  console.log(
-    "\n🌱 Creating SaaS Billing demo data...\n",
-  );
+  console.log("Starting BillingOS demo seed...");
 
-  /*
-   * --------------------------------------------------
-   * 1. Demo users
-   * --------------------------------------------------
-   */
+  const passwordHash = await bcrypt.hash(PASSWORD, 12);
 
-  const adminToken = await registerOrLogin(
-    ADMIN_EMAIL,
-    {
-      firstName: "Demo",
-      lastName: "Admin",
-      intent: "ADMIN",
-    }
-  );
+  const demoBusinessNames = BUSINESSES.map((business) => business.name);
+  const existingBusinesses = await prisma.business.findMany({
+    where: { name: { in: demoBusinessNames } },
+    select: { id: true },
+  });
+  const businessIds = existingBusinesses.map((business) => business.id);
 
-  const customerToken = await registerOrLogin(
-    CUSTOMER_EMAIL,
-    {
-      firstName: "Demo",
-      lastName: "Customer",
-      intent: "CUSTOMER",
-    }
-  );
-
-  /*
-   * --------------------------------------------------
-   * 2. Business
-   * --------------------------------------------------
-   */
-
-  const business = await createBusiness(
-    adminToken,
-    "CloudBox",
-  );
-
-  console.log(
-    `Business created: ${business.name}`,
-  );
-
-  /*
-   * --------------------------------------------------
-   * 3. Services
-   * --------------------------------------------------
-   */
-
-  const storage = await createService(
-    adminToken,
-    business.id,
-    "Cloud Storage",
-    "Reliable storage subscriptions for teams and growing businesses.",
-  );
-
-  const analytics = await createService(
-    adminToken,
-    business.id,
-    "Analytics",
-    "Subscription analytics and reporting for growing teams.",
-  );
-
-  const database = await createService(
-    adminToken,
-    business.id,
-    "Managed Database",
-    "Managed database plans for production applications.",
-  );
-
-  const collaboration = await createService(
-    adminToken,
-    business.id,
-    "Team Collaboration",
-    "Collaboration tools for distributed teams.",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 4. Storage plans
-   * --------------------------------------------------
-   */
-
-  const storageStarter = await createPlan(
-    adminToken,
-    business.id,
-    storage.id,
-    {
-      name: "Starter",
-      description:
-        "Essential storage for individuals and small projects.",
-      price: 29900,
-      currency: "INR",
-      interval: "MONTHLY",
+  const existingSeedUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { email: { in: ADMIN_EMAILS } },
+        { email: { startsWith: `${CUSTOMER_PREFIX}.` } },
+      ],
     },
-  );
+    select: { id: true },
+  });
+  const seedUserIds = existingSeedUsers.map((user) => user.id);
 
-  const storagePro = await createPlan(
-    adminToken,
-    business.id,
-    storage.id,
-    {
-      name: "Pro",
-      description:
-        "More capacity for growing teams.",
-      price: 69900,
-      currency: "INR",
-      interval: "MONTHLY",
-    },
-  );
+  if (businessIds.length > 0 || seedUserIds.length > 0) {
+    console.log("Removing previous BillingOS demo data...");
 
-  const storageBusiness = await createPlan(
-    adminToken,
-    business.id,
-    storage.id,
-    {
-      name: "Business",
-      description:
-        "Higher limits for established teams.",
-      price: 149900,
-      currency: "INR",
-      interval: "MONTHLY",
-    },
-  );
+    await prisma.$transaction(async (tx) => {
+      if (businessIds.length > 0) {
+        const endpoints = await tx.webhookEndpoint.findMany({
+          where: { businessId: { in: businessIds } },
+          select: { id: true },
+        });
+        const profiles = await tx.customerProfile.findMany({
+          where: { businessId: { in: businessIds } },
+          select: { id: true },
+        });
+        const profileIds = profiles.map((profile) => profile.id);
+        const subscriptions = await tx.subscription.findMany({
+          where: { customerProfileId: { in: profileIds } },
+          select: { id: true },
+        });
+        const subscriptionIds = subscriptions.map((subscription) => subscription.id);
+        const invoices = await tx.invoice.findMany({
+          where: { customerProfileId: { in: profileIds } },
+          select: { id: true },
+        });
+        const invoiceIds = invoices.map((invoice) => invoice.id);
 
-  /*
-   * --------------------------------------------------
-   * 5. Analytics plans
-   * --------------------------------------------------
-   */
+        if (endpointIds(endpoints).length > 0) {
+          await tx.webhookDelivery.deleteMany({ where: { endpointId: { in: endpointIds(endpoints) } } });
+        }
+        if (subscriptionIds.length > 0) {
+          await tx.subscriptionEvent.deleteMany({ where: { subscriptionId: { in: subscriptionIds } } });
+        }
+        if (invoiceIds.length > 0) {
+          await tx.payment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+          await tx.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+          await tx.creditLedger.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+          await tx.invoice.deleteMany({ where: { id: { in: invoiceIds } } });
+        }
+        if (subscriptionIds.length > 0) {
+          await tx.subscription.deleteMany({ where: { id: { in: subscriptionIds } } });
+        }
+        if (profileIds.length > 0) {
+          await tx.creditLedger.deleteMany({ where: { customerProfileId: { in: profileIds } } });
+          await tx.customerProfile.deleteMany({ where: { id: { in: profileIds } } });
+        }
 
-  const analyticsBasic = await createPlan(
-    adminToken,
-    business.id,
-    analytics.id,
-    {
-      name: "Analytics Basic",
-      description:
-        "Core analytics for small teams.",
-      price: 39900,
-      currency: "INR",
-      interval: "MONTHLY",
-    },
-  );
+        await tx.apiKey.deleteMany({ where: { businessId: { in: businessIds } } });
+        await tx.webhookEndpoint.deleteMany({ where: { businessId: { in: businessIds } } });
+        await tx.businessMember.deleteMany({ where: { businessId: { in: businessIds } } });
+        await tx.service.deleteMany({ where: { businessId: { in: businessIds } } });
+        await tx.business.deleteMany({ where: { id: { in: businessIds } } });
+      }
 
-  const analyticsPro = await createPlan(
-    adminToken,
-    business.id,
-    analytics.id,
-    {
-      name: "Analytics Pro",
-      description:
-        "Advanced reporting for growing businesses.",
-      price: 99900,
-      currency: "INR",
-      interval: "MONTHLY",
-    },
-  );
-
-  /*
-   * --------------------------------------------------
-   * 6. Database plans
-   * --------------------------------------------------
-   */
-
-  const databaseBasic = await createPlan(
-    adminToken,
-    business.id,
-    database.id,
-    {
-      name: "Database Basic",
-      description:
-        "Managed database for smaller workloads.",
-      price: 49900,
-      currency: "INR",
-      interval: "MONTHLY",
-    },
-  );
-
-  /*
-   * --------------------------------------------------
-   * 7. Collaboration plans
-   * --------------------------------------------------
-   */
-
-  const collaborationStarter =
-    await createPlan(
-      adminToken,
-      business.id,
-      collaboration.id,
-      {
-        name: "Team Starter",
-        description:
-          "Essential collaboration tools for small teams.",
-        price: 24900,
-        currency: "INR",
-        interval: "MONTHLY",
-      },
-    );
-
-  const collaborationPro =
-    await createPlan(
-      adminToken,
-      business.id,
-      collaboration.id,
-      {
-        name: "Team Pro",
-        description:
-          "Advanced collaboration features for growing teams.",
-        price: 59900,
-        currency: "INR",
-        interval: "MONTHLY",
-      },
-    );
-
-  console.log(
-    "Services and plans created.",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 8. Scenario: Active subscription
-   *
-   * Cloud Storage → Pro
-   * --------------------------------------------------
-   */
-
-  const active =
-    await createSubscription(
-      customerToken,
-      business.id,
-      storagePro.id,
-      "demo-active-subscription",
-    );
-
-  await pay(
-    customerToken,
-    business.id,
-    active.invoice.id,
-    "SUCCESS",
-  );
-
-  console.log(
-    "✓ Active Cloud Storage Pro subscription",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 9. Scenario: Second active subscription
-   *
-   * Analytics → Pro
-   * Different service, therefore valid.
-   * --------------------------------------------------
-   */
-
-  const analyticsSubscription =
-    await createSubscription(
-      customerToken,
-      business.id,
-      analyticsPro.id,
-      "demo-analytics-subscription",
-    );
-
-  await pay(
-    customerToken,
-    business.id,
-    analyticsSubscription.invoice.id,
-    "SUCCESS",
-  );
-
-  console.log(
-    "✓ Active Analytics Pro subscription",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 10. Scenario: Failed payment
-   *
-   * Managed Database → Basic
-   *
-   * The subscription remains PENDING and
-   * the invoice/payment demonstrate failure.
-   * --------------------------------------------------
-   */
-
-  const failed =
-    await createSubscription(
-      customerToken,
-      business.id,
-      databaseBasic.id,
-      "demo-failed-subscription",
-    );
-
-  await pay(
-    customerToken,
-    business.id,
-    failed.invoice.id,
-    "FAILED",
-  );
-
-  console.log(
-    "✓ Failed Managed Database payment",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 11. Scenario: Scheduled downgrade
-   *
-   * Analytics Pro → Analytics Basic
-   *
-   * Same service, valid downgrade.
-   * --------------------------------------------------
-   */
-
-  await request(
-    `/businesses/${business.id}/subscriptions/${analyticsSubscription.subscription.id}/downgrade`,
-    {
-      method: "POST",
-      headers: {
-        "Idempotency-Key":
-          "demo-scheduled-downgrade",
-      },
-      body: JSON.stringify({
-        planId: analyticsBasic.id,
-      }),
-    },
-    customerToken,
-  );
-
-  console.log(
-    "✓ Analytics Pro → Analytics Basic downgrade scheduled",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 12. Scenario: Upgrade
-   *
-   * Team Starter → Team Pro
-   *
-   * Same service, valid upgrade.
-   * --------------------------------------------------
-   */
-
-  const upgradeSub =
-    await createSubscription(
-      customerToken,
-      business.id,
-      collaborationStarter.id,
-      "demo-upgrade-subscription",
-    );
-
-  await pay(
-    customerToken,
-    business.id,
-    upgradeSub.invoice.id,
-    "SUCCESS",
-  );
-
-  const upgrade = await request(
-    `/businesses/${business.id}/subscriptions/${upgradeSub.subscription.id}/upgrade`,
-    {
-      method: "POST",
-      headers: {
-        "Idempotency-Key": "demo-upgrade",
-      },
-      body: JSON.stringify({
-        planId: collaborationPro.id,
-      }),
-    },
-    customerToken,
-  );
-
-  if (upgrade.data?.invoice?.id) {
-    await pay(
-      customerToken,
-      business.id,
-      upgrade.data.invoice.id,
-      "SUCCESS",
-    );
+      if (seedUserIds.length > 0) {
+        await tx.refreshToken.deleteMany({ where: { userId: { in: seedUserIds } } });
+        await tx.user.deleteMany({ where: { id: { in: seedUserIds } } });
+      }
+    });
   }
 
-  console.log(
-    "✓ Team Starter → Team Pro upgrade",
-  );
-
-  /*
-   * --------------------------------------------------
-   * 13. Scenario: Immediate cancellation
-   *
-   * Cancel the upgraded Team Pro subscription.
-   * This demonstrates the cancellation + credit flow.
-   * --------------------------------------------------
-   */
-
-  await request(
-    `/businesses/${business.id}/subscriptions/${upgradeSub.subscription.id}/cancel`,
-    {
-      method: "POST",
-      headers: {
-        "Idempotency-Key":
-          "demo-immediate-cancel",
-      },
-      body: JSON.stringify({
-        mode: "IMMEDIATE",
-      }),
+  const admin = await prisma.user.create({
+    data: {
+      firstName: "BillingOS",
+      lastName: "Admin",
+      email: ADMIN_EMAIL,
+      passwordHash,
+      accountType: "ADMIN",
     },
-    customerToken,
-  );
+  });
 
-  console.log(
-    "✓ Immediate cancellation + credit scenario",
-  );
+  const businesses: Array<{ id: string; name: string; taxRate: number; services: Array<{ id: string; name: string; plans: Array<{ id: string; name: string; price: number; interval: "MONTHLY" | "YEARLY" }> }> }> = [];
 
-  /*
-   * --------------------------------------------------
-   * Done
-   * --------------------------------------------------
-   */
+  for (const [businessIndex, definition] of BUSINESSES.entries()) {
+    const business = await prisma.business.create({
+      data: {
+        name: definition.name,
+        taxRate: definition.taxRate,
+        members: {
+          create: { userId: admin.id, role: "BUSINESS_ADMIN" },
+        },
+      },
+    });
 
-  console.log(
-    "\n✅ Demo data created successfully.",
-  );
+    const services = [];
+    for (const [serviceIndex, [name, description]] of definition.services.entries()) {
+      const service = await prisma.service.create({
+        data: {
+          businessId: business.id,
+          name,
+          description,
+          isActive: !(serviceIndex === 4 && businessIndex % 3 === 0),
+        },
+      });
 
-  console.log("\nDemo customer login:");
-  console.log(`Email:    ${CUSTOMER_EMAIL}`);
-  console.log(`Password: ${PASSWORD}`);
+      const basePrice = 700 + businessIndex * 180 + serviceIndex * 140;
+      const plans = [];
+      for (const [planIndex, template] of PLAN_TEMPLATES.entries()) {
+        const monthly = Math.round(basePrice * template.multiplier / 100) * 100;
+        const yearly = monthly * 10;
+        const isYearly = planIndex === 3;
+        const plan = await prisma.plan.create({
+          data: {
+            serviceId: service.id,
+            name: template.name,
+            description: template.description,
+            price: isYearly ? yearly : monthly,
+            currency: "INR",
+            interval: isYearly ? "YEARLY" : "MONTHLY",
+            isActive: !(planIndex === 0 && (serviceIndex + businessIndex) % 5 === 0),
+          },
+        });
+        plans.push({ id: plan.id, name: plan.name, price: plan.price, interval: plan.interval });
+      }
+      services.push({ id: service.id, name: service.name, plans });
+    }
 
-  console.log("\nDemo admin login:");
-  console.log(`Email:    ${ADMIN_EMAIL}`);
-  console.log(`Password: ${PASSWORD}`);
+    businesses.push({ id: business.id, name: business.name, taxRate: business.taxRate, services });
+  }
 
-  console.log(
-    `\nBusiness: ${business.name}`,
-  );
+  const customers = [] as Array<{ id: string; email: string; firstName: string; lastName: string }>;
+  for (const [index, [firstName, lastName]] of CUSTOMER_NAMES.entries()) {
+    const email = `${CUSTOMER_PREFIX}.${String(index + 1).padStart(2, "0")}@billingos.local`;
+    const customer = await prisma.user.create({
+      data: {
+        firstName,
+        lastName,
+        email,
+        passwordHash,
+        accountType: "CUSTOMER",
+      },
+    });
+    customers.push({ id: customer.id, email, firstName, lastName });
+  }
 
-  console.log(
-    `Business ID: ${business.id}\n`,
-  );
+  // Every demo customer belongs to every demo business so the customer portal and admin
+  // customer tables have plenty of cross-business data to inspect.
+  for (const customer of customers) {
+    for (const business of businesses) {
+      await prisma.customerProfile.create({
+        data: { userId: customer.id, businessId: business.id },
+      });
+    }
+  }
+
+  // Add a few admin memberships so the admin business switcher has real multi-business data.
+  const managers = [
+    ["platform.manager@billingos.local", "Platform", "Manager"],
+    ["operations.admin@billingos.local", "Operations", "Admin"],
+  ] as const;
+  for (const [email, firstName, lastName] of managers) {
+    const manager = await prisma.user.create({
+      data: { email, firstName, lastName, passwordHash, accountType: "ADMIN" },
+    });
+    const membershipCount = email.startsWith("platform") ? businesses.length : 4;
+    for (let i = 0; i < membershipCount; i += 1) {
+      const business = businesses[i];
+      await prisma.businessMember.create({ data: { userId: manager.id, businessId: business.id, role: "BUSINESS_ADMIN" } });
+    }
+  }
+
+  // Seed realistic subscriptions, invoices, payments, credits, and lifecycle events.
+  let subscriptionCounter = 0;
+  for (const [businessIndex, business] of businesses.entries()) {
+    const eligibleCustomers = customers.filter((_, index) => index < 24 && ((index + businessIndex) % 2 === 0 || index < 8));
+
+    for (const [customerIndex, customer] of eligibleCustomers.entries()) {
+      const profile = await prisma.customerProfile.findUniqueOrThrow({
+        where: { userId_businessId: { userId: customer.id, businessId: business.id } },
+      });
+
+      const serviceA = business.services[(customerIndex + businessIndex) % business.services.length];
+      const serviceB = business.services[(customerIndex + businessIndex + 2) % business.services.length];
+      const planA = serviceA.plans[customerIndex % 3];
+      const planB = serviceB.plans[(customerIndex + 1) % 3];
+
+      await createSubscriptionBundle({
+        profileId: profile.id,
+        business,
+        plan: planA,
+        createdDaysAgo: 70 - (customerIndex % 35),
+        state: customerIndex % 9 === 0 ? "PERIOD_END" : "PAID",
+      });
+      subscriptionCounter += 1;
+
+      if (customerIndex % 3 !== 0) {
+        await createSubscriptionBundle({
+          profileId: profile.id,
+          business,
+          plan: planB,
+          createdDaysAgo: 45 - (customerIndex % 20),
+          state: customerIndex % 11 === 0 ? "FAILED" : "PAID",
+        });
+        subscriptionCounter += 1;
+      }
+
+      if (customerIndex % 10 === 0) {
+        const cancelledPlan = business.services[(customerIndex + 3) % business.services.length].plans[0];
+        await createSubscriptionBundle({
+          profileId: profile.id,
+          business,
+          plan: cancelledPlan,
+          createdDaysAgo: 110,
+          state: "CANCELLED",
+        });
+        subscriptionCounter += 1;
+      }
+    }
+
+    // A few deliberately open/past-due invoices make admin/customer states useful to inspect.
+    const pastDueCustomer = eligibleCustomerAt(eligibleCustomers, 1);
+    if (pastDueCustomer) {
+      const profile = await prisma.customerProfile.findUniqueOrThrow({ where: { userId_businessId: { userId: pastDueCustomer.id, businessId: business.id } } });
+      const plan = business.services[0].plans[2];
+      await createPastDueBundle(profile.id, business, plan);
+    }
+
+    const creditCustomer = eligibleCustomerAt(eligibleCustomers, 2);
+    if (creditCustomer) {
+      const profile = await prisma.customerProfile.findUniqueOrThrow({ where: { userId_businessId: { userId: creditCustomer.id, businessId: business.id } } });
+      await prisma.creditLedger.createMany({
+        data: [
+          { customerProfileId: profile.id, amount: 1800 + businessIndex * 300, currency: "INR", type: "CREDIT", description: "Service adjustment credit" },
+          { customerProfileId: profile.id, amount: 500, currency: "INR", type: "CREDIT", description: "Promotional billing credit" },
+          { customerProfileId: profile.id, amount: 250, currency: "INR", type: "DEBIT", description: "Credit applied to an invoice" },
+        ],
+      });
+    }
+  }
+
+  // Demo webhook/API-key configuration for admin screens.
+  for (const business of businesses) {
+    await prisma.webhookEndpoint.createMany({
+      data: [
+        { businessId: business.id, url: "https://example.com/webhooks/billing", secret: `whsec_${business.id.slice(0, 16)}` },
+        { businessId: business.id, url: "https://example.com/webhooks/subscriptions", secret: `whsec_${business.id.slice(0, 12)}_sub` },
+      ],
+    });
+    await prisma.apiKey.createMany({
+      data: [
+        { businessId: business.id, name: "Production Integration", keyHash: `seed_${business.id}_production` },
+        { businessId: business.id, name: "Reporting Integration", keyHash: `seed_${business.id}_reporting` },
+      ],
+    });
+  }
+
+  console.log("\nBillingOS demo seed completed.\n");
+  console.log(`Businesses: ${businesses.length}`);
+  console.log(`Services: ${businesses.length * 5}`);
+  console.log(`Plans: ${businesses.length * 5 * 4}`);
+  console.log(`Customers: ${customers.length}`);
+  console.log(`Subscriptions: approximately ${subscriptionCounter} + past-due records`);
+  console.log(`Admin login: ${ADMIN_EMAIL} / ${PASSWORD}`);
+  console.log(`Customer login: ${customers[0].email} / ${PASSWORD}`);
+  console.log("All seeded passwords use the same demo password.");
 }
 
-main().catch((error) => {
-  console.error("\n❌ Seed failed:");
-  console.error(error);
-  process.exit(1);
-});
+async function createSubscriptionBundle(input: {
+  profileId: string;
+  business: { id: string; taxRate: number };
+  plan: { id: string; name: string; price: number; interval: "MONTHLY" | "YEARLY" };
+  createdDaysAgo: number;
+  state: "PAID" | "FAILED" | "PERIOD_END" | "CANCELLED";
+}) {
+  const createdAt = daysAgo(input.createdDaysAgo);
+  const periodLength = input.plan.interval === "MONTHLY" ? 30 : 365;
+  const billingPeriodStart = createdAt;
+  const billingPeriodEnd = new Date(createdAt);
+  billingPeriodEnd.setUTCDate(billingPeriodEnd.getUTCDate() + periodLength);
+
+  let status: "ACTIVE" | "PENDING" | "CANCELLED" = input.state === "FAILED" ? "PENDING" : input.state === "CANCELLED" ? "CANCELLED" : "ACTIVE";
+  let cancelAtPeriodEnd = input.state === "PERIOD_END";
+  const cancelledAt = input.state === "CANCELLED" ? daysAgo(Math.max(5, input.createdDaysAgo - 20)) : null;
+
+  if (input.state === "CANCELLED") {
+    cancelAtPeriodEnd = false;
+  }
+
+  const subscription = await prisma.subscription.create({
+    data: {
+      customerProfileId: input.profileId,
+      planId: input.plan.id,
+      status,
+      currency: "INR",
+      price: input.plan.price,
+      billingInterval: input.plan.interval,
+      billingPeriodStart,
+      billingPeriodEnd,
+      cancelAtPeriodEnd,
+      cancelledAt,
+      createdAt,
+    },
+  });
+
+  const subtotal = input.plan.price;
+  const taxAmount = Math.round(subtotal * input.business.taxRate / 100);
+  const total = subtotal + taxAmount;
+  const invoiceDate = new Date(createdAt);
+  const invoiceNumber = await nextInvoiceNumber(invoiceDate);
+  const invoiceStatus = input.state === "FAILED" ? "OPEN" : "PAID";
+  const paidAt = invoiceStatus === "PAID" ? new Date(createdAt.getTime() + 60 * 60 * 1000) : null;
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      invoiceNumber,
+      customerProfileId: input.profileId,
+      subscriptionId: subscription.id,
+      status: invoiceStatus,
+      currency: "INR",
+      subtotal,
+      taxRate: input.business.taxRate,
+      taxAmount,
+      total,
+      issuedAt: invoiceDate,
+      dueAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+      paidAt,
+      createdAt: invoiceDate,
+      items: {
+        create: {
+          description: `${input.plan.name} plan subscription`,
+          quantity: 1,
+          unitPrice: subtotal,
+          amount: subtotal,
+        },
+      },
+    },
+  });
+
+  if (invoiceStatus === "PAID") {
+    await prisma.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: total,
+        currency: "INR",
+        status: "SUCCESS",
+        paymentMethod: "DEMO",
+        transactionId: `seed_tx_${invoice.id}`,
+        createdAt: paidAt ?? invoiceDate,
+      },
+    });
+  } else {
+    await prisma.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: total,
+        currency: "INR",
+        status: "FAILED",
+        paymentMethod: "DEMO",
+        failureReason: "Simulated payment failure.",
+        createdAt: new Date(invoiceDate.getTime() + 60 * 60 * 1000),
+      },
+    });
+  }
+
+  await prisma.subscriptionEvent.createMany({
+    data: [
+      { subscriptionId: subscription.id, type: "CREATED", metadata: { source: "demo-seed" }, createdAt },
+      { subscriptionId: subscription.id, type: input.state === "FAILED" ? "PAYMENT_FAILED" : "PAYMENT_SUCCEEDED", metadata: { invoiceId: invoice.id, source: "demo-seed" }, createdAt: new Date(createdAt.getTime() + 60 * 60 * 1000) },
+      ...(input.state === "PERIOD_END" ? [{ subscriptionId: subscription.id, type: "CANCEL_REQUESTED" as const, metadata: { mode: "PERIOD_END", source: "demo-seed" }, createdAt: new Date() }] : []),
+      ...(input.state === "CANCELLED" ? [{ subscriptionId: subscription.id, type: "CANCELLED" as const, metadata: { mode: "IMMEDIATE", source: "demo-seed" }, createdAt: cancelledAt ?? new Date() }] : []),
+    ],
+  });
+}
+
+async function createPastDueBundle(profileId: string, business: { id: string; taxRate: number }, plan: { id: string; name: string; price: number; interval: "MONTHLY" | "YEARLY" }) {
+  const periodStart = new Date("2026-08-01T10:00:00Z");
+  const periodEnd = new Date("2026-09-01T10:00:00Z");
+  const subscription = await prisma.subscription.create({
+    data: {
+      customerProfileId: profileId,
+      planId: plan.id,
+      status: "PAST_DUE",
+      currency: "INR",
+      price: plan.price,
+      billingInterval: plan.interval,
+      billingPeriodStart: periodStart,
+      billingPeriodEnd: periodEnd,
+      createdAt: periodStart,
+    },
+  });
+  const subtotal = plan.price;
+  const taxAmount = Math.round(subtotal * business.taxRate / 100);
+  const invoiceNumber = await nextInvoiceNumber(periodEnd);
+  const invoice = await prisma.invoice.create({
+    data: {
+      invoiceNumber,
+      customerProfileId: profileId,
+      subscriptionId: subscription.id,
+      status: "OPEN",
+      currency: "INR",
+      subtotal,
+      taxRate: business.taxRate,
+      taxAmount,
+      total: subtotal + taxAmount,
+      issuedAt: periodEnd,
+      dueAt: daysFromNow(-5),
+      createdAt: periodEnd,
+      items: { create: { description: `${plan.name} renewal`, quantity: 1, unitPrice: subtotal, amount: subtotal } },
+    },
+  });
+  await prisma.payment.create({
+    data: {
+      invoiceId: invoice.id,
+      amount: invoice.total,
+      currency: "INR",
+      status: "FAILED",
+      paymentMethod: "DEMO",
+      failureReason: "Renewal payment failed during demo seed.",
+      createdAt: daysFromNow(-4),
+    },
+  });
+  await prisma.subscriptionEvent.createMany({
+    data: [
+      { subscriptionId: subscription.id, type: "CREATED", metadata: { source: "demo-seed" }, createdAt: periodStart },
+      { subscriptionId: subscription.id, type: "PAYMENT_FAILED", metadata: { invoiceId: invoice.id, source: "demo-seed" }, createdAt: daysFromNow(-4) },
+    ],
+  });
+}
+
+function eligibleCustomerAt<T>(customers: T[], index: number) {
+  return customers[index];
+}
+
+function endpointIds(endpoints: Array<{ id: string }>) {
+  return endpoints.map((endpoint) => endpoint.id);
+}
+
+main()
+  .catch((error) => {
+    console.error("BillingOS demo seed failed:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

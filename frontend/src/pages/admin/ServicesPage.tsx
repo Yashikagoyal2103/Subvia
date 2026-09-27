@@ -183,9 +183,13 @@ function ServiceModal({
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!name.trim()) return;
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) return;
+
     onSubmit({
-      name: name.trim(),
+      name: trimmedName,
       description: description.trim() || undefined,
     });
   };
@@ -201,14 +205,17 @@ function ServiceModal({
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--a-indigo)]">
               Catalog
             </p>
+
             <h2 className="mt-1 text-xl font-semibold text-[var(--a-ink)]">
               {service ? "Edit service" : "Create service"}
             </h2>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-[var(--a-ink-3)] hover:bg-[rgba(15,15,10,0.04)] hover:text-[var(--a-ink)]"
+            disabled={loading}
+            className="rounded-lg p-2 text-[var(--a-ink-3)] hover:bg-[rgba(15,15,10,0.04)] hover:text-[var(--a-ink)] disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -216,38 +223,54 @@ function ServiceModal({
 
         <div className="mt-6 space-y-4">
           <label className="block">
-            <span className="text-sm font-medium text-[var(--a-ink)]">Name</span>
+            <span className="text-sm font-medium text-[var(--a-ink)]">
+              Name
+            </span>
+
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               minLength={2}
               maxLength={100}
               required
-              className="mt-2 w-full rounded-xl border border-[var(--a-border)] px-3 py-2.5 text-sm outline-none transition focus:border-[var(--a-indigo)]"
+              disabled={loading}
+              className="mt-2 w-full rounded-xl border border-[var(--a-border)] px-3 py-2.5 text-sm outline-none transition focus:border-[var(--a-indigo)] disabled:opacity-60"
               placeholder="Cloud Storage"
             />
           </label>
+
           <label className="block">
             <span className="text-sm font-medium text-[var(--a-ink)]">
               Description
             </span>
+
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(event) => setDescription(event.target.value)}
               maxLength={500}
               rows={4}
-              className="mt-2 w-full resize-none rounded-xl border border-[var(--a-border)] px-3 py-2.5 text-sm outline-none transition focus:border-[var(--a-indigo)]"
+              disabled={loading}
+              className="mt-2 w-full resize-none rounded-xl border border-[var(--a-border)] px-3 py-2.5 text-sm outline-none transition focus:border-[var(--a-indigo)] disabled:opacity-60"
               placeholder="Describe what this service provides..."
             />
           </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
-          <Button disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+          <Button type="submit" disabled={loading}>
+            {loading && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+
             {service ? "Save changes" : "Create service"}
           </Button>
         </div>

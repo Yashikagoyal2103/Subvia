@@ -1,3 +1,4 @@
+
 import { apiClient } from "./client";
 
 export type PaymentStatus =
@@ -43,6 +44,27 @@ export const paymentsApi = {
       data: CreatePaymentResult;
     }>(
       `/businesses/${businessId}/payments`,
+      input,
+      {
+        headers: {
+          "Idempotency-Key": createIdempotencyKey(),
+        },
+      },
+    );
+
+    return response.data.data;
+  },
+
+
+  async createForCustomer(
+    invoiceId: string,
+    input: Omit<CreatePaymentInput, "invoiceId">,
+  ): Promise<CreatePaymentResult> {
+    const response = await apiClient.post<{
+      success: true;
+      data: CreatePaymentResult;
+    }>(
+      `/invoices/${invoiceId}/pay`,
       input,
       {
         headers: {

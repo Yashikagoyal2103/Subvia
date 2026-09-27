@@ -1,7 +1,10 @@
 import { apiClient } from "./client";
 
 export type AccountType = "ADMIN" | "CUSTOMER";
-export type RegistrationIntent = "ADMIN" | "CUSTOMER";
+
+export type RegistrationIntent =
+  | "ADMIN"
+  | "CUSTOMER";
 
 export interface LoginInput {
   email: string;
@@ -17,6 +20,11 @@ export interface RegisterInput {
   intent: RegistrationIntent;
 }
 
+export interface UpdateProfileInput {
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
@@ -28,10 +36,13 @@ export interface CurrentUser {
   lastName: string;
   email: string;
   accountType: AccountType;
+  createdAt: string;
 }
 
 export const authApi = {
-  async login(input: LoginInput): Promise<AuthTokens> {
+  async login(
+    input: LoginInput,
+  ): Promise<AuthTokens> {
     const response = await apiClient.post<{
       success: true;
       data: AuthTokens;
@@ -40,7 +51,9 @@ export const authApi = {
     return response.data.data;
   },
 
-  async register(input: RegisterInput): Promise<CurrentUser> {
+  async register(
+    input: RegisterInput,
+  ): Promise<CurrentUser> {
     const response = await apiClient.post<{
       success: true;
       data: CurrentUser;
@@ -58,7 +71,20 @@ export const authApi = {
     return response.data.data;
   },
 
-  async refresh(refreshToken: string): Promise<AuthTokens> {
+  async updateProfile(
+    input: UpdateProfileInput,
+  ): Promise<CurrentUser> {
+    const response = await apiClient.patch<{
+      success: true;
+      data: CurrentUser;
+    }>("/auth/me", input);
+
+    return response.data.data;
+  },
+
+  async refresh(
+    refreshToken: string,
+  ): Promise<AuthTokens> {
     const response = await apiClient.post<{
       success: true;
       data: AuthTokens;
@@ -69,7 +95,9 @@ export const authApi = {
     return response.data.data;
   },
 
-  async logout(refreshToken: string): Promise<void> {
+  async logout(
+    refreshToken: string,
+  ): Promise<void> {
     await apiClient.post("/auth/logout", {
       refreshToken,
     });

@@ -1,9 +1,22 @@
+
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { paginationSchema } from "../../shared/utils/pagination.js";
 import {
+  cancelSubscriptionSchema,
+  downgradeSubscriptionSchema,
+  upgradeSubscriptionSchema,
+} from "../subscriptions/subscription.schema.js";
+import { createPayment } from "../payments/payment.service.js";
+import {
+  cancelSubscription,
+  downgradeSubscription,
+  upgradeSubscription,
+} from "../subscriptions/subscription.service.js";
+import {
   customerInvoiceParamsSchema,
   customerSubscriptionParamsSchema,
+  customerInvoicePaymentSchema,
 } from "./customer-portal.schema.js";
 import {
   getCustomerBillingActivity,
@@ -136,3 +149,135 @@ export async function getBillingActivity(
     pagination: result.pagination,
   });
 }
+export async function payCustomerInvoice(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const { invoiceId } =
+    customerInvoiceParamsSchema.parse(req.params);
+  const input = customerInvoicePaymentSchema.parse(req.body);
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
+  const invoice = await getCustomerInvoice(
+    req.userId,
+    invoiceId,
+  );
+
+  const result = await createPayment(
+    req.userId,
+    invoice.subscription.plan.service.businessId,
+    {
+      invoiceId,
+      paymentMethod: input.paymentMethod,
+      result: input.result,
+    },
+    idempotencyKey,
+  );
+
+  return res.status(201).json({
+    success: true,
+    data: result,
+  });
+}
+
+export async function upgradeCustomerSubscription(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const { subscriptionId } =
+    customerSubscriptionParamsSchema.parse(req.params);
+  const input = upgradeSubscriptionSchema.parse(req.body);
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
+  const subscription = await getCustomerSubscription(
+    req.userId,
+    subscriptionId,
+  );
+
+  const result = await upgradeSubscription(
+    req.userId,
+    subscription.plan.service.businessId,
+    subscriptionId,
+    input,
+    idempotencyKey,
+  );
+
+  return res.status(201).json({
+    success: true,
+    data: result,
+  });
+}
+
+export async function downgradeCustomerSubscription(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const { subscriptionId } =
+    customerSubscriptionParamsSchema.parse(req.params);
+  const input = downgradeSubscriptionSchema.parse(req.body);
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
+  const subscription = await getCustomerSubscription(
+    req.userId,
+    subscriptionId,
+  );
+
+  const result = await downgradeSubscription(
+    req.userId,
+    subscription.plan.service.businessId,
+    subscriptionId,
+    input,
+    idempotencyKey,
+  );
+
+  return res.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+export async function cancelCustomerSubscription(
+  req: AuthenticatedRequest,
+  res: Response,
+) {
+  const { subscriptionId } =
+    customerSubscriptionParamsSchema.parse(req.params);
+  const input = cancelSubscriptionSchema.parse(req.body);
+  const idempotencyKey = req.header("Idempotency-Key");
+
+  if (!idempotencyKey) {
+    throw new Error("IDEMPOTENCY_KEY_REQUIRED");
+  }
+
+  const subscription = await getCustomerSubscription(
+    req.userId,
+    subscriptionId,
+  );
+
+  const result = await cancelSubscription(
+    req.userId,
+    subscription.plan.service.businessId,
+    subscriptionId,
+    input.mode,
+    idempotencyKey,
+  );
+
+  return res.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+

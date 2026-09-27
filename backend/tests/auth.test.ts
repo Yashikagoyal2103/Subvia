@@ -7,8 +7,8 @@ describe("Authentication and account routing", () => {
     const response = await request("/api/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({
-        firstName: "Yashika",
-        lastName: "Goyal",
+        firstName: "Ruby",
+        lastName: "Chew",
         email: "USER@Example.COM",
         password: "Password123!",
         confirmPassword: "Password123!",
@@ -17,7 +17,7 @@ describe("Authentication and account routing", () => {
     });
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body.data).toMatchObject({ firstName: "Yashika", lastName: "Goyal", email: "user@example.com", accountType: "ADMIN" });
+    expect(body.data).toMatchObject({ firstName: "Ruby", lastName: "Chew", email: "user@example.com", accountType: "ADMIN" });
     expect(body.data.passwordHash).toBeUndefined();
   });
 

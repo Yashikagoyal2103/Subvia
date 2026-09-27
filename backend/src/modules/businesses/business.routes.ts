@@ -33,8 +33,9 @@ router.get(
 );
 
 router.patch(
-  "/:id",
+  "/:businessId",
   authenticate,
+  requireAccountType("ADMIN"),
   requireBusinessRole("BUSINESS_ADMIN"),
   authRoute(update)
 );

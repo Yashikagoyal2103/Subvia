@@ -1,8 +1,11 @@
+
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 
 import { invoicesApi } from "@/api/invoices";
+import { paymentsApi } from "@/api/payments";
 import { useAuthStore } from "@/stores/auth.store";
 import { formatMoney } from "@/lib/format";
 import { formatDate } from "@/lib/customer-utils";
@@ -16,11 +19,39 @@ import { StatusPill } from "@/components/customer/StatusPill";
 export function CustomerInvoiceDetailsPage() {
   const { invoiceId = "" } = useParams();
   const user = useAuthStore((s) => s.user);
+  const qc = useQueryClient();
 
   const query = useQuery({
     queryKey: ["customer-invoice", invoiceId],
     queryFn: () => invoicesApi.getById(invoiceId),
     enabled: Boolean(invoiceId),
+  });
+
+  const paymentMutation = useMutation({
+    mutationFn: (result: "SUCCESS" | "FAILED") => {
+      return paymentsApi.createForCustomer(
+        invoiceId,
+        {
+          paymentMethod: "DEMO",
+          result,
+        },
+      );
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success("Payment successful. Subscription updated.");
+      } else {
+        toast.error("Payment failed. You can try again.");
+      }
+      qc.invalidateQueries({ queryKey: ["customer-invoice", invoiceId] });
+      qc.invalidateQueries({ queryKey: ["customer-invoices"] });
+      qc.invalidateQueries({ queryKey: ["customer-subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["customer-subscription"] });
+      qc.invalidateQueries({ queryKey: ["customer-billing-activity"] });
+      qc.invalidateQueries({ queryKey: ["customer-billing-activity-infinite"] });
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Payment failed."),
   });
 
   if (!invoiceId) {
@@ -60,6 +91,35 @@ export function CustomerInvoiceDetailsPage() {
             View subscription
           </Link>
         </div>
+      ) : null}
+
+      {inv.status === "OPEN" && inv.subscription ? (
+        <GlassPanel className="flex flex-col gap-4 border border-[var(--color-warning)]/20 bg-[var(--color-warning-soft)] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-ink)]">Payment required</p>
+            <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
+              This invoice is still open. Use the demo payment simulator to complete it.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              disabled={paymentMutation.isPending}
+              onClick={() => paymentMutation.mutate("FAILED")}
+              className="rounded-xl border border-[rgba(20,22,26,0.1)] bg-white/70 px-4 py-2.5 text-xs font-semibold text-[var(--color-ink-muted)] disabled:opacity-50"
+            >
+              Simulate failure
+            </button>
+            <button
+              type="button"
+              disabled={paymentMutation.isPending}
+              onClick={() => paymentMutation.mutate("SUCCESS")}
+              className="rounded-xl bg-[var(--color-charcoal)] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {paymentMutation.isPending ? "Processing…" : "Pay invoice"}
+            </button>
+          </div>
+        </GlassPanel>
       ) : null}
 
       {/* Document sheet */}
@@ -271,3 +331,4 @@ function TotalRow({
     </div>
   );
 }
+

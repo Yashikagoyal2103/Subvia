@@ -14,7 +14,7 @@ export const registerSchema = z
     {
       message: "Passwords do not match.",
       path: ["confirmPassword"],
-    }
+    },
   );
 
 export const loginSchema = z.object({
@@ -26,12 +26,26 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
-export type RegisterInput = z.infer<
-  typeof registerSchema
->;
+export const updateProfileSchema = z
+  .object({
+    firstName: z.string().trim().min(2).max(50).optional(),
+    lastName: z.string().trim().min(2).max(50).optional(),
+  })
+  .refine(
+    (data) =>
+      data.firstName !== undefined ||
+      data.lastName !== undefined,
+    {
+      message: "At least one profile field must be provided.",
+    },
+  );
+
+export type RegisterInput = z.infer<typeof registerSchema>;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export type RefreshInput = z.infer<
-  typeof refreshSchema
+export type RefreshInput = z.infer<typeof refreshSchema>;
+
+export type UpdateProfileInput = z.infer<
+  typeof updateProfileSchema
 >;

@@ -12,8 +12,6 @@ import {
   LayoutDashboard,
   Loader2,
   Plus,
-  ShieldCheck,
-  Store,
   UserCircle2,
   X,
 } from "lucide-react";
@@ -26,14 +24,10 @@ import { LoadingState } from "../../components/loading-state";
 
 export function WorkspacePage() {
   const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.accountType === "ADMIN";
 
   const query = useQuery({
     queryKey: ["my-businesses"],
     queryFn: businessesApi.getMine,
-    // Only admins have business memberships — skip the call for customers
-    // so they don't trigger a 403 in the console.
-    enabled: isAdmin,
     retry: false,
   });
 
@@ -67,16 +61,10 @@ export function WorkspacePage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 pb-16 pt-4 sm:px-10">
-        {isAdmin ? (
-          <AdminWorkspace
-            query={query}
-            businessCount={query.data?.length ?? 0}
-          />
-        ) : (
-          <CustomerWorkspace
-            firstName={user?.firstName ?? "there"}
-          />
-        )}
+        <AdminWorkspace
+          query={query}
+          businessCount={query.data?.length ?? 0}
+        />
       </main>
     </div>
   );
@@ -244,32 +232,29 @@ function BusinessCard({ business }: { business: MyBusiness }) {
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
             <Building2 className="h-5 w-5" />
           </span>
+
           <div>
             <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">
               {business.name}
             </h3>
+
             <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
               Tax rate: {business.taxRate}%
             </p>
           </div>
         </div>
+
         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
           Admin
         </span>
       </div>
 
-      <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-5">
         <WorkspaceButton
           to={`/admin/${business.id}/dashboard`}
           icon={LayoutDashboard}
           title="Admin workspace"
-          description="Services, plans, customers, invoices"
-        />
-        <WorkspaceButton
-          to={`/customer/${business.id}/dashboard`}
-          icon={Store}
-          title="Customer view"
-          description="Preview the customer experience"
+          description="Services, plans, customers, invoices and billing"
         />
       </div>
     </div>
@@ -405,68 +390,3 @@ function CreateForm({
   );
 }
 
-/* ───────────────────────── Customer view ───────────────────────── */
-
-function CustomerWorkspace({ firstName }: { firstName: string }) {
-  return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-          Workspace
-        </p>
-        <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-[var(--color-ink)]">
-          Hi {firstName}.
-        </h1>
-        <p className="mt-2 max-w-xl text-sm text-[var(--color-ink-muted)]">
-          You&apos;re signed in as a customer.
-        </p>
-      </div>
-
-      <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-8 shadow-[var(--shadow-card)]">
-        <div className="flex items-start gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
-            <Store className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">
-              You don&apos;t have any customer workspaces yet
-            </h2>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--color-ink-muted)]">
-              A customer workspace appears here when you subscribe to a service
-              from a business on BillingOS. Once you subscribe, you&apos;ll be
-              able to manage your subscriptions, invoices and credits from that
-              workspace.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-[var(--color-border-soft)] pt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)]">
-            Running a business instead?
-          </p>
-          <p className="mt-1.5 text-sm text-[var(--color-ink-muted)]">
-            You can create a business workspace any time — it&apos;s separate
-            from your customer account.
-          </p>
-          <a
-            href="/onboarding/create-business"
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--color-accent)] px-5 py-2.5 text-sm font-semibold text-[var(--color-accent-foreground)] transition hover:brightness-105"
-          >
-            <Plus className="h-4 w-4" />
-            Create a business
-          </a>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-soft)] bg-white/60 p-4">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[var(--color-ink-muted)]">
-          <ShieldCheck className="h-4 w-4" />
-        </span>
-        <p className="text-xs leading-relaxed text-[var(--color-ink-muted)]">
-          Your customer account is separate from any business you administer.
-          Business data stays isolated per tenant.
-        </p>
-      </div>
-    </div>
-  );
-}

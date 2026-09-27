@@ -29,7 +29,7 @@ const PAGE_SIZE = 20;
 
 export function CustomerBillingHistoryPage() {
   const query = useInfiniteQuery({
-    queryKey: ["customer-billing-activity"],
+    queryKey: ["customer-billing-activity-infinite"],
     queryFn: ({ pageParam }) =>
       billingActivityApi.list(pageParam as number, PAGE_SIZE),
     initialPageParam: 1,

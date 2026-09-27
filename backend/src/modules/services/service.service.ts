@@ -4,8 +4,23 @@ import type { CreateServiceInput, UpdateServiceInput, } from "./service.schema.j
 
 export async function createService(
   businessId: string,
-  input: CreateServiceInput
+  input: CreateServiceInput,
 ) {
+  const existing = await prisma.service.findFirst({
+    where: {
+      businessId,
+      name: {
+        equals: input.name,
+        mode: "insensitive",
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    throw new Error("SERVICE_NAME_ALREADY_EXISTS");
+  }
+
   return prisma.service.create({
     data: {
       businessId,
@@ -71,8 +86,26 @@ export async function updateService(
 ) {
   const service = await getService(
     businessId,
-    serviceId
+    serviceId,
   );
+
+  if (input.name !== undefined) {
+    const existing = await prisma.service.findFirst({
+      where: {
+        businessId,
+        id: { not: service.id },
+        name: {
+          equals: input.name,
+          mode: "insensitive",
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new Error("SERVICE_NAME_ALREADY_EXISTS");
+    }
+  }
 
   return prisma.service.update({
     where: {

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -73,7 +74,7 @@ export function LoginPage() {
 
       navigate(
         user.accountType === "CUSTOMER"
-          ? "/customer/dashboard"
+          ? "/customer"
           : "/workspace",
         { replace: true },
       );

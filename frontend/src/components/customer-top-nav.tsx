@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  CreditCard,
   FileText,
   LayoutGrid,
   LogOut,
   Menu,
   Receipt,
+  UserRound,
   WalletCards,
   X,
 } from "lucide-react";
@@ -28,25 +28,43 @@ const LINKS: NavItem[] = [
     to: "/customer/explore",
     label: "Explore",
     icon: LayoutGrid,
-    match: ["/customer/explore", "/customer/services", "/customer/checkout"],
+    match: [
+      "/customer/explore",
+      "/customer/services",
+      "/customer/checkout",
+    ],
   },
-  { to: "/customer/plans", label: "Plans", icon: CreditCard, match: ["/customer/plans"] },
   {
     to: "/customer/subscriptions",
     label: "Subscriptions",
     icon: WalletCards,
     match: ["/customer/subscriptions"],
   },
-  { to: "/customer/invoices", label: "Invoices", icon: Receipt, match: ["/customer/invoices"] },
-  { to: "/customer/billing", label: "Billing", icon: FileText, match: ["/customer/billing"] },
+  {
+    to: "/customer/invoices",
+    label: "Invoices",
+    icon: Receipt,
+    match: ["/customer/invoices"],
+  },
+  {
+    to: "/customer/billing",
+    label: "Billing Activity",
+    icon: FileText,
+    match: ["/customer/billing"],
+  },
 ];
 
-function initialsFrom(first?: string | null, last?: string | null): string {
+function initialsFrom(
+  first?: string | null,
+  last?: string | null,
+): string {
   const f = (first ?? "").trim();
   const l = (last ?? "").trim();
+
   if (f && l) return (f[0] + l[0]).toUpperCase();
   if (f) return f.slice(0, 2).toUpperCase();
   if (l) return l.slice(0, 2).toUpperCase();
+
   return "U";
 }
 
@@ -54,29 +72,39 @@ export function CustomerTopNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const user = useAuthStore((s) => s.user);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const user = useAuthStore((state) => state.user);
+  const refreshToken = useAuthStore((state) => state.refreshToken);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
   const accountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!accountOpen) return;
-    const onMouseDown = (e: MouseEvent) => {
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(event.target as Node)
+      ) {
         setAccountOpen(false);
       }
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAccountOpen(false);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+      }
     };
+
     document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKeyDown);
+
     return () => {
       document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [accountOpen]);
 
@@ -87,9 +115,11 @@ export function CustomerTopNav() {
 
   const handleSignOut = async () => {
     try {
-      if (refreshToken) await authApi.logout(refreshToken);
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
     } catch {
-      // ignore — still clear local state
+      // Clear local auth even if the server logout request fails.
     } finally {
       queryClient.clear();
       clearAuth();
@@ -97,12 +127,17 @@ export function CustomerTopNav() {
     }
   };
 
-  const isActive = (match: string[]) =>
-    match.some(
-      (m) => location.pathname === m || location.pathname.startsWith(`${m}/`),
+  const isActive = (matches: string[]) =>
+    matches.some(
+      (match) =>
+        location.pathname === match ||
+        location.pathname.startsWith(`${match}/`),
     );
 
-  const userInitials = initialsFrom(user?.firstName, user?.lastName);
+  const userInitials = initialsFrom(
+    user?.firstName,
+    user?.lastName,
+  );
 
   return (
     <header className="sticky top-4 z-40 px-4 sm:px-6 lg:px-8">
@@ -114,6 +149,7 @@ export function CustomerTopNav() {
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-charcoal)] text-[11px] font-bold text-[var(--color-accent)]">
             B
           </span>
+
           <span className="hidden text-sm font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
             BillingOS
           </span>
@@ -122,6 +158,7 @@ export function CustomerTopNav() {
         <div className="hidden justify-center gap-1 md:flex">
           {LINKS.map(({ to, label, icon: Icon, match }) => {
             const active = isActive(match);
+
             return (
               <NavLink
                 key={to}
@@ -144,7 +181,7 @@ export function CustomerTopNav() {
           <div className="relative" ref={accountRef}>
             <button
               type="button"
-              onClick={() => setAccountOpen((o) => !o)}
+              onClick={() => setAccountOpen((open) => !open)}
               aria-haspopup="menu"
               aria-expanded={accountOpen}
               aria-label="Account"
@@ -154,21 +191,33 @@ export function CustomerTopNav() {
             </button>
 
             {accountOpen ? (
-
               <div
                 role="menu"
                 className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-[rgba(20,22,26,0.08)] bg-white shadow-[0_20px_50px_-20px_rgba(20,22,26,0.28)]"
               >
                 <div className="border-b border-[rgba(20,22,26,0.06)] px-4 py-3">
                   <p className="truncate text-sm font-semibold text-[var(--color-ink)]">
-                    {user ? `${user.firstName} ${user.lastName}` : "Account"}
+                    {user
+                      ? `${user.firstName} ${user.lastName}`
+                      : "Account"}
                   </p>
+
                   {user?.email ? (
                     <p className="mt-0.5 truncate text-xs text-[var(--color-ink-muted)]">
                       {user.email}
                     </p>
                   ) : null}
                 </div>
+
+                <Link
+                  to="/customer/profile"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-[var(--color-ink)] transition hover:bg-[rgba(20,22,26,0.03)]"
+                >
+                  <UserRound className="h-4 w-4 text-[var(--color-ink-muted)]" />
+                  Profile
+                </Link>
+
                 <button
                   type="button"
                   onClick={handleSignOut}
@@ -183,11 +232,15 @@ export function CustomerTopNav() {
 
           <button
             type="button"
-            onClick={() => setMobileOpen((o) => !o)}
+            onClick={() => setMobileOpen((open) => !open)}
             aria-label="Menu"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white/60 text-[var(--color-ink)] transition hover:bg-white md:hidden"
           >
-            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Menu className="h-4 w-4" />
+            )}
           </button>
         </div>
       </nav>
@@ -197,6 +250,7 @@ export function CustomerTopNav() {
           <div className="flex flex-col p-2">
             {LINKS.map(({ to, label, icon: Icon, match }) => {
               const active = isActive(match);
+
               return (
                 <NavLink
                   key={to}
@@ -214,19 +268,33 @@ export function CustomerTopNav() {
               );
             })}
           </div>
+
           <div className="border-t border-[rgba(20,22,26,0.06)] px-4 py-3">
             <p className="truncate text-sm font-semibold text-[var(--color-ink)]">
-              {user ? `${user.firstName} ${user.lastName}` : "Account"}
+              {user
+                ? `${user.firstName} ${user.lastName}`
+                : "Account"}
             </p>
+
             {user?.email ? (
               <p className="mt-0.5 truncate text-xs text-[var(--color-ink-muted)]">
                 {user.email}
               </p>
             ) : null}
+
+            <Link
+              to="/customer/profile"
+              onClick={() => setMobileOpen(false)}
+              className="mt-3 flex w-full items-center gap-2.5 rounded-2xl bg-white/70 px-4 py-2.5 text-left text-sm font-medium text-[var(--color-ink)] transition hover:bg-white"
+            >
+              <UserRound className="h-4 w-4" />
+              Profile
+            </Link>
+
             <button
               type="button"
               onClick={handleSignOut}
-              className="mt-3 flex w-full items-center gap-2.5 rounded-2xl bg-white/70 px-4 py-2.5 text-left text-sm font-medium text-[var(--color-ink)] transition hover:bg-white"
+              className="mt-2 flex w-full items-center gap-2.5 rounded-2xl bg-white/70 px-4 py-2.5 text-left text-sm font-medium text-[var(--color-ink)] transition hover:bg-white"
             >
               <LogOut className="h-4 w-4" />
               Sign out

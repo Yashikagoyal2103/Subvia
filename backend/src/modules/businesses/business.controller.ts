@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { z } from "zod";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { businessIdSchema, createBusinessSchema, updateBusinessSchema, } from "./business.schema.js";
 import { createBusiness, getBusiness, updateBusiness, getMyBusinesses, } from "./business.service.js";
@@ -31,18 +32,15 @@ export async function getById( req: AuthenticatedRequest, res: Response ) {
 
 export async function update(
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) {
-  const { id } = businessIdSchema.parse(req.params);
-
-  const input = updateBusinessSchema.parse(
-    req.body
-  );
+  const businessId = z.uuid().parse(req.params.businessId);
+  const input = updateBusinessSchema.parse(req.body);
 
   const business = await updateBusiness(
     req.userId,
-    id,
-    input
+    businessId,
+    input,
   );
 
   return res.status(200).json({

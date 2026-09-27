@@ -1,3 +1,4 @@
+
 import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import jwt from "jsonwebtoken";
@@ -9,6 +10,7 @@ import { env } from "../../config/env.js";
 import type {
   LoginInput,
   RegisterInput,
+  UpdateProfileInput,
 } from "./auth.schema.js";
 
 function createRefreshToken() {
@@ -61,6 +63,7 @@ export async function registerUser(input: RegisterInput) {
     lastName: user.lastName,
     email: user.email,
     accountType: user.accountType,
+    createdAt: user.createdAt,
   };
 }
 
@@ -178,4 +181,33 @@ export async function logout(refreshToken: string) {
       revokedAt: new Date(),
     },
   });
+}
+
+export async function updateUserProfile(
+  userId: string,
+  input: UpdateProfileInput,
+) {
+  const user = await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      ...(input.firstName !== undefined
+        ? { firstName: input.firstName }
+        : {}),
+      ...(input.lastName !== undefined
+        ? { lastName: input.lastName }
+        : {}),
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      accountType: true,
+      createdAt: true,
+    },
+  });
+
+  return user;
 }

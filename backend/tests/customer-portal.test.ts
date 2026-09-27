@@ -1,3 +1,4 @@
+
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import { createActiveSubscription, createBusiness, createPlan, createService, registerAndLogin, request } from "./helpers.js";
@@ -77,6 +78,122 @@ describe("Customer portal APIs", () => {
     expect(otherInvoice.status).toBe(404);
   });
 
+  it("allows the customer to pay its own invoice without sending a businessId", async () => {
+    const { customer, plan } = await fixture();
+    const checkout = await request("/api/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${customer.accessToken}`,
+        "Idempotency-Key": "customer-pay-checkout",
+      },
+      body: JSON.stringify({ planId: plan.id, currency: "INR" }),
+    });
+    expect(checkout.status).toBe(201);
+    const created = (await checkout.json()).data;
+
+    const payment = await request(`/api/v1/invoices/${created.invoice.id}/pay`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${customer.accessToken}`,
+        "Idempotency-Key": "customer-pay-invoice",
+      },
+      body: JSON.stringify({ paymentMethod: "DEMO", result: "SUCCESS" }),
+    });
+
+    expect(payment.status).toBe(201);
+    expect((await payment.json()).data.success).toBe(true);
+
+    const subscription = await prisma.subscription.findUniqueOrThrow({
+      where: { id: created.subscription.id },
+    });
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: created.invoice.id },
+    });
+
+    expect(subscription.status).toBe("ACTIVE");
+    expect(invoice.status).toBe("PAID");
+  });
+
+  it("allows the customer to schedule cancellation on its own subscription", async () => {
+    const { customer, business, plan } = await fixture();
+    const active = await createActiveSubscription(customer.accessToken, business.id, plan.id);
+
+    const response = await request(
+      `/api/v1/subscriptions/${active.subscription.id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${customer.accessToken}`,
+          "Idempotency-Key": "customer-cancel-period-end",
+        },
+        body: JSON.stringify({ mode: "PERIOD_END" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const subscription = await prisma.subscription.findUniqueOrThrow({
+      where: { id: active.subscription.id },
+    });
+    expect(subscription.status).toBe("ACTIVE");
+    expect(subscription.cancelAtPeriodEnd).toBe(true);
+  });
+
+  it("routes customer upgrade and downgrade through the customer portal", async () => {
+    const { admin, customer, business, service, plan } = await fixture();
+    const pro = await createPlan(admin.accessToken, business.id, service.id, {
+      name: "Pro",
+      price: planPrice(plan) + 1000,
+    });
+    const starter = await createPlan(admin.accessToken, business.id, service.id, {
+      name: "Starter",
+      price: Math.max(100, planPrice(plan) - 500),
+    });
+
+    const active = await createActiveSubscription(customer.accessToken, business.id, plan.id);
+
+    const upgrade = await request(
+      `/api/v1/subscriptions/${active.subscription.id}/upgrade`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${customer.accessToken}`,
+          "Idempotency-Key": "customer-upgrade-route",
+        },
+        body: JSON.stringify({ planId: pro.id }),
+      },
+    );
+    expect(upgrade.status).toBe(201);
+    expect((await upgrade.json()).data.invoice.id).toBeTruthy();
+
+    // The upgrade is pending until its invoice is paid. Use the existing invoice to complete it.
+    const upgradeBody = await request(
+      `/api/v1/subscriptions/${active.subscription.id}`,
+      { headers: { authorization: `Bearer ${customer.accessToken}` } },
+    );
+    expect(upgradeBody.status).toBe(200);
+    const pending = (await upgradeBody.json()).data;
+    expect(pending.pendingPlanId).toBe(pro.id);
+
+    // A second plan change is correctly blocked while one is pending.
+    const downgrade = await request(
+      `/api/v1/subscriptions/${active.subscription.id}/downgrade`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${customer.accessToken}`,
+          "Idempotency-Key": "customer-downgrade-route",
+        },
+        body: JSON.stringify({ planId: starter.id }),
+      },
+    );
+    expect(downgrade.status).toBe(409);
+    expect((await downgrade.json()).error.code).toBe("PENDING_PLAN_CHANGE_EXISTS");
+  });
+
+  function planPrice(plan: { price: number }) {
+    return plan.price;
+  }
+
   it("returns subscription events only for the owning customer", async () => {
     const { customer, otherCustomer, business, plan } = await fixture();
     const own = await createActiveSubscription(customer.accessToken, business.id, plan.id);
@@ -108,3 +225,4 @@ describe("Customer portal APIs", () => {
     expect((await request("/api/v1/credits", { headers: { authorization: `Bearer ${admin.accessToken}` } })).status).toBe(403);
   });
 });
+

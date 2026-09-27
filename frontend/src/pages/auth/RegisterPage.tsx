@@ -122,14 +122,13 @@ export function RegisterPage() {
 
       // 3. Route based on the chosen intent.
       if (intent === "ADMIN") {
-        navigate("/onboarding/create-business", { replace: true });
+        navigate("/onboarding/create-business", {
+          replace: true,
+        });
       } else {
-        navigate(
-          user.accountType === "CUSTOMER"
-            ? "/customer/dashboard"
-            : "/workspace",
-          { replace: true },
-        );
+        navigate("/customer", {
+          replace: true,
+        });
       }
     } catch (error) {
       clearAuth();
@@ -212,7 +211,7 @@ export function RegisterPage() {
                   onChange={setFirstName}
                   error={firstNameError}
                   disabled={isLoading}
-                  placeholder="Yashika"
+                  placeholder="John"
                   autoComplete="given-name"
                 />
                 <Field
@@ -222,7 +221,7 @@ export function RegisterPage() {
                   onChange={setLastName}
                   error={lastNameError}
                   disabled={isLoading}
-                  placeholder="Goyal"
+                  placeholder="Doe"
                   autoComplete="family-name"
                 />
               </div>

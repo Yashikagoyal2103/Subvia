@@ -1,63 +1,57 @@
-# Admin + Customer Demo Seed
+# BillingOS large demo seed
 
-This seed is designed for the current SaaS Billing Platform backend after the planned User.name and customer-context fixes are applied.
+This seed uses Prisma directly and matches the current schema. It does not start Express or call the HTTP API, so it is not affected by route/auth changes in the frontend or API layer.
 
 ## What it creates
 
-- 3 businesses: CloudBox Demo, NovaStack Demo, LedgerPro Demo
-- One primary admin who owns all 3 businesses
-- One hybrid user who is admin + customer
-- One customer who belongs to all 3 businesses
-- One team admin who is a member of two businesses
-- 7 additional customer accounts
-- 6 services x 3 plans per business
-- active subscriptions and successful payments
-- upgrade history
-- scheduled downgrade
-- immediate and period-end cancellation states
-- failed initial payment / pending subscription
-- failed renewal / past-due subscription
-- credit ledger entries
-- inactive services and plans for admin filters/status badges
-- webhook endpoints with active + disabled states
-- API keys with active + revoked states
-
-## Run
-
-From the backend directory:
-
-```bash
-npx tsx scripts/seed-admin-demo.ts
-```
-
-The script starts the existing Express app on a temporary local port, calls the real API for business/service/plan/subscription/payment flows, and uses Prisma only for relationships and demo-only admin configuration that has no need to go through a public customer flow.
-
-It deletes only the deterministic demo business names and demo email addresses before reseeding.
+- 8 realistic SaaS businesses
+- 40 services (5 per business)
+- 160 plans (4 per service)
+- 36 customer accounts
+- 1 primary admin + 2 multi-business admin accounts
+- many customer-business relationships
+- roughly 150+ subscriptions
+- PAID, FAILED/PENDING, PERIOD_END cancellation, CANCELLED, and PAST_DUE states
+- invoices and invoice items
+- successful and failed demo payments
+- subscription event history
+- INR pricing and realistic tax rates
+- customer credits
+- active/inactive services and plans
+- webhook endpoints
+- API keys
 
 ## Demo credentials
 
-Password for all demo accounts:
+All demo users use:
 
-```text
-DemoPassword123!
-```
+`DemoPassword123!`
 
 Primary admin:
-```text
-demo.admin@saasbilling.local
+
+`seed.admin@billingos.local`
+
+First customer:
+
+`seed.customer.01@billingos.local`
+
+Other customers use `seed.customer.02@billingos.local` through `seed.customer.36@billingos.local`.
+
+## Run
+
+From `D:\saas-billing-platform\backend`:
+
+```powershell
+npx tsx scripts/seed-demo.ts
 ```
 
-Hybrid admin + customer:
-```text
-demo.hybrid@saasbilling.local
-```
+The seed is deterministic by business/email names and removes only its own previous demo data before recreating it.
 
-Customer:
-```text
-demo.customer@saasbilling.local
-```
+## Important
 
-Second admin:
-```text
-demo.teamadmin@saasbilling.local
+Run migrations first:
+
+```powershell
+npx prisma migrate deploy
+npx prisma generate
 ```

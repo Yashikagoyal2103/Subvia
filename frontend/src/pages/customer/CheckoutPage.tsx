@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -59,7 +60,7 @@ export function CheckoutPage() {
         throw new Error("Plan not found.");
       }
 
-      const { business, plan } = planQuery.data;
+      const { plan } = planQuery.data;
 
       const subscriptionResult =
         await subscriptionsApi.create({
@@ -67,11 +68,13 @@ export function CheckoutPage() {
           currency: plan.currency,
         });
 
-      await paymentsApi.create(business.id, {
-        invoiceId: subscriptionResult.invoice.id,
-        paymentMethod: "DEMO",
-        result,
-      });
+      await paymentsApi.createForCustomer(
+        subscriptionResult.invoice.id,
+        {
+          paymentMethod: "DEMO",
+          result,
+        },
+      );
 
       return subscriptionResult;
     },
