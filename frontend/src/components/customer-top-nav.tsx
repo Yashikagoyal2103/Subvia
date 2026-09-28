@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -24,6 +25,12 @@ interface NavItem {
 }
 
 const LINKS: NavItem[] = [
+  {
+    to: "/customer",
+    label: "Overview",
+    icon: LayoutGrid,
+    match: ["/customer"],
+  },
   {
     to: "/customer/explore",
     label: "Explore",
@@ -128,10 +135,10 @@ export function CustomerTopNav() {
   };
 
   const isActive = (matches: string[]) =>
-    matches.some(
-      (match) =>
-        location.pathname === match ||
-        location.pathname.startsWith(`${match}/`),
+    matches.some((match) =>
+      match === "/customer"
+        ? location.pathname === "/customer"
+        : location.pathname === match || location.pathname.startsWith(`${match}/`),
     );
 
   const userInitials = initialsFrom(
@@ -151,7 +158,7 @@ export function CustomerTopNav() {
           </span>
 
           <span className="hidden text-sm font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
-            BillingOS
+            Subvia
           </span>
         </Link>
 
@@ -305,3 +312,4 @@ export function CustomerTopNav() {
     </header>
   );
 }
+

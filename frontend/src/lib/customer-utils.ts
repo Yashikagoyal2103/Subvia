@@ -58,3 +58,32 @@ export function groupBy<T, K extends string | number>(
   }
   return Array.from(map.entries());
 }
+
+export function formatInvoiceDate(
+  iso: string | null | undefined,
+): string {
+  if (!iso) return "—";
+
+  const date = new Date(iso);
+
+  return `${String(date.getDate()).padStart(2, "0")}/${String(
+    date.getMonth() + 1,
+  ).padStart(2, "0")}/${String(date.getFullYear()).slice(-2)}`;
+}
+
+export function formatInvoiceDateTime(
+  iso: string | null | undefined,
+): string {
+  if (!iso) return "—";
+
+  const date = new Date(iso);
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(-2);
+
+  return `${day}/${month}/${year}, ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}

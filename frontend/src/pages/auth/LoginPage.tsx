@@ -1,4 +1,5 @@
 
+
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -106,7 +107,7 @@ export function LoginPage() {
               B
             </span>
             <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              BillingOS
+              Subvia
             </span>
           </div>
 
@@ -226,3 +227,4 @@ export function LoginPage() {
     </div>
   );
 }
+

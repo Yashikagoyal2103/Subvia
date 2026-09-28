@@ -1,3 +1,4 @@
+
 import { useMemo, useState } from "react";
 import { FileText } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -11,6 +12,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminErrorState } from "@/components/admin/AdminErrorState";
 import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 import { StatusBadge } from "@/components/status-badge";
 
 function date(value: string) {
@@ -24,7 +26,7 @@ function date(value: string) {
 export function AdminInvoicesPage() {
   const { businessId } = useParams<{ businessId: string }>();
   const businessName = useCurrentBusinessName();
-  const [page] = useState(1);
+  const [page, setPage] = useState(1);
 
   const query = useQuery({
     queryKey: ["admin-invoices", businessId, page],
@@ -69,7 +71,10 @@ export function AdminInvoicesPage() {
       {totalsByCurrency.length > 0 ? (
         <AdminCard variant="flush">
           <div className="grid grid-cols-1 gap-px bg-[var(--a-border)] sm:grid-cols-3">
-            <SummaryCell label="Invoices" value={String(invoices.length)} />
+            <SummaryCell
+              label="Total invoices"
+              value={String(query.data?.pagination.total ?? invoices.length)}
+            />
             {totalsByCurrency.map(([currency, total]) => (
               <SummaryCell
                 key={currency}
@@ -87,8 +92,8 @@ export function AdminInvoicesPage() {
             Invoice history
           </h2>
           <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-            {invoices.length} invoice{invoices.length === 1 ? "" : "s"} on this
-            page
+            {query.data?.pagination.total ?? invoices.length} invoice
+            {(query.data?.pagination.total ?? invoices.length) === 1 ? "" : "s"} in this business
           </p>
         </div>
 
@@ -150,6 +155,15 @@ export function AdminInvoicesPage() {
             </table>
           </div>
         )}
+        {query.data?.pagination ? (
+          <AdminPagination
+            page={page}
+            limit={query.data.pagination.limit}
+            total={query.data.pagination.total}
+            hasNextPage={query.data.pagination.hasNextPage}
+            onPageChange={setPage}
+          />
+        ) : null}
       </AdminCard>
     </div>
   );

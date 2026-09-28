@@ -1,4 +1,5 @@
 
+
 import { prisma } from "../../config/prisma.js";
 import {
   getPagination,
@@ -126,6 +127,9 @@ export async function getCustomerInvoices(
     },
     include: {
       items: true,
+      payments: {
+        orderBy: { createdAt: "desc" },
+      },
       subscription: {
         include: {
           plan: {
@@ -317,3 +321,4 @@ export async function getCustomerBillingActivity(
     },
   };
 }
+

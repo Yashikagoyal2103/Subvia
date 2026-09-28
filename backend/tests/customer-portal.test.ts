@@ -1,4 +1,5 @@
 
+
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import { createActiveSubscription, createBusiness, createPlan, createService, registerAndLogin, request } from "./helpers.js";
@@ -145,7 +146,7 @@ describe("Customer portal APIs", () => {
       price: planPrice(plan) + 1000,
     });
     const starter = await createPlan(admin.accessToken, business.id, service.id, {
-      name: "Starter",
+      name: "Starter Lite",
       price: Math.max(100, planPrice(plan) - 500),
     });
 
@@ -225,4 +226,5 @@ describe("Customer portal APIs", () => {
     expect((await request("/api/v1/credits", { headers: { authorization: `Bearer ${admin.accessToken}` } })).status).toBe(403);
   });
 });
+
 

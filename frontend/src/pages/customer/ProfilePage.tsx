@@ -1,4 +1,7 @@
+
+
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   CalendarDays,
   Mail,
@@ -84,7 +87,7 @@ export function CustomerProfilePage() {
     <div className="space-y-8">
       <CustomerPageHeader
         title="Profile"
-        description="Manage your personal BillingOS account details."
+        description="Manage your personal Subvia account details."
       />
 
       <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
@@ -198,7 +201,7 @@ export function CustomerProfilePage() {
           </div>
         </div>
 
-        <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Info
             icon={<Mail className="h-3.5 w-3.5" />}
             label="Email"
@@ -217,11 +220,6 @@ export function CustomerProfilePage() {
             value={formatDate(user.createdAt)}
           />
 
-          <Info
-            icon={<UserRound className="h-3.5 w-3.5" />}
-            label="User ID"
-            value={user.id}
-          />
         </div>
       </GlassPanel>
     </div>
@@ -233,7 +231,7 @@ function Info({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -253,3 +251,4 @@ function Info({
     </div>
   );
 }
+

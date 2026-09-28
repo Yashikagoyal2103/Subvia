@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+
+import { useMemo, useState } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -15,6 +16,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminErrorState } from "@/components/admin/AdminErrorState";
 import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 
 function dayGroupLabel(iso: string) {
   const d = new Date(iso);
@@ -87,10 +89,11 @@ function timeOf(iso: string) {
 export function AdminBillingActivityPage() {
   const { businessId } = useParams<{ businessId: string }>();
   const businessName = useCurrentBusinessName();
+  const [page, setPage] = useState(1);
 
   const query = useQuery({
-    queryKey: ["admin-billing-activity", businessId],
-    queryFn: () => adminApi.billingActivity(businessId!),
+    queryKey: ["admin-billing-activity", businessId, page],
+    queryFn: () => adminApi.billingActivity(businessId!, page),
     enabled: Boolean(businessId),
   });
 
@@ -198,6 +201,18 @@ export function AdminBillingActivityPage() {
           ))}
         </div>
       )}
+
+      {query.data?.pagination && query.data.pagination.total > 0 ? (
+        <AdminCard variant="flush">
+          <AdminPagination
+            page={page}
+            limit={query.data.pagination.limit}
+            total={query.data.pagination.total}
+            hasNextPage={query.data.pagination.hasNextPage}
+            onPageChange={setPage}
+          />
+        </AdminCard>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 
+
 import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import jwt from "jsonwebtoken";
@@ -125,6 +126,7 @@ export async function refreshAccessToken(refreshToken: string) {
 
   const storedToken = await prisma.refreshToken.findUnique({
     where: { tokenHash },
+    select: { id: true, userId: true, expiresAt: true, revokedAt: true },
   });
 
   if (
@@ -137,31 +139,37 @@ export async function refreshAccessToken(refreshToken: string) {
 
   const newRefreshToken = createRefreshToken();
   const newTokenHash = hashToken(newRefreshToken);
-
-  const expiresAt = new Date();
+  const now = new Date();
+  const expiresAt = new Date(now);
 
   expiresAt.setDate(
-    expiresAt.getDate() + env.REFRESH_TOKEN_EXPIRES_DAYS
+    expiresAt.getDate() + env.REFRESH_TOKEN_EXPIRES_DAYS,
   );
 
-  await prisma.$transaction([
-    prisma.refreshToken.update({
-      where: { id: storedToken.id },
-      data: { revokedAt: new Date() },
-    }),
+  await prisma.$transaction(async (tx) => {
+    const revoked = await tx.refreshToken.updateMany({
+      where: {
+        id: storedToken.id,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
+      data: { revokedAt: now },
+    });
 
-    prisma.refreshToken.create({
+    if (revoked.count !== 1) {
+      throw new Error("INVALID_REFRESH_TOKEN");
+    }
+
+    await tx.refreshToken.create({
       data: {
         tokenHash: newTokenHash,
         userId: storedToken.userId,
         expiresAt,
       },
-    }),
-  ]);
+    });
+  });
 
-  const accessToken = createAccessToken(
-    storedToken.userId
-  );
+  const accessToken = createAccessToken(storedToken.userId);
 
   return {
     accessToken,
@@ -211,3 +219,4 @@ export async function updateUserProfile(
 
   return user;
 }
+

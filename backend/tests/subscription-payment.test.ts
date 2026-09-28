@@ -1,3 +1,4 @@
+
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
@@ -477,7 +478,12 @@ describe("Subscription and payment lifecycle", () => {
     });
 
     expect(subscription.planId).toBe(starter.id);
-    expect(subscription.pendingPlanId).toBe(pro.id);
+    expect(subscription.pendingPlanId).toBeNull();
+
+    const failedPayment = await prisma.payment.findFirstOrThrow({
+      where: { invoiceId: data.invoice.id, status: "FAILED" },
+    });
+    expect(failedPayment.status).toBe("FAILED");
 
     const success = await request(
       `/api/v1/businesses/${business.id}/payments`,
@@ -738,3 +744,4 @@ describe("Subscription and payment lifecycle", () => {
   });
 
 });
+

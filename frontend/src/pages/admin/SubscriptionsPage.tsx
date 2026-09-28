@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { CreditCard } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -12,6 +13,7 @@ import { AdminErrorState } from "@/components/admin/AdminErrorState";
 import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ListRow } from "@/components/admin/ListRow";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 import { StatusBadge } from "@/components/status-badge";
 import type { AdminTone } from "@/components/admin/IconBadge";
 
@@ -75,8 +77,8 @@ export function AdminSubscriptionsPage() {
             Subscription portfolio
           </h2>
           <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-            {subscriptions.length} subscription
-            {subscriptions.length === 1 ? "" : "s"} on this page
+            {pagination?.total ?? subscriptions.length} subscription
+            {(pagination?.total ?? subscriptions.length) === 1 ? "" : "s"} in this business
           </p>
         </div>
 
@@ -124,26 +126,14 @@ export function AdminSubscriptionsPage() {
           </ul>
         )}
 
-        {pagination && (pagination.hasNextPage || page > 1) ? (
-          <div className="flex items-center justify-between border-t border-[var(--a-border)] px-6 py-4">
-            <button
-              type="button"
-              disabled={page === 1}
-              onClick={() => setPage((v) => v - 1)}
-              className="rounded-full border border-[var(--a-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <span className="text-xs text-[var(--a-ink-3)]">Page {page}</span>
-            <button
-              type="button"
-              disabled={!pagination.hasNextPage}
-              onClick={() => setPage((v) => v + 1)}
-              className="rounded-full border border-[var(--a-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
+        {pagination ? (
+          <AdminPagination
+            page={page}
+            limit={pagination.limit}
+            total={pagination.total}
+            hasNextPage={pagination.hasNextPage}
+            onPageChange={setPage}
+          />
         ) : null}
       </AdminCard>
     </div>

@@ -1,3 +1,5 @@
+
+
 import { useEffect, useState } from "react";
 import { CalendarDays, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -81,7 +83,7 @@ export function AdminProfilePage() {
       <AdminPageHeader
         eyebrow="Account"
         title="Profile"
-        description="Manage your personal BillingOS account details."
+        description="Manage your personal Subvia account details."
       />
 
       <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
@@ -188,7 +190,7 @@ export function AdminProfilePage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Info
             icon={<Mail className="h-3.5 w-3.5" />}
             label="Email"
@@ -205,12 +207,6 @@ export function AdminProfilePage() {
             icon={<CalendarDays className="h-3.5 w-3.5" />}
             label="Member since"
             value={formatDate(user.createdAt)}
-          />
-
-          <Info
-            icon={<UserRound className="h-3.5 w-3.5" />}
-            label="User ID"
-            value={user.id}
           />
         </div>
       </AdminCard>
@@ -242,3 +238,4 @@ function Info({
     </div>
   );
 }
+

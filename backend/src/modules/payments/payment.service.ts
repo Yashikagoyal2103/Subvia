@@ -1,3 +1,4 @@
+
 import crypto from "node:crypto";
 import { prisma } from "../../config/prisma.js";
 import type { CreatePaymentInput } from "./payment.schema.js";
@@ -24,6 +25,7 @@ type ProcessPaymentInput = {
   currency: Currency;
   paymentMethod: string;
   result: "SUCCESS" | "FAILED";
+  operation?: "UPGRADE";
 };
 
 export async function processPayment(
@@ -71,26 +73,30 @@ export async function processPayment(
     );
   }
 
-  if (
-    input.result === "FAILED"
-  ) {
-    await createSubscriptionEvent(
-      tx,
-      {
-        subscriptionId:
-          subscription.id,
-        type:
-          "PAYMENT_FAILED",
-        metadata: {
-          invoiceId:
-            input.invoiceId,
-          amount:
-            input.amount,
-          currency:
-            input.currency,
-        },
-      }
-    );
+  if (input.result === "FAILED") {
+    await createSubscriptionEvent(tx, {
+      subscriptionId: subscription.id,
+      type: "PAYMENT_FAILED",
+      metadata: {
+        invoiceId: input.invoiceId,
+        amount: input.amount,
+        currency: input.currency,
+        ...(input.operation === "UPGRADE" && subscription.pendingPlan
+          ? {
+              operation: "UPGRADE",
+              pendingPlanId: subscription.pendingPlan.id,
+              pendingPlanName: subscription.pendingPlan.name,
+            }
+          : {}),
+      },
+    });
+
+    if (input.operation === "UPGRADE" && subscription.pendingPlanId) {
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: { pendingPlanId: null },
+      });
+    }
 
     return {
       payment,
@@ -207,60 +213,72 @@ export async function processPayment(
         },
       }
     );
-  } else if (
-    subscription.pendingPlan
-  ) {
-    const oldPlan =
-      subscription.plan;
+  } else {
+    let upgradePlan = subscription.pendingPlan;
 
-    const newPlan =
-      subscription.pendingPlan;
+    if (!upgradePlan) {
+      const failedUpgradeEvent = await tx.subscriptionEvent.findFirst({
+        where: {
+          subscriptionId: subscription.id,
+          type: "PAYMENT_FAILED",
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
 
-    await tx.subscription.update({
-      where: {
-        id: subscription.id,
-      },
-      data: {
-        planId:
-          newPlan.id,
-        price:
-          newPlan.price,
-        currency:
-          newPlan.currency,
-        billingInterval:
-          newPlan.interval,
-        pendingPlanId: null,
-        status: "ACTIVE",
-      },
-    });
+      if (failedUpgradeEvent) {
+        const metadata =
+          failedUpgradeEvent.metadata &&
+          typeof failedUpgradeEvent.metadata === "object"
+            ? (failedUpgradeEvent.metadata as Record<string, unknown>)
+            : null;
 
-    await createSubscriptionEvent(
-      tx,
-      {
-        subscriptionId:
-          subscription.id,
+        const pendingPlanId =
+          metadata?.operation === "UPGRADE" &&
+          metadata.invoiceId === input.invoiceId &&
+          typeof metadata.pendingPlanId === "string"
+            ? metadata.pendingPlanId
+            : null;
+
+        if (pendingPlanId) {
+          upgradePlan = await tx.plan.findUnique({
+            where: { id: pendingPlanId },
+          });
+        }
+      }
+    }
+
+    if (upgradePlan) {
+      const oldPlan = subscription.plan;
+      const newPlan = upgradePlan;
+
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          planId: newPlan.id,
+          price: newPlan.price,
+          currency: newPlan.currency,
+          billingInterval: newPlan.interval,
+          pendingPlanId: null,
+          status: "ACTIVE",
+        },
+      });
+
+      await createSubscriptionEvent(tx, {
+        subscriptionId: subscription.id,
         type: "UPGRADED",
         metadata: {
-          fromPlanId:
-            oldPlan.id,
-          fromPlanName:
-            oldPlan.name,
-          toPlanId:
-            newPlan.id,
-          toPlanName:
-            newPlan.name,
+          fromPlanId: oldPlan.id,
+          fromPlanName: oldPlan.name,
+          toPlanId: newPlan.id,
+          toPlanName: newPlan.name,
         },
-      }
-    );
-  } else {
-    await tx.subscription.update({
-      where: {
-        id: subscription.id,
-      },
-      data: {
-        status: "ACTIVE",
-      },
-    });
+      });
+    } else {
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: { status: "ACTIVE" },
+      });
+    }
   }
 
   return {
@@ -358,21 +376,28 @@ export async function createPayment(
         );
       }
 
-      const result =
-        await processPayment(tx, {
-          invoiceId:
-            invoice.id,
-          subscriptionId:
-            invoice.subscriptionId,
-          amount:
-            invoice.total,
-          currency:
-            invoice.currency,
-          paymentMethod:
-            input.paymentMethod,
-          result:
-            input.result,
-        });
+      const paymentSubscription = await tx.subscription.findUnique({
+        where: { id: invoice.subscriptionId },
+        select: { status: true, pendingPlanId: true },
+      });
+
+      if (!paymentSubscription) {
+        throw new Error("SUBSCRIPTION_NOT_FOUND");
+      }
+
+      const result = await processPayment(tx, {
+        invoiceId: invoice.id,
+        subscriptionId: invoice.subscriptionId,
+        amount: invoice.total,
+        currency: invoice.currency,
+        paymentMethod: input.paymentMethod,
+        result: input.result,
+        operation:
+          paymentSubscription.status === "ACTIVE" &&
+          paymentSubscription.pendingPlanId
+            ? "UPGRADE"
+            : undefined,
+      });
 
       await completeIdempotency(
         tx,

@@ -1,9 +1,11 @@
+
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Search, X } from "lucide-react";
 
 import { catalogApi, type CatalogBusiness, type CatalogService } from "@/api/catalog";
+import type { BillingInterval, Currency } from "@/api/plans";
 import { formatMoney } from "@/lib/format";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
@@ -42,12 +44,18 @@ function computeFromPrice(service: CatalogService): FromPrice | null {
 
 export function CustomerServicesPage() {
   const [search, setSearch] = useState("");
+  const [currency, setCurrency] = useState<Currency | "ALL">("ALL");
+  const [interval, setInterval] = useState<BillingInterval | "ALL">("ALL");
   const debounced = useDebouncedValue(search, 300);
 
   const query = useQuery({
-    queryKey: ["customer-catalog", debounced],
+    queryKey: ["customer-catalog", debounced, currency, interval],
     queryFn: () =>
-      catalogApi.list(debounced ? { search: debounced } : undefined),
+      catalogApi.list({
+        ...(debounced ? { search: debounced } : {}),
+        ...(currency !== "ALL" ? { currency } : {}),
+        ...(interval !== "ALL" ? { interval } : {}),
+      }),
     placeholderData: keepPreviousData,
   });
 
@@ -66,7 +74,8 @@ export function CustomerServicesPage() {
         description="Discover services and plans available to you."
       />
 
-      <div className="relative max-w-xl">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative max-w-xl flex-1">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-ink-subtle)]" />
         <input
           value={search}
@@ -84,6 +93,20 @@ export function CustomerServicesPage() {
             <X className="h-3.5 w-3.5" />
           </button>
         ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect label="Currency" value={currency} onChange={(value) => setCurrency(value as Currency | "ALL")} options={[
+            ["ALL", "All currencies"],
+            ["INR", "INR"],
+            ["USD", "USD"],
+          ]} />
+          <FilterSelect label="Billing" value={interval} onChange={(value) => setInterval(value as BillingInterval | "ALL")} options={[
+            ["ALL", "All intervals"],
+            ["MONTHLY", "Monthly"],
+            ["YEARLY", "Yearly"],
+          ]} />
+        </div>
       </div>
 
       {query.isError ? (
@@ -200,5 +223,35 @@ export function CustomerServicesPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <label className="flex items-center gap-2 rounded-full border border-[rgba(20,22,26,0.08)] bg-white/60 px-3.5 py-2 backdrop-blur">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="bg-transparent text-xs font-semibold text-[var(--color-ink)] outline-none"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

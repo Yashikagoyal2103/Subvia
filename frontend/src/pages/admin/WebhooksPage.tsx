@@ -1,5 +1,7 @@
+
+
 import { useState } from "react";
-import { Copy, Globe, Loader2, Plus, Trash2, Webhook } from "lucide-react";
+import { Copy, Edit3, Globe, Loader2, Plus, Trash2, Webhook, X } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import axios from "axios";
@@ -43,6 +45,8 @@ export function AdminWebhooksPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState("");
 
   const query = useQuery({
     queryKey: ["webhooks", businessId],
@@ -85,6 +89,25 @@ export function AdminWebhooksPage() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: () =>
+      webhooksApi.update(businessId!, editingId!, { url: editingUrl.trim() }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["webhooks", businessId],
+      });
+      setEditingId(null);
+      setEditingUrl("");
+      toast.success("Webhook endpoint updated.");
+    },
+    onError: (error) => {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error?.message
+        : undefined;
+      toast.error(message ?? "Unable to update webhook.");
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (endpointId: string) =>
       webhooksApi.remove(businessId!, endpointId),
@@ -116,6 +139,15 @@ export function AdminWebhooksPage() {
     if (!secret) return;
     await navigator.clipboard.writeText(secret);
     toast.success("Webhook secret copied.");
+  };
+
+  const isValidWebhookUrl = (value: string) => {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "https:" || parsed.protocol === "http:";
+    } catch {
+      return false;
+    }
   };
 
   const handleConfirm = () => {
@@ -181,17 +213,20 @@ export function AdminWebhooksPage() {
             New webhook endpoint
           </h2>
           <p className="mt-1 text-xs text-[var(--a-ink-2)]">
-            Webhook deliveries are signed and retried by BillingOS.
+            Webhook deliveries are signed and retried by Subvia.
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <input
+              type="url"
+              required
+              maxLength={500}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/webhooks"
               className="h-11 flex-1 rounded-xl border border-[var(--a-border)] px-3.5 text-sm outline-none transition focus:border-[var(--a-indigo)]"
             />
             <Button
-              disabled={!url.trim() || createMutation.isPending}
+              disabled={!isValidWebhookUrl(url.trim()) || createMutation.isPending}
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending && (
@@ -233,45 +268,88 @@ export function AdminWebhooksPage() {
               const active = endpoint.status === "ACTIVE";
               return (
                 <li key={endpoint.id}>
-                  <ListRow
-                    icon={<Webhook className="h-4 w-4" />}
-                    leadingBadgeTone={active ? "indigo" : "rose"}
-                    title={endpoint.url}
-                    subtitle={`Created ${date(endpoint.createdAt)}`}
-                    trailing={
-                      <>
-                        <StatusBadge status={endpoint.status} />
+                  {editingId === endpoint.id ? (
+                    <div className="flex flex-col gap-3 rounded-2xl bg-[var(--a-canvas-2)] p-3 sm:flex-row sm:items-center">
+                      <input
+                        type="url"
+                        required
+                        maxLength={500}
+                        value={editingUrl}
+                        onChange={(event) => setEditingUrl(event.target.value)}
+                        className="h-10 min-w-0 flex-1 rounded-xl border border-[var(--a-border)] bg-white px-3 text-sm outline-none focus:border-[var(--a-indigo)]"
+                      />
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled={toggleMutation.isPending}
+                          disabled={!isValidWebhookUrl(editingUrl.trim()) || editMutation.isPending}
+                          onClick={() => editMutation.mutate()}
+                          className="rounded-full bg-[var(--a-ink)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          {editMutation.isPending ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => {
-                            if (active) {
-                              setConfirm({ type: "disable", endpoint });
-                            } else {
-                              toggleMutation.mutate({
-                                endpointId: endpoint.id,
-                                status: "ACTIVE",
-                              });
-                            }
+                            setEditingId(null);
+                            setEditingUrl("");
                           }}
-                          className="rounded-full border border-[var(--a-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:opacity-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--a-border)] bg-white text-[var(--a-ink-2)]"
+                          aria-label="Cancel editing"
                         >
-                          {active ? "Disable" : "Enable"}
+                          <X className="h-4 w-4" />
                         </button>
-                        <button
-                          type="button"
-                          disabled={deleteMutation.isPending}
-                          onClick={() =>
-                            setConfirm({ type: "delete", endpoint })
-                          }
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--a-ink-3)] transition hover:bg-[var(--a-rose-soft)] hover:text-[var(--a-rose)] disabled:opacity-50"
-                          aria-label="Delete endpoint"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    }
-                  />
+                      </div>
+                    </div>
+                  ) : (
+                    <ListRow
+                      icon={<Webhook className="h-4 w-4" />}
+                      leadingBadgeTone={active ? "indigo" : "rose"}
+                      title={endpoint.url}
+                      subtitle={`Created ${date(endpoint.createdAt)}`}
+                      trailing={
+                        <>
+                          <StatusBadge status={endpoint.status} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(endpoint.id);
+                              setEditingUrl(endpoint.url);
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--a-ink-3)] transition hover:bg-[var(--a-canvas-2)] hover:text-[var(--a-ink)]"
+                            aria-label="Edit endpoint"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={toggleMutation.isPending}
+                            onClick={() => {
+                              if (active) {
+                                setConfirm({ type: "disable", endpoint });
+                              } else {
+                                toggleMutation.mutate({
+                                  endpointId: endpoint.id,
+                                  status: "ACTIVE",
+                                });
+                              }
+                            }}
+                            className="rounded-full border border-[var(--a-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:opacity-50"
+                          >
+                            {active ? "Disable" : "Enable"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => setConfirm({ type: "delete", endpoint })}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--a-ink-3)] transition hover:bg-[var(--a-rose-soft)] hover:text-[var(--a-rose)] disabled:opacity-50"
+                            aria-label="Delete endpoint"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      }
+                    />
+                  )}
                 </li>
               );
             })}
@@ -302,3 +380,4 @@ export function AdminWebhooksPage() {
     </div>
   );
 }
+

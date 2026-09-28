@@ -1,3 +1,4 @@
+
 import { Hexagon } from "lucide-react";
 import { cn } from "cn";
 
@@ -14,9 +15,10 @@ export function AppLogo({ className, variant = "full" }: AppLogoProps) {
       </div>
       {variant === "full" && (
         <span className="text-lg font-semibold tracking-tight text-gray-900">
-          SaaS Billing
+          Subvia
         </span>
       )}
     </div>
   );
 }
+

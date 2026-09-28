@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { prisma } from "../src/config/prisma.js";
@@ -143,7 +144,7 @@ async function nextInvoiceNumber(date: Date) {
 }
 
 async function main() {
-  console.log("Starting BillingOS demo seed...");
+  console.log("Starting Subvia demo seed...");
 
   const passwordHash = await bcrypt.hash(PASSWORD, 12);
 
@@ -166,7 +167,7 @@ async function main() {
   const seedUserIds = existingSeedUsers.map((user) => user.id);
 
   if (businessIds.length > 0 || seedUserIds.length > 0) {
-    console.log("Removing previous BillingOS demo data...");
+    console.log("Removing previous Subvia demo data...");
 
     await prisma.$transaction(async (tx) => {
       if (businessIds.length > 0) {
@@ -226,7 +227,7 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      firstName: "BillingOS",
+      firstName: "Subvia",
       lastName: "Admin",
       email: ADMIN_EMAIL,
       passwordHash,
@@ -409,7 +410,7 @@ async function main() {
     });
   }
 
-  console.log("\nBillingOS demo seed completed.\n");
+  console.log("\nSubvia demo seed completed.\n");
   console.log(`Businesses: ${businesses.length}`);
   console.log(`Services: ${businesses.length * 5}`);
   console.log(`Plans: ${businesses.length * 5 * 4}`);
@@ -592,9 +593,10 @@ function endpointIds(endpoints: Array<{ id: string }>) {
 
 main()
   .catch((error) => {
-    console.error("BillingOS demo seed failed:", error);
+    console.error("Subvia demo seed failed:", error);
     process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();
   });
+

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Mail, Plus, Search, Users, X } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { AdminErrorState } from "@/components/admin/AdminErrorState";
 import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ListRow } from "@/components/admin/ListRow";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 
 function date(value: string) {
   return new Date(value).toLocaleDateString("en-IN", {
@@ -83,7 +85,7 @@ export function AdminCustomersPage() {
           businessName ? `${businessName} / Customers` : "Admin / Customers"
         }
         title="Customers"
-        description="Customers associated with this business and their billing activity."
+        description={`${query.data?.pagination.total ?? 0} customers associated with this business and their billing activity.`}
         actions={
           <Button onClick={() => setShowAddCustomer(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -150,8 +152,7 @@ export function AdminCustomersPage() {
               Customer directory
             </h2>
             <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-              {customers.length} customer{customers.length === 1 ? "" : "s"} on
-              this page
+              {pagination?.total ?? customers.length} customer{(pagination?.total ?? customers.length) === 1 ? "" : "s"} in this business
             </p>
           </div>
 
@@ -207,26 +208,14 @@ export function AdminCustomersPage() {
           </ul>
         )}
 
-        {pagination && (pagination.hasNextPage || page > 1) ? (
-          <div className="flex items-center justify-between border-t border-[var(--a-border)] px-6 py-4">
-            <button
-              type="button"
-              disabled={page === 1}
-              onClick={() => setPage((v) => v - 1)}
-              className="rounded-full border border-[var(--a-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <span className="text-xs text-[var(--a-ink-3)]">Page {page}</span>
-            <button
-              type="button"
-              disabled={!pagination.hasNextPage}
-              onClick={() => setPage((v) => v + 1)}
-              className="rounded-full border border-[var(--a-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--a-ink)] transition hover:border-[var(--a-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-            </button>
-          </div>
+        {pagination ? (
+          <AdminPagination
+            page={page}
+            limit={pagination.limit}
+            total={pagination.total}
+            hasNextPage={pagination.hasNextPage}
+            onPageChange={setPage}
+          />
         ) : null}
       </AdminCard>
     </div>
@@ -241,3 +230,4 @@ function Chip({ label, value }: { label: string; value: number }) {
     </span>
   );
 }
+

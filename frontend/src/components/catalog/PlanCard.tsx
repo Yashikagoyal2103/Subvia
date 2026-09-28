@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,14 +14,14 @@ export function PlanCard({ plan, href, className }: PlanCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col justify-between rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-card)]",
+        "flex min-w-0 flex-col justify-between rounded-2xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-card)]",
         className,
       )}
     >
       <div>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">
+            <h3 className="break-words text-base font-semibold tracking-tight text-[var(--color-ink)]">
               {plan.name}
             </h3>
             <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-ink-subtle)]">
@@ -45,7 +46,7 @@ export function PlanCard({ plan, href, className }: PlanCardProps) {
         </div>
 
         {plan.description ? (
-          <p className="mt-3 line-clamp-3 text-sm text-[var(--color-ink-muted)]">
+          <p className="mt-3 break-words line-clamp-3 text-sm text-[var(--color-ink-muted)]">
             {plan.description}
           </p>
         ) : null}

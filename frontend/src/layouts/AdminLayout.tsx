@@ -1,3 +1,4 @@
+
 import {
   Activity,
   ChevronDown,
@@ -29,6 +30,7 @@ import { businessesApi } from "../api/businesses";
 import { AppLogo } from "../components/app-logo";
 import { LogoutButton } from "../components/auth/LogoutButton";
 import { SidebarNavItem } from "../components/sidebar-nav-item";
+import { AdminErrorState } from "../components/admin/AdminErrorState";
 
 interface NavGroup {
   label: string | null;
@@ -118,6 +120,37 @@ export function AdminLayout() {
 
   const businesses = businessesQuery.data ?? [];
   const activeBusiness = businesses.find((b) => b.id === businessId);
+
+  if (businessesQuery.isError) {
+    return (
+      <div className="admin-theme admin-canvas flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <AdminErrorState
+            message="We couldn't load your businesses."
+            onRetry={() => businessesQuery.refetch()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (businessesQuery.isSuccess && !activeBusiness) {
+    return (
+      <div className="admin-theme admin-canvas flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <AdminErrorState message="You don't have access to this business." />
+          <div className="mt-4 text-center">
+            <Link
+              to="/workspace"
+              className="text-sm font-semibold text-[var(--a-indigo)] hover:underline"
+            >
+              Return to your workspace
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const base = `/admin/${businessId}`;
 
@@ -432,3 +465,4 @@ function MobileBusinessSelector({
     </div>
   );
 }
+

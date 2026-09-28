@@ -1,8 +1,16 @@
+
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../../middleware/auth.middleware.js";
 import { paginationSchema } from "../../shared/utils/pagination.js";
 import { adminListParamsSchema, adminCustomerParamsSchema, adminSubscriptionParamsSchema, adminInvoiceParamsSchema, adminPaymentParamsSchema,addCustomerSchema, } from "./admin.schema.js";
-import { getAdminCustomers, getAdminCustomer, getAdminSubscriptions, getAdminSubscription, getAdminInvoices, getAdminInvoice, getAdminPayments, getAdminPayment, getAdminBillingActivity, addCustomerToBusiness } from "./admin.service.js";
+import { getAdminCustomers, getAdminCustomer, getAdminSubscriptions, getAdminSubscription, getAdminInvoices, getAdminInvoice, getAdminPayments, getAdminPayment, getAdminBillingActivity, getAdminDashboard, addCustomerToBusiness } from "./admin.service.js";
+
+
+export async function getDashboard(req: AuthenticatedRequest, res: Response) {
+  const { businessId } = adminListParamsSchema.parse(req.params);
+  const dashboard = await getAdminDashboard(businessId);
+  return res.status(200).json({ success: true, data: dashboard });
+}
 
 export async function listCustomers(req: AuthenticatedRequest, res: Response) {
   const { businessId } = adminListParamsSchema.parse(req.params);

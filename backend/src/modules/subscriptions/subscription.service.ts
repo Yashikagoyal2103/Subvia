@@ -1,3 +1,4 @@
+
 import { prisma } from "../../config/prisma.js";
 import type {
   CreateSubscriptionInput,
@@ -7,7 +8,8 @@ import type {
 } from "./subscription.schema.js";
 import { getBillingPeriod } from "../../shared/utils/billing-period.js";
 import { calculateProration } from "../billing/proration/proration.service.js";
-import { createCredit } from "../credits/credit.service.js";
+import { applyCredit, createCredit } from "../credits/credit.service.js";
+import { processPayment } from "../payments/payment.service.js";
 import {
   createRequestHash,
   startIdempotency,
@@ -194,9 +196,38 @@ export async function createSubscription(
         },
       });
 
+    const creditResult = await applyCredit(tx, {
+      customerProfileId: customer.id,
+      invoiceId: invoice.id,
+      amount: invoice.total,
+      currency: invoice.currency,
+    });
+
+    const adjustedInvoice = await tx.invoice.update({
+      where: { id: invoice.id },
+      data: { total: creditResult.remainingAmount },
+      include: { items: true },
+    });
+
+    let finalSubscription = subscription;
+    let finalInvoice = adjustedInvoice;
+
+    if (creditResult.remainingAmount === 0) {
+      await processPayment(tx, {
+        invoiceId: adjustedInvoice.id,
+        subscriptionId: subscription.id,
+        amount: 0,
+        currency: adjustedInvoice.currency,
+        paymentMethod: "CREDIT",
+        result: "SUCCESS",
+      });
+      finalSubscription = await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } });
+      finalInvoice = await tx.invoice.findUniqueOrThrow({ where: { id: adjustedInvoice.id }, include: { items: true } });
+    }
+
     const response = {
-      subscription,
-      invoice,
+      subscription: finalSubscription,
+      invoice: finalInvoice,
     };
 
     await completeIdempotency(
@@ -501,10 +532,36 @@ export async function upgradeSubscription(
         },
       });
 
+    const creditResult = await applyCredit(tx, {
+      customerProfileId: subscription.customerProfileId,
+      invoiceId: invoice.id,
+      amount: invoice.total,
+      currency: invoice.currency,
+    });
+
+    let finalSubscription = updatedSubscription;
+    let finalInvoice = await tx.invoice.update({
+      where: { id: invoice.id },
+      data: { total: creditResult.remainingAmount },
+      include: { items: true },
+    });
+
+    if (creditResult.remainingAmount === 0) {
+      await processPayment(tx, {
+        invoiceId: finalInvoice.id,
+        subscriptionId: subscription.id,
+        amount: 0,
+        currency: finalInvoice.currency,
+        paymentMethod: "CREDIT",
+        result: "SUCCESS",
+      });
+      finalSubscription = await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } });
+      finalInvoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id }, include: { items: true } });
+    }
+
     const response = {
-      subscription:
-        updatedSubscription,
-      invoice,
+      subscription: finalSubscription,
+      invoice: finalInvoice,
       proration,
     };
 

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { CreditCard, Edit3, Loader2, Plus, X } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -148,7 +149,7 @@ export function AdminPlansPage() {
           ) : plansQuery.data && plansQuery.data.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {plansQuery.data.map((plan) => (
-                <AdminCard key={plan.id} interactive className="flex flex-col">
+                <AdminCard key={plan.id} interactive className="flex min-w-0 flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <IconBadge
                       icon={<CreditCard className="h-4 w-4" />}
@@ -164,10 +165,10 @@ export function AdminPlansPage() {
                     to={`/admin/${businessId}/services/${selectedServiceId}/plans/${plan.id}`}
                     className="mt-5 block"
                   >
-                    <h2 className="text-base font-semibold text-[var(--a-ink)] transition hover:text-[var(--a-indigo)]">
+                    <h2 className="break-words text-base font-semibold text-[var(--a-ink)] transition hover:text-[var(--a-indigo)]">
                       {plan.name}
                     </h2>
-                    <p className="mt-1.5 min-h-10 text-sm text-[var(--a-ink-2)]">
+                    <p className="mt-1.5 min-h-10 break-words text-sm text-[var(--a-ink-2)] line-clamp-3">
                       {plan.description || "No description provided."}
                     </p>
 

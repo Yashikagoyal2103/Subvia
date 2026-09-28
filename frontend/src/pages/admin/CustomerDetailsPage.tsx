@@ -1,3 +1,4 @@
+
 import { FileText, Mail, Receipt, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -93,9 +94,8 @@ export function AdminCustomerDetailsPage() {
         <h2 className="text-sm font-semibold text-[var(--a-ink)]">
           Customer profile
         </h2>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Customer ID" value={customer.id} mono />
-          <Field label="User ID" value={customer.userId} mono />
           <Field label="Email" value={customer.user.email} />
           <Field label="Created" value={date(customer.createdAt)} />
         </dl>

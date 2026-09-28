@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 
 import { authenticate } from "../../middleware/auth.middleware.js";
@@ -6,6 +7,7 @@ import { requireBusinessRole } from "../../middleware/authorization.middleware.j
 import { authRoute } from "../../shared/utils/route-wrapper.js";
 
 import {
+  getDashboard,
   listCustomers,
   getCustomer,
   listSubscriptions,
@@ -25,6 +27,13 @@ const admin = [
   requireAccountType("ADMIN"),
   requireBusinessRole("BUSINESS_ADMIN"),
 ];
+
+
+router.get(
+  "/:businessId/admin/dashboard",
+  ...admin,
+  authRoute(getDashboard),
+);
 
 router.get(
   "/:businessId/admin/customers",

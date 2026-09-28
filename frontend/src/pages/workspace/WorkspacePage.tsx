@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -40,7 +41,7 @@ export function WorkspacePage() {
             B
           </span>
           <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-            BillingOS
+            Subvia
           </span>
         </div>
 
@@ -389,4 +390,5 @@ function CreateForm({
     </form>
   );
 }
+
 

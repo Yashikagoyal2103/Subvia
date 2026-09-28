@@ -1,3 +1,4 @@
+
 import { apiClient } from "./client";
 import type { Currency, BillingInterval } from "./plans";
 
@@ -21,6 +22,7 @@ export interface CatalogService {
 export interface CatalogBusiness {
   id: string;
   name: string;
+  taxRate: number;
   services: CatalogService[];
 }
 

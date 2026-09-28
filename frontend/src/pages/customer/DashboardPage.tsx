@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,21 +10,6 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
 import { subscriptionsApi } from "@/api/subscriptions";
 import type { Subscription } from "@/api/subscriptions";
 import { invoicesApi } from "@/api/invoices";
@@ -44,8 +30,8 @@ import { StatusPill } from "@/components/customer/StatusPill";
 import { ServiceAvatar } from "@/components/customer/ServiceAvatar";
 import { PageSkeleton } from "@/components/customer/Skeleton";
 import { CustomerErrorState } from "@/components/customer/CustomerErrorState";
+import { cn } from "@/lib/utils";
 
-const DONUT_COLORS = ["#2b2c30", "#8a92a1", "#c9d8f3", "#e3b4a5"];
 
 function greetingLine(): string {
   const h = new Date().getHours();
@@ -180,53 +166,27 @@ function DashboardContent({
   for (const inv of invoices) {
     currencyCounts.set(inv.currency, (currencyCounts.get(inv.currency) ?? 0) + 1);
   }
-  const availableCurrencies = Array.from(currencyCounts.keys());
   const dominantCurrency =
     [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "INR";
 
-  const [chartCurrencyOverride, setChartCurrencyOverride] = useState<string | null>(
-    null,
-  );
-  const chartCurrency = chartCurrencyOverride ?? dominantCurrency;
-
-  const chartInvoices = invoices
-    .filter((i) => i.currency === chartCurrency)
-    .slice(0, 12)
-    .reverse();
-
-  const chartData = chartInvoices.map((inv, idx) => ({
-    label: inv.invoiceNumber,
-    amount: inv.status === "PAID" ? inv.total / 100 : -inv.total / 100,
-    isPaid: inv.status === "PAID",
-    isLatest: idx === chartInvoices.length - 1,
-  }));
-
-  const totalBilled = invoices
-    .filter((i) => i.currency === chartCurrency)
-    .reduce((sum, i) => sum + i.total, 0);
-
-  // Donut — active subs grouped by service, dominant currency
-  const donutMap = new Map<string, number>();
-  for (const sub of activeSubs) {
-    if (sub.currency !== chartCurrency) continue;
-    const name = sub.plan?.service?.name ?? "Other";
-    donutMap.set(name, (donutMap.get(name) ?? 0) + sub.price);
-  }
-  const donutData = Array.from(donutMap.entries())
+  const paidCount = invoices.filter((i) => i.status === "PAID").length;
+  const openCount = invoices.filter((i) => i.status === "OPEN").length;
+  const invoiceCount = invoices.length;
+  const paidShare = invoiceCount ? Math.round((paidCount / invoiceCount) * 100) : 0;
+  const topServices = Array.from(
+    activeSubs.reduce((map, sub) => {
+      if (sub.currency !== dominantCurrency) return map;
+      const name = sub.plan?.service?.name ?? "Other";
+      map.set(name, (map.get(name) ?? 0) + sub.price);
+      return map;
+    }, new Map<string, number>()).entries(),
+  )
     .map(([name, value]) => ({ name, value: value / 100 }))
-    .sort((a, b) => b.value - a.value);
-
-  const topServices = donutData.slice(0, 2);
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3);
 
   // Recent activity groups
   const activityGroups = groupBy(activity, (item) => dayGroupLabel(item.createdAt));
-
-  // Sparkline data (recent invoice totals in chart currency)
-  const sparklineData = invoices
-    .filter((i) => i.currency === chartCurrency)
-    .slice(0, 6)
-    .reverse()
-    .map((i) => ({ v: i.total / 100 }));
 
   // Recent lists
   const recentSubs = subs.slice(0, 4);
@@ -338,22 +298,6 @@ function DashboardContent({
                     outstanding
                   </p>
                 ) : null}
-                {sparklineData.length >= 2 ? (
-                  <div className="mt-2 h-6 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={sparklineData}>
-                        <Line
-                          type="monotone"
-                          dataKey="v"
-                          stroke="var(--color-charcoal)"
-                          strokeWidth={1.5}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : null}
               </StatCell>
 
               <StatCell label="Credit">
@@ -404,191 +348,74 @@ function DashboardContent({
         </div>
       </section>
 
-      {/* Grid: trend + donut/activity */}
+      {/* Billing overview + service spend + activity */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="lg:col-span-7">
           <GlassPanel className="overflow-hidden">
             <PanelHeader
-              title="Billing trend"
-              description="Paid invoices up, open invoices down"
-              action={
-                availableCurrencies.length > 1 ? (
-                  <div className="flex items-center gap-1 rounded-full bg-white/60 p-1">
-                    {availableCurrencies.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setChartCurrencyOverride(c)}
-                        className={
-                          c === chartCurrency
-                            ? "rounded-full bg-[var(--color-charcoal)] px-3 py-1 text-xs font-semibold text-white"
-                            : "rounded-full px-3 py-1 text-xs font-medium text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
-                        }
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                ) : null
-              }
+              title="Billing overview"
+              description="A clear view of your invoice status."
             />
-
-            <div className="px-6 pt-6 text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-                Total billed ({chartCurrency})
-              </p>
-              <div className="mt-2">
-                <MoneyText amount={totalBilled} currency={chartCurrency} size="hero" />
-              </div>
-            </div>
-
-            <div className="h-56 px-4 pb-5">
-              {chartData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-[var(--color-ink-muted)]">
-                  No invoices in {chartCurrency} yet.
+            <div className="p-6">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">Total billed ({dominantCurrency})</p>
+                  <MoneyText
+                    amount={invoices.filter((i) => i.currency === dominantCurrency).reduce((sum, i) => sum + i.total, 0)}
+                    currency={dominantCurrency}
+                    size="hero"
+                  />
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={chartData}
-                    margin={{ top: 12, right: 8, bottom: 0, left: 8 }}
-                  >
-                    <XAxis dataKey="label" hide />
-                    <YAxis hide domain={["auto", "auto"]} />
-                    <ReferenceLine y={0} stroke="rgba(20,22,26,0.15)" />
-                    <Tooltip
-                      cursor={{ fill: "rgba(20,22,26,0.04)" }}
-                      contentStyle={{
-                        borderRadius: 14,
-                        border: "1px solid rgba(20,22,26,0.08)",
-                        background: "rgba(255,255,255,0.96)",
-                        backdropFilter: "blur(12px)",
-                        fontSize: 12,
-                        padding: "10px 12px",
-                        boxShadow: "0 12px 32px -16px rgba(20,22,26,0.25)",
-                      }}
-                      labelFormatter={(label) => `Invoice ${label}`}
-                      formatter={(value) => [
-                        formatMoney(Math.abs(Number(value)) * 100, chartCurrency),
-                        "Amount",
-                      ]}
-                    />
-                    <Bar dataKey="amount" maxBarSize={28} radius={4}>
-                      {chartData.map((d, i) => {
-                        const fill = d.isLatest
-                          ? "var(--color-accent)"
-                          : d.isPaid
-                            ? "var(--color-charcoal)"
-                            : "var(--color-negative)";
-                        return <Cell key={i} fill={fill} />;
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+                <span className="rounded-full bg-[var(--color-positive-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--color-positive)]">{paidShare}% paid</span>
+              </div>
+
+              <div className="mt-7 space-y-5">
+                <BillingBar label="Paid invoices" count={paidCount} total={invoiceCount} tone="positive" />
+                <BillingBar label="Open invoices" count={openCount} total={invoiceCount} tone="warning" />
+              </div>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <MiniMetric label="Invoices" value={String(invoiceCount)} />
+                <MiniMetric label="Open" value={String(openCount)} />
+                <MiniMetric label="Credits" value={creditEntries.length ? creditEntries.map((c) => formatMoney(c.amount, c.currency)).join(" · ") : "—"} />
+              </div>
             </div>
           </GlassPanel>
         </div>
 
         <div className="space-y-6 lg:col-span-5">
           <GlassPanel className="overflow-hidden">
-            <PanelHeader title="Spend by service" />
-            <div className="px-6 pb-6 pt-4">
-              {donutData.length === 0 ? (
-                <p className="py-10 text-center text-sm text-[var(--color-ink-muted)]">
-                  No active subscriptions in {chartCurrency}.
-                </p>
-              ) : (
-                <>
-                  <div className="relative h-40 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={donutData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="95%"
-                          innerRadius={70}
-                          outerRadius={110}
-                          startAngle={180}
-                          endAngle={0}
-                          stroke="none"
-                          isAnimationActive={false}
-                        >
-                          {donutData.map((_, i) => (
-                            <Cell
-                              key={i}
-                              fill={DONUT_COLORS[i % DONUT_COLORS.length]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: 12,
-                            border: "1px solid rgba(20,22,26,0.08)",
-                            background: "rgba(255,255,255,0.96)",
-                            fontSize: 12,
-                          }}
-                          formatter={(value, name) => [
-                            formatMoney(Number(value) * 100, chartCurrency),
-                            String(name),
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+            <PanelHeader title="Spend by service" description={`Active subscriptions in ${dominantCurrency}.`} />
+            <div className="space-y-4 p-6">
+              {topServices.length === 0 ? (
+                <p className="py-8 text-center text-sm text-[var(--color-ink-muted)]">No active subscriptions in {dominantCurrency}.</p>
+              ) : topServices.map((service, index) => {
+                const max = topServices[0].value || 1;
+                return (
+                  <div key={service.name}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate font-medium text-[var(--color-ink)]">{service.name}</span>
+                      <MoneyText amount={service.value * 100} currency={dominantCurrency} size="sm" />
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(20,22,26,0.06)]">
+                      <div className="h-full rounded-full bg-[var(--color-charcoal)]" style={{ width: `${Math.max(12, (service.value / max) * 100)}%`, opacity: 1 - index * 0.18 }} />
+                    </div>
                   </div>
-                  <div className="mt-2 space-y-2">
-                    {topServices.map((s, i) => (
-                      <div
-                        key={s.name}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{
-                              backgroundColor:
-                                DONUT_COLORS[i % DONUT_COLORS.length],
-                            }}
-                          />
-                          <span className="truncate text-[var(--color-ink)]">
-                            {s.name}
-                          </span>
-                        </div>
-                        <MoneyText
-                          amount={s.value * 100}
-                          currency={chartCurrency}
-                          size="sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+                );
+              })}
             </div>
           </GlassPanel>
 
           <GlassPanel className="overflow-hidden">
             <PanelHeader title="Recent activity" />
             {activityGroups.length === 0 ? (
-              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">
-                No activity yet.
-              </p>
+              <p className="px-6 py-10 text-center text-sm text-[var(--color-ink-muted)]">No activity yet.</p>
             ) : (
               <div className="space-y-4 px-6 py-5">
-                {activityGroups.slice(0, 4).map(([label, items]) => (
+                {activityGroups.slice(0, 2).map(([label, items]) => (
                   <div key={String(label)}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-                      {label}
-                    </p>
-                    <ul className="mt-2 space-y-1">
-                      {items.slice(0, 4).map((item) => (
-                        <li key={item.id}>
-                          <ActivityRow item={item} />
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">{label}</p>
+                    <ul className="mt-2 space-y-1">{items.slice(0, 3).map((item) => <li key={item.id}><ActivityRow item={item} /></li>)}</ul>
                   </div>
                 ))}
               </div>
@@ -776,7 +603,26 @@ function FanCard({ sub }: { sub: Subscription }) {
 
 interface StatCellProps {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
+}
+
+function BillingBar({ label, count, total, tone }: { label: string; count: number; total: number; tone: "positive" | "warning" }) {
+  const width = total ? Math.max(4, Math.round((count / total) * 100)) : 4;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium text-[var(--color-ink)]">{label}</span>
+        <span className="text-xs text-[var(--color-ink-muted)]">{count} of {total}</span>
+      </div>
+      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[rgba(20,22,26,0.06)]">
+        <div className={cn("h-full rounded-full", tone === "positive" ? "bg-[var(--color-positive)]" : "bg-[var(--color-warning)]")} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-2xl bg-[rgba(20,22,26,0.035)] p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">{label}</p><p className="mt-1.5 truncate text-sm font-semibold text-[var(--color-ink)]">{value}</p></div>;
 }
 
 function StatCell({ label, children }: StatCellProps) {
@@ -839,3 +685,4 @@ function ActivityRow({ item }: { item: BillingActivity }) {
     </Link>
   );
 }
+

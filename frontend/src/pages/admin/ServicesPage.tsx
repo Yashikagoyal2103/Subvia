@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Edit3, Layers, Loader2, Plus, X } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -108,7 +109,7 @@ export function AdminServicesPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {services.map((service) => (
-            <AdminCard key={service.id} interactive className="flex flex-col">
+            <AdminCard key={service.id} interactive className="flex min-w-0 flex-col">
               <div className="flex items-start justify-between gap-3">
                 <IconBadge
                   icon={<Layers className="h-4 w-4" />}
@@ -122,12 +123,12 @@ export function AdminServicesPage() {
 
               <Link
                 to={`/admin/${businessId}/services/${service.id}`}
-                className="mt-5 block"
+                className="mt-5 block min-w-0"
               >
                 <h2 className="text-base font-semibold text-[var(--a-ink)] transition hover:text-[var(--a-indigo)]">
                   {service.name}
                 </h2>
-                <p className="mt-1.5 min-h-10 text-sm text-[var(--a-ink-2)]">
+                <p className="mt-1.5 min-h-10 break-words text-sm text-[var(--a-ink-2)] line-clamp-3">
                   {service.description || "No description provided."}
                 </p>
               </Link>

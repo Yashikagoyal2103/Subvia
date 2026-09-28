@@ -1,3 +1,4 @@
+
 import {
   createBrowserRouter,
   Navigate,
@@ -46,11 +47,14 @@ import { CustomerInvoiceDetailsPage } from "../pages/customer/InvoiceDetailsPage
 import { CustomerBillingHistoryPage } from "../pages/customer/BillingHistoryPage";
 import { CustomerProfilePage } from "../pages/customer/ProfilePage";
 import { ServiceDetailsPage } from "../pages/customer/ServiceDetailsPage";
+import { CustomerPaymentPage } from "../pages/customer/PaymentPage";
+import { RouteErrorPage } from "../pages/RouteErrorPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         index: true,
@@ -148,6 +152,10 @@ export const router = createBrowserRouter([
                     path: "profile",
                     element: <CustomerProfilePage />,
                   },
+                  {
+                    path: "payment/:invoiceId",
+                    element: <CustomerPaymentPage />,
+                  },
                 ],
               },
             ],
@@ -241,3 +249,4 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+

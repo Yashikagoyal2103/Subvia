@@ -1,3 +1,4 @@
+
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/fraunces";
 @import "tailwindcss";
@@ -320,4 +321,45 @@ button, a { -webkit-tap-highlight-color: transparent; }
   stroke-dasharray: 32;
   stroke-dashoffset: 32;
   animation: admin-check-draw 420ms ease-out 180ms both;
+}
+
+
+.label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--color-ink-subtle); }
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .invoice-print-root,
+  .invoice-print-root * {
+    visibility: visible !important;
+  }
+
+  .invoice-print-root {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .invoice-print-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
 }

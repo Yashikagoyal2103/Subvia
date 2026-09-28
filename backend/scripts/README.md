@@ -1,4 +1,5 @@
-# BillingOS large demo seed
+
+# Subvia large demo seed
 
 This seed uses Prisma directly and matches the current schema. It does not start Express or call the HTTP API, so it is not affected by route/auth changes in the frontend or API layer.
 
@@ -55,3 +56,4 @@ Run migrations first:
 npx prisma migrate deploy
 npx prisma generate
 ```
+

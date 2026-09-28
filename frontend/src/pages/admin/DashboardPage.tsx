@@ -1,3 +1,4 @@
+
 import {
   Activity,
   CreditCard,
@@ -10,7 +11,6 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { adminApi } from "../../api/admin";
-import { servicesApi } from "../../api/services";
 import { useAuthStore } from "../../stores/auth.store";
 import { formatMoney } from "@/lib/format";
 import { useCurrentBusinessName } from "@/hooks/useCurrentBusinessName";
@@ -45,29 +45,14 @@ export function AdminDashboardPage() {
   // ▼ MOVED TO TOP — hooks must be called on every render, before any returns.
   const businessName = useCurrentBusinessName();
 
-  const servicesQuery = useQuery({
-    queryKey: ["admin-services", businessId],
-    queryFn: () => servicesApi.list(businessId!),
-    enabled: Boolean(businessId),
-  });
-  const customersQuery = useQuery({
-    queryKey: ["admin-customers", businessId],
-    queryFn: () => adminApi.customers(businessId!),
-    enabled: Boolean(businessId),
-  });
-  const subscriptionsQuery = useQuery({
-    queryKey: ["admin-subscriptions", businessId],
-    queryFn: () => adminApi.subscriptions(businessId!),
+  const dashboardQuery = useQuery({
+    queryKey: ["admin-dashboard", businessId],
+    queryFn: () => adminApi.dashboard(businessId!),
     enabled: Boolean(businessId),
   });
   const invoicesQuery = useQuery({
-    queryKey: ["admin-invoices", businessId],
-    queryFn: () => adminApi.invoices(businessId!),
-    enabled: Boolean(businessId),
-  });
-  const paymentsQuery = useQuery({
-    queryKey: ["admin-payments", businessId],
-    queryFn: () => adminApi.payments(businessId!),
+    queryKey: ["admin-invoices", businessId, "recent"],
+    queryFn: () => adminApi.invoices(businessId!, 1, 5),
     enabled: Boolean(businessId),
   });
 
@@ -78,63 +63,25 @@ export function AdminDashboardPage() {
     return <AdminErrorState message="A valid business context is required." />;
   }
 
-  const isLoading =
-    servicesQuery.isLoading ||
-    customersQuery.isLoading ||
-    subscriptionsQuery.isLoading ||
-    invoicesQuery.isLoading ||
-    paymentsQuery.isLoading;
+  const isLoading = dashboardQuery.isLoading || invoicesQuery.isLoading;
 
   if (isLoading) return <AdminLoadingState variant="cards" rows={4} />;
 
-  const hasError =
-    servicesQuery.isError ||
-    customersQuery.isError ||
-    subscriptionsQuery.isError ||
-    invoicesQuery.isError ||
-    paymentsQuery.isError;
-
-  if (hasError) {
+  if (dashboardQuery.isError || invoicesQuery.isError || !dashboardQuery.data) {
     return (
       <AdminErrorState
         message="We couldn't load the business overview."
         onRetry={() => {
-          void servicesQuery.refetch();
-          void customersQuery.refetch();
-          void subscriptionsQuery.refetch();
+          void dashboardQuery.refetch();
           void invoicesQuery.refetch();
-          void paymentsQuery.refetch();
         }}
       />
     );
   }
 
-  const services = servicesQuery.data ?? [];
-  const customers = customersQuery.data?.data ?? [];
-  const subscriptions = subscriptionsQuery.data?.data ?? [];
+  const dashboard = dashboardQuery.data;
   const invoices = invoicesQuery.data?.data ?? [];
-  const payments = paymentsQuery.data?.data ?? [];
-
-  const activeSubscriptions = subscriptions.filter((s) => s.status === "ACTIVE");
-  const pastDueSubscriptions = subscriptions.filter(
-    (s) => s.status === "PAST_DUE",
-  );
-  const pendingSubscriptions = subscriptions.filter(
-    (s) => s.status === "PENDING",
-  );
-  const cancelledSubscriptions = subscriptions.filter(
-    (s) => s.status === "CANCELLED",
-  );
-
-  const paidInvoices = invoices.filter((i) => i.status === "PAID");
-  const successfulPayments = payments.filter((p) => p.status === "SUCCESS");
-
-  const recentInvoices = [...invoices]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
+  const recentInvoices = invoices.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -162,11 +109,11 @@ export function AdminDashboardPage() {
         }
       />
 
-      {pastDueSubscriptions.length > 0 ? (
+      {dashboard.subscriptions.pastDue > 0 ? (
         <InsightBanner tone="warning">
           <span className="font-semibold">
-            {pastDueSubscriptions.length}{" "}
-            {pastDueSubscriptions.length === 1
+            {dashboard.subscriptions.pastDue}{" "}
+            {dashboard.subscriptions.pastDue === 1
               ? "subscription is"
               : "subscriptions are"}{" "}
             past due.
@@ -186,29 +133,29 @@ export function AdminDashboardPage() {
           icon={<Package2 className="h-4 w-4" />}
           tone="indigo"
           label="Services"
-          value={services.length}
+          value={dashboard.services}
           hint="Configured services"
         />
         <MetricCard
           icon={<Users className="h-4 w-4" />}
           tone="violet"
           label="Customers"
-          value={customers.length}
+          value={dashboard.customers}
           hint="Business customers"
         />
         <MetricCard
           icon={<CreditCard className="h-4 w-4" />}
           tone="emerald"
           label="Active subscriptions"
-          value={activeSubscriptions.length}
-          hint={`${subscriptions.length} total`}
+          value={dashboard.subscriptions.active}
+          hint={`${dashboard.subscriptions.total} total`}
         />
         <MetricCard
           icon={<FileText className="h-4 w-4" />}
           tone="amber"
           label="Paid invoices"
-          value={paidInvoices.length}
-          hint={`${invoices.length} total`}
+          value={dashboard.invoices.paid}
+          hint={`${dashboard.invoices.total} total`}
         />
       </section>
 
@@ -277,7 +224,7 @@ export function AdminDashboardPage() {
                   Subscriptions by status
                 </h2>
                 <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-                  Breakdown of the {subscriptions.length} subscriptions.
+                  Breakdown of the {dashboard.subscriptions.total} subscriptions.
                 </p>
               </div>
             </div>
@@ -286,26 +233,26 @@ export function AdminDashboardPage() {
               <DonutMetric
                 size={170}
                 centerLabel="Total"
-                centerValue={subscriptions.length}
+                centerValue={dashboard.subscriptions.total}
                 segments={[
                   {
                     label: "Active",
-                    value: activeSubscriptions.length,
+                    value: dashboard.subscriptions.active,
                     tone: "emerald",
                   },
                   {
                     label: "Pending",
-                    value: pendingSubscriptions.length,
+                    value: dashboard.subscriptions.pending,
                     tone: "amber",
                   },
                   {
                     label: "Past due",
-                    value: pastDueSubscriptions.length,
+                    value: dashboard.subscriptions.pastDue,
                     tone: "rose",
                   },
                   {
                     label: "Cancelled",
-                    value: cancelledSubscriptions.length,
+                    value: dashboard.subscriptions.cancelled,
                     tone: "indigo",
                   },
                 ]}
@@ -376,7 +323,7 @@ export function AdminDashboardPage() {
                 Successful payments
               </p>
               <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--a-ink)]">
-                {successfulPayments.length}
+                {dashboard.payments.successful}
               </p>
             </div>
           </AdminCard>

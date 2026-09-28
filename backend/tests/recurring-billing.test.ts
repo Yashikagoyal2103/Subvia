@@ -1,3 +1,4 @@
+
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
@@ -482,14 +483,15 @@ describe("Recurring billing", () => {
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
 
-      const renewalInvoices = await prisma.invoice.count({
+      const renewalInvoices = await prisma.invoice.findMany({
         where: {
           subscriptionId: active.subscription.id,
         },
+        orderBy: { createdAt: "asc" },
       });
-      
 
-      expect(renewalInvoices).toBe(2);
+      expect(renewalInvoices).toHaveLength(2);
+      expect(renewalInvoices[1].invoiceNumber).not.toBe(renewalInvoices[0].invoiceNumber);
     }
   );
 });
@@ -626,3 +628,4 @@ describe("Billing interval calculations", () => {
     );
   });
 });
+

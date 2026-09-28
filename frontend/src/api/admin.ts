@@ -1,9 +1,11 @@
+
 import { apiClient } from "./client";
 
 export interface AdminPagination {
   page: number;
   limit: number;
   hasNextPage: boolean;
+  total: number;
 }
 
 export interface AdminCustomer {
@@ -186,6 +188,20 @@ export interface AdminBillingEvent {
   };
 }
 
+export interface AdminDashboard {
+  services: number;
+  customers: number;
+  subscriptions: {
+    total: number;
+    active: number;
+    pending: number;
+    pastDue: number;
+    cancelled: number;
+  };
+  invoices: { total: number; paid: number };
+  payments: { total: number; successful: number };
+}
+
 interface ListResponse<T> {
   success: true;
   data: T[];
@@ -198,6 +214,15 @@ interface ItemResponse<T> {
 }
 
 export const adminApi = {
+  async dashboard(businessId: string) {
+    const response = await apiClient.get<{
+      success: true;
+      data: AdminDashboard;
+    }>(`/businesses/${businessId}/admin/dashboard`);
+
+    return response.data.data;
+  },
+
   async customers(
     businessId: string,
     page = 1,

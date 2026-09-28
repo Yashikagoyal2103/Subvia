@@ -1,3 +1,6 @@
+
+
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -158,6 +161,10 @@ export function SubscriptionDetailsPage() {
     (inv) => inv.subscription?.id === sub.id,
   );
 
+  const paymentInvoice = invoicesForSub.find(
+    (invoice) => invoice.status === "OPEN" && invoice.total > 0,
+  );
+
   const canCancel =
     sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd && !sub.cancelledAt;
 
@@ -240,7 +247,7 @@ export function SubscriptionDetailsPage() {
       </section>
 
       {/* Banners */}
-      <NoticeBanners sub={sub} />
+      <NoticeBanners sub={sub} paymentInvoiceId={paymentInvoice?.id} />
 
       {/* Two-column */}
       <div className="grid gap-6 lg:grid-cols-12">
@@ -408,42 +415,28 @@ export function SubscriptionDetailsPage() {
               {(catalogQuery.data ?? [])
                 .flatMap((business) => business.services)
                 .find((service) => service.id === sub.plan?.service?.id)?.plans
-                .filter(
-                  (plan) =>
-                    plan.id !== sub.planId &&
-                    plan.currency === sub.currency,
-                )
+                .filter((plan) => plan.id !== sub.planId && plan.currency === sub.currency)
                 .map((plan) => {
                   const upgrade = plan.price > sub.price;
                   const pending = upgradeMutation.isPending || downgradeMutation.isPending;
+                  const details = [
+                    plan.description || "Recurring access to this service.",
+                    `Billed ${plan.interval === "MONTHLY" ? "monthly" : "yearly"}`,
+                    `${plan.currency} billing`,
+                  ];
                   return (
-                    <div
-                      key={plan.id}
-                      className="rounded-2xl border border-[rgba(20,22,26,0.08)] bg-white/60 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
+                    <div key={plan.id} className="group rounded-3xl border border-[rgba(20,22,26,0.08)] bg-white/65 p-5 transition hover:-translate-y-0.5 hover:bg-white">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-sm font-semibold text-[var(--color-ink)]">{plan.name}</p>
-                          <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-                            {formatMoney(plan.price, plan.currency)} / {plan.interval === "MONTHLY" ? "month" : "year"}
-                          </p>
+                          <p className="text-lg font-semibold tracking-tight text-[var(--color-ink)]">{plan.name}</p>
+                          <div className="mt-2 flex items-baseline gap-1.5"><MoneyText amount={plan.price} currency={plan.currency} size="lg" /><span className="text-xs text-[var(--color-ink-subtle)]">/{plan.interval === "MONTHLY" ? "mo" : "yr"}</span></div>
                         </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-                          {upgrade ? "Upgrade" : "Downgrade"}
-                        </span>
+                        <span className={upgrade ? "rounded-full bg-[var(--color-positive-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-positive)]" : "rounded-full bg-[rgba(20,22,26,0.05)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-ink-muted)]"}>{upgrade ? "Upgrade" : "Downgrade"}</span>
                       </div>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() =>
-                          upgrade
-                            ? upgradeMutation.mutate(plan.id)
-                            : downgradeMutation.mutate(plan.id)
-                        }
-                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-charcoal)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {upgrade ? "Upgrade" : "Schedule downgrade"}
-                      </button>
+                      <div className="mt-5 space-y-2.5">
+                        {details.map((detail) => <p key={detail} className="flex gap-2 text-xs leading-5 text-[var(--color-ink-muted)]"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-positive)]" />{detail}</p>)}
+                      </div>
+                      <button type="button" disabled={pending} onClick={() => upgrade ? upgradeMutation.mutate(plan.id) : downgradeMutation.mutate(plan.id)} className="mt-5 w-full rounded-2xl bg-[var(--color-charcoal)] px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50">{pending ? "Updating…" : upgrade ? "Upgrade & review payment" : "Schedule downgrade"}</button>
                     </div>
                   );
                 }) ?? null}
@@ -529,21 +522,72 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function NoticeBanners({ sub }: { sub: Subscription }) {
-  const items: { tone: "amber" | "red" | "grey"; text: React.ReactNode }[] = [];
+function NoticeBanners({
+  sub,
+  paymentInvoiceId,
+}: {
+  sub: Subscription;
+  paymentInvoiceId?: string;
+}) {
+  const items: { tone: "amber" | "red" | "grey"; text: ReactNode }[] = [];
 
   if (sub.pendingPlanId) {
     const pendingName = sub.pendingPlan?.name;
+    const isUpgrade = Boolean(sub.pendingPlan && sub.pendingPlan.price > sub.price);
     items.push({
       tone: "amber",
       text: pendingName ? (
         <>
-          Plan change scheduled — you&apos;ll move to{" "}
-          <span className="font-semibold">{pendingName}</span> at the next
-          renewal.
+          {isUpgrade ? "Upgrade awaiting payment — " : "Downgrade scheduled — "}
+          {isUpgrade ? <>complete the open invoice to move to </> : <>you&apos;ll move to </>}
+          <span className="font-semibold">{pendingName}</span>
+          {!isUpgrade ? " at the next renewal." : "."}
+          {isUpgrade ? (
+            <Link
+              to={
+                paymentInvoiceId
+                  ? `/customer/payment/${paymentInvoiceId}`
+                  : "/customer/invoices"
+              }
+              className="ml-1 font-semibold underline underline-offset-4"
+            >
+              {paymentInvoiceId ? "Pay invoice" : "Review invoice"}
+            </Link>
+          ) : null}
         </>
       ) : (
-        <>A plan change is scheduled for your next renewal.</>
+        <>A plan change is pending.</>
+      ),
+    });
+  }
+
+  const currentPlanPrice = sub.plan?.price;
+  const currentPlanCurrency = sub.plan?.currency;
+  const currentPlanInterval = sub.plan?.interval;
+
+  if (
+    currentPlanPrice !== undefined &&
+    currentPlanCurrency !== undefined &&
+    (currentPlanPrice !== sub.price ||
+      currentPlanCurrency !== sub.currency ||
+      currentPlanInterval !== sub.billingInterval)
+  ) {
+    items.push({
+      tone: "amber",
+      text: (
+        <>
+          Plan pricing has been updated. Your current billing remains at{" "}
+          <span className="font-semibold">
+            {formatMoney(sub.price, sub.currency)} /
+            {sub.billingInterval === "MONTHLY" ? "month" : "year"}
+          </span>{" "}
+          for this billing period. The updated price of{" "}
+          <span className="font-semibold">
+            {formatMoney(currentPlanPrice, currentPlanCurrency)} /
+            {currentPlanInterval === "MONTHLY" ? "month" : "year"}
+          </span>{" "}
+          will apply from your next billing cycle.
+        </>
       ),
     });
   }
@@ -568,10 +612,14 @@ function NoticeBanners({ sub }: { sub: Subscription }) {
         <>
           Your last payment failed.{" "}
           <Link
-            to="/customer/invoices"
+            to={
+              paymentInvoiceId
+                ? `/customer/payment/${paymentInvoiceId}`
+                : "/customer/invoices"
+            }
             className="font-semibold underline underline-offset-4"
           >
-            Review invoices
+            {paymentInvoiceId ? "Pay invoice" : "Review invoices"}
           </Link>
         </>
       ),
@@ -585,10 +633,14 @@ function NoticeBanners({ sub }: { sub: Subscription }) {
         <>
           Awaiting payment.{" "}
           <Link
-            to="/customer/invoices"
+            to={
+              paymentInvoiceId
+                ? `/customer/payment/${paymentInvoiceId}`
+                : "/customer/invoices"
+            }
             className="font-semibold underline underline-offset-4"
           >
-            View invoice
+            {paymentInvoiceId ? "Pay now" : "View invoice"}
           </Link>
         </>
       ),
@@ -742,4 +794,6 @@ function describeEvent(ev: SubscriptionEvent): {
         };
   }
 }
+
+
 

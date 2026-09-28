@@ -1,3 +1,4 @@
+
 import { apiClient } from "./client";
 
 export interface InvoiceItem {
@@ -7,6 +8,16 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   amount: number;
+  createdAt: string;
+}
+
+export interface InvoicePayment {
+  id: string;
+  amount: number;
+  currency: "INR" | "USD";
+  status: "SUCCESS" | "FAILED" | "PENDING";
+  paymentMethod: string;
+  failureReason: string | null;
   createdAt: string;
 }
 
@@ -25,6 +36,7 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
   items: InvoiceItem[];
+  payments?: InvoicePayment[];
   subscription?: {
     id: string;
     status: "PENDING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";

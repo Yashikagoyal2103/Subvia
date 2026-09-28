@@ -136,7 +136,7 @@ export function CreateBusinessPage() {
 
                   <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-[var(--color-ink-subtle)]">
-                      You can change this later in settings.
+                      {/* You can change this later in settings. */}
                     </p>
                     <button
                       type="submit"

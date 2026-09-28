@@ -1,3 +1,4 @@
+
 import type { ReactNode } from "react";
 
 interface AdminPageHeaderProps {
@@ -21,11 +22,11 @@ export function AdminPageHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--a-ink)]">
+        <h1 className="mt-3 break-words text-3xl font-semibold tracking-tight text-[var(--a-ink)]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--a-ink-2)]">
+          <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-[var(--a-ink-2)]">
             {description}
           </p>
         ) : null}

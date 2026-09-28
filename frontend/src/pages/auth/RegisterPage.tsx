@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,9 +7,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  RefreshCw,
-  Receipt,
-  ShieldCheck,
 } from "lucide-react";
 
 import { authApi, type RegistrationIntent } from "../../api/auth";
@@ -148,7 +146,7 @@ export function RegisterPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <AuthBrandPanel
+      {/* <AuthBrandPanel
         headline={
           <>
             Run subscriptions without the{" "}
@@ -173,7 +171,9 @@ export function RegisterPage() {
             description: "Multi-currency invoices with line items.",
           },
         ]}
-      />
+      /> */}
+      
+      <AuthBrandPanel intent={intent} />
 
       <main className="app-canvas flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-20">
         <div className="mx-auto w-full max-w-[440px]">
@@ -182,7 +182,7 @@ export function RegisterPage() {
               B
             </span>
             <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              BillingOS
+              Subvia
             </span>
           </div>
 
@@ -239,7 +239,7 @@ export function RegisterPage() {
 
               <div className="space-y-2">
                 <span className="block text-xs font-semibold text-[var(--color-ink)]">
-                  How will you use BillingOS?
+                  How will you use Subvia?
                 </span>
 
                 <div className="grid gap-3 sm:grid-cols-2">

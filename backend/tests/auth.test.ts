@@ -1,3 +1,4 @@
+
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
 import { registerAndLogin, request } from "./helpers.js";
@@ -78,4 +79,22 @@ describe("Authentication and account routing", () => {
     expect(rotated.refreshToken).not.toBe(auth.refreshToken);
     expect((await request("/api/v1/auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken: auth.refreshToken }) })).status).toBe(401);
   });
+  it("allows only one concurrent refresh from the same refresh token", async () => {
+    const auth = await registerAndLogin("refresh-race@example.com", "CUSTOMER");
+
+    const [first, second] = await Promise.all([
+      request("/api/v1/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ refreshToken: auth.refreshToken }),
+      }),
+      request("/api/v1/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ refreshToken: auth.refreshToken }),
+      }),
+    ]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 401]);
+  });
+
 });
+

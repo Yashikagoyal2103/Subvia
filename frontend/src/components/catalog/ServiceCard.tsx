@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import type { Service } from "@/api/services";
@@ -14,7 +15,7 @@ export function ServiceCard({ service, href, className }: ServiceCardProps) {
     <Link
       to={href}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-2xl",
+        "group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl",
         "border border-[var(--color-border-soft)] bg-white p-5",
         "shadow-[var(--shadow-soft)] transition hover:shadow-[var(--shadow-card)]",
         className,
@@ -43,10 +44,10 @@ export function ServiceCard({ service, href, className }: ServiceCardProps) {
           </span>
         </div>
 
-        <h3 className="mt-4 text-base font-semibold tracking-tight text-[var(--color-ink)]">
+        <h3 className="mt-4 break-words text-base font-semibold tracking-tight text-[var(--color-ink)]">
           {service.name}
         </h3>
-        <p className="mt-1.5 line-clamp-2 text-sm text-[var(--color-ink-muted)]">
+        <p className="mt-1.5 break-words line-clamp-2 text-sm text-[var(--color-ink-muted)]">
           {service.description || "No description provided."}
         </p>
       </div>

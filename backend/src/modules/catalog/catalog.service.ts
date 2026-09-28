@@ -1,3 +1,4 @@
+
 import { prisma } from "../../config/prisma.js";
 import type { CatalogQuery } from "./catalog.schema.js";
 
@@ -39,6 +40,7 @@ export async function getCustomerCatalog(
     select: {
       id: true,
       name: true,
+      taxRate: true,
 
       services: {
         where: {

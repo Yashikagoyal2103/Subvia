@@ -1,3 +1,5 @@
+
+import { useState } from "react";
 import { CheckCircle2, CreditCard, XCircle } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +13,7 @@ import { AdminErrorState } from "@/components/admin/AdminErrorState";
 import { AdminLoadingState } from "@/components/admin/AdminLoadingState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ListRow } from "@/components/admin/ListRow";
+import { AdminPagination } from "@/components/admin/AdminPagination";
 import { StatusBadge } from "@/components/status-badge";
 
 function date(value: string) {
@@ -24,10 +27,11 @@ function date(value: string) {
 export function AdminPaymentsPage() {
   const { businessId } = useParams<{ businessId: string }>();
   const businessName = useCurrentBusinessName();
+  const [page, setPage] = useState(1);
 
   const query = useQuery({
-    queryKey: ["admin-payments", businessId],
-    queryFn: () => adminApi.payments(businessId!),
+    queryKey: ["admin-payments", businessId, page],
+    queryFn: () => adminApi.payments(businessId!, page),
     enabled: Boolean(businessId),
   });
 
@@ -60,8 +64,8 @@ export function AdminPaymentsPage() {
             Payment attempts
           </h2>
           <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-            {payments.length} payment{payments.length === 1 ? "" : "s"} on this
-            page
+            {query.data?.pagination.total ?? payments.length} payment
+            {(query.data?.pagination.total ?? payments.length) === 1 ? "" : "s"} in this business
           </p>
         </div>
 
@@ -107,6 +111,15 @@ export function AdminPaymentsPage() {
             })}
           </ul>
         )}
+        {query.data?.pagination ? (
+          <AdminPagination
+            page={page}
+            limit={query.data.pagination.limit}
+            total={query.data.pagination.total}
+            hasNextPage={query.data.pagination.hasNextPage}
+            onPageChange={setPage}
+          />
+        ) : null}
       </AdminCard>
     </div>
   );
