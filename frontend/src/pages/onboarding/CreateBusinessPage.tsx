@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Building2, Check, CreditCard, Loader2, Receipt, Sparkles } from "lucide-react";
-
+import { AppLogo } from "../../components/app-logo";
 import { businessesApi } from "../../api/businesses";
 import { useAuthStore } from "../../stores/auth.store";
 
@@ -76,6 +76,7 @@ export function CreateBusinessPage() {
         ) : (
           <>
             <div className="mb-8">
+              <AppLogo className="mb-4 h-8" />
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
                 Onboarding
               </p>

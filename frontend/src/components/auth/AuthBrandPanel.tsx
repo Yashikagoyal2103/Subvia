@@ -10,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "cn";
+import { AppLogo } from "@/components/app-logo";
 
 type Intent = "ADMIN" | "CUSTOMER";
 
@@ -179,11 +180,14 @@ export function AuthBrandPanel({
       </div>
 
       {/* Brand */}
-      <div className="relative flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-accent)] text-[13px] font-bold text-[var(--color-accent-foreground)]">
-          B
+      {/* Brand */}
+      {/* Brand */}
+      <div className="relative flex items-center gap-3">
+        <AppLogo variant="mark" className="h-9 w-9" />
+
+        <span className="text-base font-semibold tracking-tight text-white">
+          Subvia
         </span>
-        <span className="text-sm font-semibold tracking-tight">Subvia</span>
       </div>
 
       {/* Middle — copy + bullets + mock card */}

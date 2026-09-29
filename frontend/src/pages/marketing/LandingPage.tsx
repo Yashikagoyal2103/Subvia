@@ -7,26 +7,26 @@ import {
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  BarChart3,
-  CalendarClock,
+  ArrowDown,
+  Building2,
   Check,
   ChevronRight,
   CreditCard,
+  Divide,
   FileText,
-  Layers,
   Menu,
   Package2,
   RefreshCw,
   Repeat,
   ShieldCheck,
-  Sparkles,
-  Webhook,
+  Users,
   X,
 } from "lucide-react";
 import { cn } from "cn";
+import { AppLogo } from "@/components/app-logo";
 
 /* ─────────────────────────────────────────────────────────────
-   Scroll-reveal hook + wrapper
+   Scroll reveal
    ───────────────────────────────────────────────────────────── */
 
 function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.15) {
@@ -35,12 +35,10 @@ function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.15) {
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    if (typeof window === "undefined") return;
+    if (!el || typeof window === "undefined") return;
 
     const prefersReduced =
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-
     if (prefersReduced) {
       setInView(true);
       return;
@@ -66,13 +64,15 @@ function useInView<T extends HTMLElement = HTMLDivElement>(threshold = 0.15) {
   return { ref, inView };
 }
 
-interface RevealProps {
+function Reveal({
+  children,
+  delay = 0,
+  className,
+}: {
   children: ReactNode;
   delay?: number;
   className?: string;
-}
-
-function Reveal({ children, delay = 0, className }: RevealProps) {
+}) {
   const { ref, inView } = useInView<HTMLDivElement>();
   return (
     <div
@@ -90,30 +90,21 @@ function Reveal({ children, delay = 0, className }: RevealProps) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Brand wordmark
+   Wordmark — neutral square with subtle lime dot
    ───────────────────────────────────────────────────────────── */
 
 function Wordmark({ className }: { className?: string }) {
-  return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--color-accent)] text-[13px] font-bold text-[var(--color-accent-foreground)]">
-        S
-      </span>
-      <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-        Subvia
-      </span>
-    </span>
-  );
+  return <AppLogo className={cn("h-8", className)} />;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Nav
+   Top nav
    ───────────────────────────────────────────────────────────── */
 
 const NAV_LINKS = [
   { label: "Product", href: "#product" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Lifecycle", href: "#lifecycle" },
+  { label: "Platform", href: "#platform" },
 ];
 
 function TopNav() {
@@ -147,7 +138,7 @@ function TopNav() {
           </Link>
           <Link
             to="/register"
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--color-accent)] px-4 text-sm font-semibold text-[var(--color-accent-foreground)] shadow-[var(--shadow-pill)] transition hover:brightness-105"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--color-surface-dark)] px-4 text-sm font-semibold text-white transition hover:opacity-90"
           >
             Get started
             <ArrowRight className="h-3.5 w-3.5" />
@@ -187,7 +178,7 @@ function TopNav() {
             </Link>
             <Link
               to="/register"
-              className="rounded-full bg-[var(--color-accent)] px-4 py-2.5 text-center text-sm font-semibold text-[var(--color-accent-foreground)]"
+              className="rounded-full bg-[var(--color-surface-dark)] px-4 py-2.5 text-center text-sm font-semibold text-white"
             >
               Get started
             </Link>
@@ -199,131 +190,94 @@ function TopNav() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Hero mock — browser chrome + dashboard preview
+   Hero mock — product state, not stats
    ───────────────────────────────────────────────────────────── */
 
 function MockBrowser() {
   return (
-    <div className="overflow-hidden rounded-3xl border border-[var(--color-border-soft)] bg-white shadow-[0_40px_90px_-50px_rgba(20,22,26,0.5)]">
+    <div className="overflow-hidden rounded-3xl border border-[var(--color-border-soft)] bg-white shadow-[0_40px_90px_-50px_rgba(20,22,26,0.45)]">
       {/* Chrome bar */}
       <div className="flex items-center gap-2 border-b border-[var(--color-border-soft)] bg-[var(--color-surface)] px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-        <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-border-strong)]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-border-strong)]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-border-strong)]" />
         <span className="ml-3 truncate rounded-md bg-white px-3 py-1 text-[11px] text-[var(--color-ink-subtle)] ring-1 ring-[var(--color-border-soft)]">
-          app.subvia.dev/dashboard
+          app.subvia.dev/subscriptions
         </span>
       </div>
 
-      {/* Dashboard body */}
       <div className="space-y-5 p-5">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-              Acme Cloud
+              Active subscription
             </p>
             <p className="mt-1 text-sm font-semibold text-[var(--color-ink)]">
-              Dashboard
+              Acme Cloud · Pro plan
             </p>
           </div>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-surface-dark)] text-[10px] font-bold text-[var(--color-accent)]">
-            A
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-positive-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-positive)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-positive)]" />
+            Active
           </span>
         </div>
 
-        {/* Stat row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-              Active subscriptions
-            </p>
-            <p className="mt-1.5 text-xl font-semibold tabular-nums text-[var(--color-ink)]">
-              248
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-              MRR
-            </p>
-            <p className="mt-1.5 text-xl font-semibold tabular-nums text-[var(--color-ink)]">
-              ₹4.2L
-            </p>
-          </div>
-        </div>
-
-        {/* Mini chart */}
-        <div className="rounded-2xl border border-[var(--color-border-soft)] p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[var(--color-ink)]">
-              Renewals
-            </p>
-            <p className="text-[10px] text-[var(--color-ink-subtle)]">
-              Last 12 weeks
-            </p>
-          </div>
-          <div className="mt-3 flex h-20 items-end gap-1.5">
-            {[38, 52, 46, 60, 72, 58, 76, 82, 70, 88, 92, 96].map((h, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "flex-1 rounded-t-sm",
-                  i === 11
-                    ? "bg-[var(--color-accent)]"
-                    : i % 2 === 0
-                      ? "bg-[var(--color-surface-dark)]"
-                      : "bg-[var(--color-border-strong)]",
-                )}
-                style={{ height: `${h}%` }}
-              />
-            ))}
+        {/* Price + billing */}
+        <div className="rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-4">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+                Price
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[var(--color-ink)]">
+                ₹999
+                <span className="ml-1 text-sm font-normal text-[var(--color-ink-subtle)]">
+                  / month
+                </span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+                Next billing
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--color-ink)]">
+                Oct 28, 2026
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Recent rows */}
+        {/* Small details */}
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-2xl border border-[var(--color-border-soft)] p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              Interval
+            </p>
+            <p className="mt-1 font-medium text-[var(--color-ink)]">Monthly</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-border-soft)] p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+              Currency
+            </p>
+            <p className="mt-1 font-medium text-[var(--color-ink)]">INR</p>
+          </div>
+        </div>
+
+        {/* Recent activity */}
         <div className="divide-y divide-[var(--color-border-soft)]">
           {[
-            {
-              name: "Acme Cloud · Pro plan",
-              meta: "₹4,999/mo · ACTIVE",
-              tone: "positive" as const,
-            },
-            {
-              name: "Northwind · Starter",
-              meta: "₹999/mo · ACTIVE",
-              tone: "positive" as const,
-            },
-            {
-              name: "Quanta · Scale",
-              meta: "₹7,999/mo · PAST DUE",
-              tone: "warning" as const,
-            },
+            { label: "Invoice generated", meta: "INV-2026-000418" },
+            { label: "Payment recorded", meta: "₹999.00 · Success" },
+            { label: "Proration applied", meta: "Starter → Pro" },
           ].map((row) => (
-            <div
-              key={row.name}
-              className="flex items-center justify-between py-3"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[10px] font-bold text-[var(--color-ink-muted)]">
-                  {row.name.charAt(0)}
-                </span>
-                <p className="text-xs font-medium text-[var(--color-ink)]">
-                  {row.name}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] tabular-nums text-[var(--color-ink-muted)]">
-                  {row.meta}
-                </span>
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    row.tone === "positive"
-                      ? "bg-[var(--color-positive)]"
-                      : "bg-[var(--color-warning)]",
-                  )}
-                />
-              </div>
+            <div key={row.label} className="flex items-center justify-between py-2.5">
+              <p className="text-xs font-medium text-[var(--color-ink)]">
+                {row.label}
+              </p>
+              <p className="text-[11px] tabular-nums text-[var(--color-ink-subtle)]">
+                {row.meta}
+              </p>
             </div>
           ))}
         </div>
@@ -332,70 +286,92 @@ function MockBrowser() {
   );
 }
 
-function FloatingNextRenewal() {
+function FloatingProrationCard() {
   return (
     <div
-      className="subvia-float absolute -right-4 top-8 hidden w-56 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[0_24px_60px_-30px_rgba(20,22,26,0.35)] sm:block"
-      style={{ animation: "subvia-float 7s ease-in-out infinite" }}
+      className="subvia-float absolute -right-6 top-10 hidden w-60 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[0_24px_60px_-30px_rgba(20,22,26,0.35)] lg:block"
+      style={{ animation: "subvia-float 8s ease-in-out infinite" }}
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
-          <CalendarClock className="h-3.5 w-3.5" />
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[var(--color-ink-muted)]">
+          <Divide className="h-3.5 w-3.5" />
         </span>
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-          Next renewal
+          Proration
         </p>
       </div>
-      <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
-        Acme Cloud · Pro
-      </p>
-      <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-        in 12 days · ₹4,999
-      </p>
+
+      <div className="mt-3 space-y-1.5 text-[11px]">
+        <div className="flex items-center justify-between">
+          <span className="text-[var(--color-ink-muted)]">
+            Unused value
+          </span>
+          <span className="font-medium tabular-nums text-[var(--color-positive)]">
+            −₹150
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[var(--color-ink-muted)]">
+            New plan value
+          </span>
+          <span className="font-medium tabular-nums text-[var(--color-ink)]">
+            +₹250
+          </span>
+        </div>
+        <div className="flex items-center justify-between border-t border-[var(--color-border-soft)] pt-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Amount due
+          </span>
+          <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
+            ₹100
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function FloatingProration() {
+function FloatingInvoiceCard() {
   return (
     <div
-      className="subvia-float absolute -left-6 bottom-10 hidden w-60 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[0_24px_60px_-30px_rgba(20,22,26,0.35)] sm:block"
-      style={{ animation: "subvia-float 8.5s ease-in-out -2s infinite" }}
+      className="subvia-float absolute -left-6 bottom-12 hidden w-56 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[0_24px_60px_-30px_rgba(20,22,26,0.35)] lg:block"
+      style={{ animation: "subvia-float 9s ease-in-out -2s infinite" }}
     >
-      <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
-          <Repeat className="h-3.5 w-3.5" />
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Invoice
+          </p>
+          <p className="mt-1 font-mono text-[11px] font-semibold text-[var(--color-ink)]">
+            INV-2026-000123
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-positive-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-positive)]">
+          Paid
         </span>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-          Proration applied
+      </div>
+      <div className="mt-3 flex items-center gap-2 rounded-lg bg-[var(--color-surface)] px-2.5 py-2">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-positive)] text-white">
+          <Check className="h-3 w-3" strokeWidth={3} />
+        </span>
+        <p className="text-[11px] font-medium text-[var(--color-ink)]">
+          Payment successful
         </p>
       </div>
-      <p className="mt-3 text-xs text-[var(--color-ink-muted)]">
-        Starter credit − ₹1,500
-      </p>
-      <p className="mt-1 text-xs text-[var(--color-ink-muted)]">
-        Pro charge + ₹4,999
-      </p>
-      <p className="mt-2 border-t border-[var(--color-border-soft)] pt-2 text-sm font-semibold tabular-nums text-[var(--color-ink)]">
-        Net due ₹3,499
-      </p>
     </div>
   );
 }
 
 function Hero() {
   return (
-    <section
-      id="product"
-      className="relative overflow-hidden"
-    >
-      {/* Soft accent glow (same pattern as .app-canvas) */}
+    <section id="product" className="relative overflow-hidden">
+      {/* Soft neutral glow — no strong accent wash */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           backgroundImage:
-            "radial-gradient(ellipse 900px 620px at 12% -10%, rgba(215, 242, 76, 0.32), transparent 60%), radial-gradient(ellipse 900px 620px at 88% 0%, rgba(129, 140, 248, 0.14), transparent 60%)",
+            "radial-gradient(ellipse 900px 620px at 15% -10%, rgba(148, 163, 184, 0.18), transparent 60%), radial-gradient(ellipse 900px 620px at 90% 0%, rgba(215, 242, 76, 0.10), transparent 60%)",
         }}
       />
 
@@ -404,37 +380,37 @@ function Hero() {
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border-soft)] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-muted)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
-              Subscription billing, built-in
+              Subscription billing, built right
             </span>
 
             <h1 className="font-display mt-6 text-4xl font-semibold leading-[1.05] tracking-tight text-[var(--color-ink)] sm:text-5xl lg:text-6xl">
-              Run subscriptions{" "}
+              Subscriptions that handle the{" "}
               <span className="relative inline-block">
-                <span className="relative z-10">without the busywork</span>
+                <span className="relative z-10">billing lifecycle</span>
                 <span
                   aria-hidden
-                  className="absolute inset-x-0 bottom-1 -z-0 h-3 rounded-sm bg-[var(--color-accent)]/70"
+                  className="absolute inset-x-0 bottom-1 -z-0 h-3 rounded-sm bg-[var(--color-accent)]/55"
                 />
               </span>
               .
             </h1>
 
             <p className="mt-6 max-w-xl text-base leading-7 text-[var(--color-ink-muted)] sm:text-lg">
-              Services, pricing plans, invoicing, automatic proration, a
-              credit ledger, and signed webhooks — a real billing engine,
-              ready on day one. You focus on the business.
+              Create plans, manage subscriptions, handle mid-cycle changes,
+              generate invoices, and keep recurring billing consistent — all
+              in one platform.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 to="/register"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-6 text-sm font-semibold text-[var(--color-accent-foreground)] shadow-[0_18px_40px_-20px_rgba(215,242,76,0.9)] transition hover:-translate-y-0.5 hover:brightness-105"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--color-surface-dark)] px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-95"
               >
                 Get started
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
-                href="#how-it-works"
+                href="#lifecycle"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-white px-6 text-sm font-semibold text-[var(--color-ink)] transition hover:-translate-y-0.5 hover:border-[var(--color-ink)]"
               >
                 See how it works
@@ -442,15 +418,15 @@ function Hero() {
             </div>
 
             <p className="mt-5 text-xs text-[var(--color-ink-subtle)]">
-              Free tier available · No credit card required
+              Multi-tenant · INR &amp; USD · Proration built in
             </p>
           </Reveal>
 
           <Reveal delay={120} className="relative">
             <div className="relative">
               <MockBrowser />
-              <FloatingNextRenewal />
-              <FloatingProration />
+              <FloatingProrationCard />
+              <FloatingInvoiceCard />
             </div>
           </Reveal>
         </div>
@@ -460,54 +436,52 @@ function Hero() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Proof strip
+   Section 1 — Core value strip
    ───────────────────────────────────────────────────────────── */
 
-const PROOF_CHIPS = [
+const CORE_VALUE = [
   {
-    icon: ShieldCheck,
-    label: "Idempotent by default",
-    detail: "Every mutation safe to retry",
+    icon: Repeat,
+    title: "Subscription lifecycle",
+    body: "Create, upgrade, downgrade and cancel subscriptions with explicit billing rules.",
   },
   {
-    icon: Layers,
-    label: "Multi-currency",
-    detail: "INR and USD, never mixed",
+    icon: Divide,
+    title: "Prorated billing",
+    body: "Calculate mid-cycle plan changes using unused and remaining plan value.",
   },
   {
-    icon: Webhook,
-    label: "Signed + retried webhooks",
-    detail: "HMAC, timestamped, backoff",
+    icon: FileText,
+    title: "Invoice & payment flow",
+    body: "Generate invoices and track successful or failed payment attempts.",
   },
   {
     icon: RefreshCw,
-    label: "Automatic proration",
-    detail: "Recalculated to the day",
+    title: "Recurring billing",
+    body: "Process due subscriptions and continue the billing cycle automatically.",
   },
 ];
 
-function ProofStrip() {
+function CoreValue() {
   return (
     <section className="border-y border-[var(--color-border-soft)] bg-white/70">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <Reveal>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PROOF_CHIPS.map(({ icon: Icon, label, detail }) => (
+            {CORE_VALUE.map(({ icon: Icon, title, body }) => (
               <div
-                key={label}
-                className="flex items-start gap-3 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[var(--shadow-soft)]"
+                key={title}
+                className="flex flex-col rounded-2xl border border-[var(--color-border-soft)] bg-white p-5 shadow-[var(--shadow-soft)]"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-surface)] text-[var(--color-ink)] ring-1 ring-[var(--color-border-soft)]">
                   <Icon className="h-4 w-4" />
                 </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-ink)]">
-                    {label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-[var(--color-ink-muted)]">
-                    {detail}
-                  </p>
-                </div>
+                <p className="mt-4 text-sm font-semibold text-[var(--color-ink)]">
+                  {title}
+                </p>
+                <p className="mt-1.5 text-xs leading-5 text-[var(--color-ink-muted)]">
+                  {body}
+                </p>
               </div>
             ))}
           </div>
@@ -518,16 +492,18 @@ function ProofStrip() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Shared feature section chrome
+   Shared section chrome
    ───────────────────────────────────────────────────────────── */
 
-interface FeatureHeaderProps {
+function FeatureHeader({
+  eyebrow,
+  title,
+  body,
+}: {
   eyebrow: string;
   title: string;
   body: string;
-}
-
-function FeatureHeader({ eyebrow, title, body }: FeatureHeaderProps) {
+}) {
   return (
     <div className="max-w-xl">
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
@@ -543,20 +519,17 @@ function FeatureHeader({ eyebrow, title, body }: FeatureHeaderProps) {
   );
 }
 
-interface BulletProps {
+function FeatureBullets({
+  items,
+}: {
   items: { title: string; body: string }[];
-}
-
-function FeatureBullets({ items }: BulletProps) {
+}) {
   return (
     <ul className="mt-7 space-y-4">
       {items.map((item) => (
         <li key={item.title} className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]">
-            <Check
-              className="h-3 w-3 text-[var(--color-accent-foreground)]"
-              strokeWidth={3}
-            />
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-dark)]">
+            <Check className="h-3 w-3 text-white" strokeWidth={3} />
           </span>
           <div>
             <p className="text-sm font-semibold text-[var(--color-ink)]">
@@ -573,22 +546,19 @@ function FeatureBullets({ items }: BulletProps) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Feature A — Plans that bill themselves
+   Section 2 — Catalog
    ───────────────────────────────────────────────────────────── */
 
-function PlanMockCard() {
+function PlanStructureCard() {
   return (
-    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.35)]">
+    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.3)]">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-            Pro plan · Monthly
+            Plan
           </p>
-          <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-[var(--color-ink)]">
-            ₹4,999
-            <span className="ml-1 text-sm font-normal text-[var(--color-ink-subtle)]">
-              /mo
-            </span>
+          <p className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-ink)]">
+            Pro
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-positive-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-positive)]">
@@ -597,56 +567,64 @@ function PlanMockCard() {
         </span>
       </div>
 
-      <div className="mt-6 space-y-2 border-t border-[var(--color-border-soft)] pt-5 text-xs text-[var(--color-ink-muted)]">
-        <div className="flex items-center justify-between">
-          <span>Billing interval</span>
-          <span className="font-semibold text-[var(--color-ink)]">Monthly</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Currency</span>
-          <span className="font-semibold text-[var(--color-ink)]">INR</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Next renewal</span>
-          <span className="font-semibold text-[var(--color-ink)]">
-            in 12 days
-          </span>
-        </div>
+      <div className="mt-5 flex items-baseline gap-1">
+        <span className="text-3xl font-semibold tabular-nums tracking-tight text-[var(--color-ink)]">
+          ₹999
+        </span>
+        <span className="text-sm text-[var(--color-ink-subtle)]">
+          / month
+        </span>
+      </div>
+
+      <div className="mt-6 space-y-3 border-t border-[var(--color-border-soft)] pt-5">
+        <Row label="Billing interval" value="Monthly" />
+        <Row label="Currency" value="INR" />
+        <Row label="Status" value="Subscription active" />
+        <Row label="Next billing" value="Oct 28, 2026" />
       </div>
     </div>
   );
 }
 
-function FeaturePlans() {
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-[var(--color-ink-muted)]">{label}</span>
+      <span className="font-medium text-[var(--color-ink)]">{value}</span>
+    </div>
+  );
+}
+
+function FeatureCatalog() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
         <Reveal>
           <FeatureHeader
             eyebrow="Catalog"
-            title="Plans that bill themselves."
-            body="Create services, attach pricing plans, and let the engine handle the rest — billing cycles, renewal timing, and cross-currency math included."
+            title="Create plans once. Let the billing lifecycle do the work."
+            body="Define what you sell — services, plans, price, currency, and billing interval. Customers discover plans and subscribe. The rest of the billing lifecycle is handled by the platform."
           />
           <FeatureBullets
             items={[
               {
                 title: "Services & plans",
-                body: "Monthly or yearly. INR or USD. Activate or retire without breaking historical invoices.",
+                body: "Monthly or yearly billing. INR or USD. Activate or retire plans without breaking historical invoices.",
               },
               {
-                title: "Automatic renewal",
+                title: "Customer subscriptions",
+                body: "Each subscription records its plan, currency, price, and billing period at creation time.",
+              },
+              {
+                title: "Renewal cycle",
                 body: "Active subscriptions renew on their billing period without manual intervention.",
-              },
-              {
-                title: "Scheduled downgrades",
-                body: "Downgrades apply at the next renewal — never an abrupt mid-cycle price drop.",
               },
             ]}
           />
         </Reveal>
 
         <Reveal delay={100} className="lg:pl-6">
-          <PlanMockCard />
+          <PlanStructureCard />
         </Reveal>
       </div>
     </section>
@@ -654,84 +632,105 @@ function FeaturePlans() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Feature B — Proration
+   Section 3 — Plan changes / proration
    ───────────────────────────────────────────────────────────── */
 
-function ProrationMathCard() {
+function ProrationCard() {
   return (
-    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.35)]">
+    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.3)]">
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-          Upgrade · Starter → Pro
+          Plan change
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink)]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-ink-muted)]">
           <Repeat className="h-3 w-3" />
           Prorated
         </span>
       </div>
 
-      <div className="mt-6 space-y-3 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-[var(--color-ink-muted)]">
-            Starter · unused time credit
-          </span>
-          <span className="font-semibold tabular-nums text-[var(--color-positive)]">
-            − ₹1,500
-          </span>
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-[var(--color-border-soft)] p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Current plan
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[var(--color-ink)]">
+            Starter
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-[var(--color-ink-muted)]">
+            ₹500 / month
+          </p>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[var(--color-ink-muted)]">
-            Pro · new plan charge
-          </span>
-          <span className="font-semibold tabular-nums text-[var(--color-ink)]">
-            + ₹4,999
-          </span>
-        </div>
-        <div className="flex items-center justify-between border-t border-[var(--color-border-soft)] pt-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
-            Net charged today
-          </span>
-          <span className="text-lg font-semibold tabular-nums text-[var(--color-ink)]">
-            ₹3,499
-          </span>
+        <div className="rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Upgrade to
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[var(--color-ink)]">
+            Pro
+          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-[var(--color-ink-muted)]">
+            ₹800 / month
+          </p>
         </div>
       </div>
 
-      <p className="mt-5 rounded-xl bg-[var(--color-surface)] px-3 py-2.5 text-[11px] leading-5 text-[var(--color-ink-muted)]">
-        Recalculated to the day, tax added, invoice issued — automatically.
-      </p>
+      <div className="mt-5 space-y-3 border-t border-[var(--color-border-soft)] pt-5 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-[var(--color-ink-muted)]">
+            Unused Starter value
+          </span>
+          <span className="font-semibold tabular-nums text-[var(--color-positive)]">
+            −₹150
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[var(--color-ink-muted)]">
+            Remaining Pro value
+          </span>
+          <span className="font-semibold tabular-nums text-[var(--color-ink)]">
+            +₹250
+          </span>
+        </div>
+        <div className="flex items-center justify-between border-t border-[var(--color-border-soft)] pt-3">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+            Amount due
+          </span>
+          <span className="text-lg font-semibold tabular-nums text-[var(--color-ink)]">
+            ₹100
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function FeatureProration() {
+function FeaturePlanChanges() {
   return (
     <section className="border-y border-[var(--color-border-soft)] bg-white">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <Reveal className="order-2 lg:order-1">
-            <ProrationMathCard />
+            <ProrationCard />
           </Reveal>
 
           <Reveal delay={100} className="order-1 lg:order-2">
             <FeatureHeader
-              eyebrow="Lifecycle"
-              title="Upgrades and downgrades that do the math for you."
-              body="Mid-cycle changes recalculate cleanly. The engine credits unused time, charges the new plan from today, and issues an itemized invoice."
+              eyebrow="Plan changes"
+              title="Plan changes shouldn't break the billing cycle."
+              body="Subvia handles upgrades and scheduled downgrades as billing operations, not simple plan changes. Mid-cycle moves are recalculated from the exact change time."
             />
             <FeatureBullets
               items={[
                 {
                   title: "Immediate upgrades",
-                  body: "Effective the moment they're confirmed, prorated to the day.",
+                  body: "Effective the moment they're confirmed, prorated to the day using unused time and remaining plan value.",
                 },
                 {
                   title: "Scheduled downgrades",
-                  body: "Applied automatically at the next renewal, with a scheduled-change audit entry.",
+                  body: "Applied automatically at the next renewal, with a scheduled-change record on the subscription.",
                 },
                 {
-                  title: "Credit on immediate cancel",
-                  body: "Unused time refunded as account credit and applied to the next invoice automatically.",
+                  title: "Cancellation with credit",
+                  body: "Immediate cancellation refunds unused time as account credit that applies to the next invoice.",
                 },
               ]}
             />
@@ -743,12 +742,12 @@ function FeatureProration() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Feature C — Invoicing
+   Section 4 — Invoicing
    ───────────────────────────────────────────────────────────── */
 
-function InvoiceMockCard() {
+function InvoiceCard() {
   return (
-    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.35)]">
+    <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[0_30px_60px_-40px_rgba(20,22,26,0.3)]">
       <div className="flex items-start justify-between border-b border-[var(--color-border-soft)] pb-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
@@ -764,29 +763,33 @@ function InvoiceMockCard() {
         </span>
       </div>
 
+      <p className="mt-4 text-[11px] text-[var(--color-ink-subtle)]">
+        Billing period · Oct 1 – Oct 31, 2026
+      </p>
+
       <div className="mt-4 space-y-2.5 text-xs">
         <div className="flex items-center justify-between text-[var(--color-ink-muted)]">
           <span>Pro plan · monthly</span>
-          <span className="tabular-nums">₹4,999.00</span>
+          <span className="tabular-nums">₹999.00</span>
         </div>
         <div className="flex items-center justify-between text-[var(--color-ink-muted)]">
-          <span>Starter · unused time credit</span>
+          <span>Credit applied</span>
           <span className="tabular-nums text-[var(--color-positive)]">
-            −₹1,500.00
+            −₹150.00
           </span>
         </div>
         <div className="flex items-center justify-between text-[var(--color-ink-muted)]">
           <span>Tax (18%)</span>
-          <span className="tabular-nums">₹629.82</span>
+          <span className="tabular-nums">₹152.82</span>
         </div>
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-[var(--color-border-soft)] pt-4">
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
           Total
         </span>
         <span className="text-lg font-semibold tabular-nums text-[var(--color-ink)]">
-          ₹4,128.82
+          ₹1,001.82
         </span>
       </div>
     </div>
@@ -800,29 +803,29 @@ function FeatureInvoicing() {
         <Reveal>
           <FeatureHeader
             eyebrow="Invoices"
-            title="Invoicing that's actually correct."
-            body="Itemized, tax-aware, and issued in a single currency per document. Human-readable sequential numbers. Historical invoices stay meaningful forever."
+            title="Every billing change leaves a clear financial record."
+            body="Subscriptions, plan changes and renewals produce structured invoices and payment records so customers can see exactly what they were charged for."
           />
           <FeatureBullets
             items={[
               {
-                title: "Tax-aware by default",
-                body: "Per-business tax rate applied to every invoice and itemized on the document.",
+                title: "Itemized invoices",
+                body: "Every charge, credit and tax line is recorded with quantity, unit price and total.",
               },
               {
-                title: "Credits auto-applied",
-                body: "Available account credit reduces the invoice before anything is charged.",
+                title: "Tax-aware",
+                body: "Per-business tax rate applied consistently to every invoice generated for that business.",
               },
               {
-                title: "Sequential numbers",
-                body: "Readable, gap-free sequences you can hand to accounting.",
+                title: "Payment attempts",
+                body: "Successful and failed payment attempts are tracked separately against each invoice.",
               },
             ]}
           />
         </Reveal>
 
         <Reveal delay={100} className="lg:pl-6">
-          <InvoiceMockCard />
+          <InvoiceCard />
         </Reveal>
       </div>
     </section>
@@ -830,65 +833,53 @@ function FeatureInvoicing() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Feature D — Integrations (dark code card)
+   Section 5 — Billing reliability (dark, replaces integrations)
    ───────────────────────────────────────────────────────────── */
 
-const WEBHOOK_SAMPLE = `{
-  "id": "evt_8a72b1",
-  "type": "subscription.upgraded",
-  "created_at": "2026-04-18T10:12:04Z",
-  "data": {
-    "subscription_id": "sub_9f2a",
-    "from_plan": "Starter",
-    "to_plan": "Pro",
-    "proration": {
-      "old_plan_credit": 150000,
-      "new_plan_charge": 499900,
-      "net_amount": 349900,
-      "currency": "INR"
-    }
-  }
-}`;
+const RELIABILITY_FLOW = [
+  { label: "Request", icon: ArrowRight },
+  { label: "Transaction", icon: ShieldCheck },
+  { label: "Invoice", icon: FileText },
+  { label: "Payment", icon: CreditCard },
+  { label: "Subscription update", icon: RefreshCw },
+];
 
-function FeatureIntegrations() {
+function BillingReliability() {
   return (
     <section className="border-y border-[var(--color-border-soft)] bg-[var(--color-surface-dark)] text-white">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <Reveal>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-              Integrations
+              Reliability
             </p>
             <h2 className="font-display mt-3 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-              Built for integrations, not just a dashboard.
+              Billing needs more than CRUD.
             </h2>
             <p className="mt-4 max-w-lg text-base leading-7 text-white/60">
-              Signed HMAC webhooks with automatic retry and exponential
-              backoff. Scoped API keys for reading your live catalog. Every
-              event is timestamped and safe to consume.
+              Financial operations can be retried, triggered concurrently, or
+              fail halfway through. Subvia uses transactions, idempotency and
+              concurrency controls to keep billing state consistent.
             </p>
 
             <ul className="mt-7 space-y-4">
               {[
                 {
-                  title: "Signed webhooks",
-                  body: "HMAC-verified, timestamped deliveries you can trust.",
+                  title: "Idempotent operations",
+                  body: "Every mutating request is safe to retry — the same key produces the same result.",
                 },
                 {
-                  title: "Automatic retries",
-                  body: "Failures retried with exponential backoff, indefinitely.",
+                  title: "Transaction-safe",
+                  body: "Subscription, invoice and payment updates commit together or roll back together.",
                 },
                 {
-                  title: "Scoped API keys",
-                  body: "Issue and revoke keys for external catalog reads.",
+                  title: "Concurrency control",
+                  body: "Overlapping requests can't create duplicate subscriptions or double charges.",
                 },
               ].map((item) => (
                 <li key={item.title} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]">
-                    <Check
-                      className="h-3 w-3 text-[var(--color-accent-foreground)]"
-                      strokeWidth={3}
-                    />
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10">
+                    <Check className="h-3 w-3 text-[var(--color-accent)]" strokeWidth={3} />
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-white">
@@ -904,165 +895,146 @@ function FeatureIntegrations() {
           </Reveal>
 
           <Reveal delay={100}>
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0f1115] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)]">
-              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="ml-3 font-mono text-[11px] text-white/40">
-                  POST /webhooks/your-endpoint
-                </span>
-              </div>
-              <pre className="overflow-x-auto p-5 font-mono text-[12px] leading-6 text-white/80">
-                <code>{WEBHOOK_SAMPLE}</code>
-              </pre>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
+            <div className="rounded-3xl border border-white/10 bg-[#0f1115] p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)] sm:p-8">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                Billing flow
+              </p>
 
-/* ─────────────────────────────────────────────────────────────
-   Two surfaces
-   ───────────────────────────────────────────────────────────── */
-
-const SURFACES = [
-  {
-    icon: BarChart3,
-    title: "Admin dashboard",
-    bullets: [
-      "Services & pricing plans",
-      "Customers & subscriptions",
-      "Invoices & payments",
-      "Billing activity audit trail",
-      "Webhooks & API keys",
-    ],
-  },
-  {
-    icon: CreditCard,
-    title: "Customer portal",
-    bullets: [
-      "Subscriptions with pending changes",
-      "Invoices with line-item detail",
-      "Credit balance per currency",
-      "Full billing history",
-    ],
-  },
-];
-
-function TwoSurfaces() {
-  return (
-    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-      <Reveal>
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
-            Two surfaces
-          </p>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-[var(--color-ink)] sm:text-4xl">
-            One engine, two views.
-          </h2>
-          <p className="mt-4 text-base leading-7 text-[var(--color-ink-muted)]">
-            Everything admins and customers need, backed by the same billing
-            core — with strict tenant isolation between businesses.
-          </p>
-        </div>
-      </Reveal>
-
-      <div className="mt-14 grid gap-6 lg:grid-cols-2">
-        {SURFACES.map(({ icon: Icon, title, bullets }, i) => (
-          <Reveal key={title} delay={i * 80}>
-            <div className="flex h-full flex-col rounded-3xl border border-[var(--color-border-soft)] bg-white p-8 shadow-[0_24px_60px_-40px_rgba(20,22,26,0.35)]">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-accent-soft)] text-[var(--color-ink)]">
-                <Icon className="h-5 w-5" />
-              </span>
-              <h3 className="font-display mt-5 text-xl font-semibold tracking-tight text-[var(--color-ink)]">
-                {title}
-              </h3>
-              <ul className="mt-5 space-y-2.5">
-                {bullets.map((b) => (
-                  <li
-                    key={b}
-                    className="flex items-center gap-2.5 text-sm text-[var(--color-ink-muted)]"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5 text-[var(--color-ink-subtle)]" />
-                    {b}
+              <ol className="mt-6 space-y-3">
+                {RELIABILITY_FLOW.map(({ label, icon: Icon }, i) => (
+                  <li key={label}>
+                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/70">
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-sm font-medium text-white/90">
+                        {label}
+                      </span>
+                    </div>
+                    {i < RELIABILITY_FLOW.length - 1 ? (
+                      <div className="flex justify-center py-1.5">
+                        <ArrowDown className="h-3.5 w-3.5 text-white/25" />
+                      </div>
+                    ) : null}
                   </li>
                 ))}
-              </ul>
+              </ol>
+
+              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                  Idempotency key
+                </p>
+                <p className="mt-1.5 font-mono text-[11px] text-white/70">
+                  9f2a4c1e · same request → same operation
+                </p>
+              </div>
             </div>
           </Reveal>
-        ))}
+        </div>
       </div>
     </section>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   How it works
+   Section 6 — How it works (7-step lifecycle)
    ───────────────────────────────────────────────────────────── */
 
-const STEPS = [
+const LIFECYCLE_STEPS = [
   {
     n: "01",
     icon: Package2,
-    title: "Create a service & plan",
-    body: "Set a name, price, currency, and billing interval. Add as many plans as you need per service.",
+    title: "Create a service and plan",
+    body: "Price, currency, and billing interval — monthly or yearly.",
   },
   {
     n: "02",
-    icon: FileText,
-    title: "Customers subscribe",
-    body: "Invoices, proration, tax, and credit application handled automatically at the moment of subscription.",
+    icon: Users,
+    title: "Customer subscribes",
+    body: "A subscription is created with its billing period and status.",
   },
   {
     n: "03",
+    icon: FileText,
+    title: "Invoice is generated",
+    body: "Itemized, tax-aware, and issued in a single currency.",
+  },
+  {
+    n: "04",
+    icon: CreditCard,
+    title: "Payment succeeds or fails",
+    body: "Every attempt is recorded against the invoice.",
+  },
+  {
+    n: "05",
+    icon: ShieldCheck,
+    title: "Subscription becomes active",
+    body: "Successful payment activates the subscription.",
+  },
+  {
+    n: "06",
+    icon: Divide,
+    title: "Plan changes are prorated",
+    body: "Unused value credited, new plan charged from the change date.",
+  },
+  {
+    n: "07",
     icon: RefreshCw,
-    title: "It runs itself",
-    body: "Renewals, retries, credit rollover, and webhook deliveries all execute on their own.",
+    title: "Due subscriptions renew",
+    body: "The billing cycle continues on its own.",
   },
 ];
 
 function HowItWorks() {
   return (
     <section
-      id="how-it-works"
+      id="lifecycle"
       className="border-y border-[var(--color-border-soft)] bg-white"
     >
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
-              How it works
+              Lifecycle
             </p>
             <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-[var(--color-ink)] sm:text-4xl">
-              From zero to first invoice in three steps.
+              From plan to renewal.
             </h2>
+            <p className="mt-4 text-base leading-7 text-[var(--color-ink-muted)]">
+              Every subscription moves through the same seven stages.
+              Subvia keeps each stage consistent, from the first invoice to
+              the next renewal.
+            </p>
           </div>
         </Reveal>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {STEPS.map(({ n, icon: Icon, title, body }, i) => (
-            <Reveal key={n} delay={i * 100}>
-              <div className="relative h-full rounded-3xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-7">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface-dark)] text-xs font-bold text-[var(--color-accent)]">
-                    {n}
-                  </span>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[var(--color-ink-muted)] ring-1 ring-[var(--color-border-soft)]">
-                    <Icon className="h-4 w-4" />
-                  </span>
+        <div className="mx-auto mt-14 max-w-3xl">
+          <ol className="relative space-y-1">
+            <span
+              aria-hidden
+              className="absolute bottom-6 left-[1.35rem] top-6 w-px bg-[var(--color-border-soft)]"
+            />
+            {LIFECYCLE_STEPS.map(({ n, icon: Icon, title, body }) => (
+              <li key={n} className="relative flex items-start gap-5 py-3">
+                <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-soft)] bg-white text-xs font-bold text-[var(--color-ink)] shadow-[var(--shadow-soft)]">
+                  {n}
+                </span>
+                <div className="flex-1 rounded-2xl border border-[var(--color-border-soft)] bg-white p-4 shadow-[var(--shadow-soft)]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[var(--color-ink-muted)]">
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="text-sm font-semibold text-[var(--color-ink)]">
+                      {title}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[var(--color-ink-muted)]">
+                    {body}
+                  </p>
                 </div>
-                <h3 className="mt-6 text-base font-semibold tracking-tight text-[var(--color-ink)]">
-                  {title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-ink-muted)]">
-                  {body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </section>
@@ -1070,214 +1042,88 @@ function HowItWorks() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Pricing
+   Section 7 — Multi-tenancy
    ───────────────────────────────────────────────────────────── */
 
-interface Tier {
-  name: string;
-  price: string;
-  period: string;
-  blurb: string;
-  features: string[];
-  cta: string;
-  highlight?: boolean;
+function BusinessCard({ name }: { name: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--color-border-soft)] bg-white p-5 shadow-[var(--shadow-soft)]">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-surface)] text-[var(--color-ink)]">
+          <Building2 className="h-4 w-4" />
+        </span>
+        <p className="text-sm font-semibold text-[var(--color-ink)]">{name}</p>
+      </div>
+      <ul className="mt-4 space-y-1.5 text-xs text-[var(--color-ink-muted)]">
+        {["Services", "Plans", "Customers", "Billing"].map((item) => (
+          <li key={item} className="flex items-center gap-2">
+            <ChevronRight className="h-3 w-3 text-[var(--color-ink-subtle)]" />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
-const TIERS: Tier[] = [
-  {
-    name: "Starter",
-    price: "Free",
-    period: "",
-    blurb: "For trying out the billing engine.",
-    features: [
-      "1 business workspace",
-      "Up to 3 services",
-      "Manual invoicing",
-      "Community support",
-    ],
-    cta: "Start free",
-  },
-  {
-    name: "Growth",
-    price: "₹2,499",
-    period: "/mo",
-    blurb: "For businesses running recurring revenue.",
-    features: [
-      "Unlimited services & plans",
-      "Automatic renewal & retries",
-      "Proration & credit ledger",
-      "Signed webhooks with retries",
-      "Scoped API keys",
-      "Priority email support",
-    ],
-    cta: "Get started",
-    highlight: true,
-  },
-  {
-    name: "Scale",
-    price: "₹7,999",
-    period: "/mo",
-    blurb: "For high-volume, multi-currency teams.",
-    features: [
-      "Everything in Growth",
-      "Multi-currency tenants",
-      "Higher volume limits",
-      "Dedicated support channel",
-    ],
-    cta: "Contact us",
-  },
-];
-
-function Pricing() {
+function MultiTenancy() {
   return (
-    <section id="pricing" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-      {/* TODO: placeholder pricing, confirm real tiers */}
+    <section id="platform" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
       <Reveal>
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
-            Pricing
+            Platform
           </p>
           <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-[var(--color-ink)] sm:text-4xl">
-            Choose your plan.
+            One platform. Multiple businesses. Isolated billing.
           </h2>
           <p className="mt-4 text-base leading-7 text-[var(--color-ink-muted)]">
-            Simple month-to-month pricing. No seats, no usage surprises.
+            Subvia is designed as a multi-tenant platform where businesses
+            manage their own services, plans, customers and billing records.
           </p>
         </div>
       </Reveal>
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-3">
-        {TIERS.map((tier, i) => (
-          <Reveal key={tier.name} delay={i * 80}>
-            <div
-              className={cn(
-                "flex h-full flex-col rounded-3xl border p-7 transition",
-                tier.highlight
-                  ? "border-[var(--color-surface-dark)] bg-[var(--color-surface-dark)] text-white shadow-[0_40px_80px_-40px_rgba(20,22,26,0.5)] lg:-mt-4 lg:mb-4"
-                  : "border-[var(--color-border-soft)] bg-white",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <h3
-                  className={cn(
-                    "text-lg font-semibold tracking-tight",
-                    tier.highlight ? "text-white" : "text-[var(--color-ink)]",
-                  )}
-                >
-                  {tier.name}
-                </h3>
-                {tier.highlight ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent-foreground)]">
-                    <Sparkles className="h-3 w-3" />
-                    Popular
-                  </span>
-                ) : null}
-              </div>
+      <Reveal delay={100}>
+        <div className="mt-14 flex flex-col items-center">
+          {/* Subvia root */}
+          <div className="rounded-full border border-[var(--color-border-soft)] bg-[var(--color-surface-dark)] px-5 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+            Subvia
+          </div>
 
-              <p
-                className={cn(
-                  "mt-1.5 text-sm",
-                  tier.highlight ? "text-white/60" : "text-[var(--color-ink-muted)]",
-                )}
-              >
-                {tier.blurb}
-              </p>
+          {/* Connector */}
+          <div className="mt-4 h-8 w-px bg-[var(--color-border-strong)]" />
 
-              <div className="mt-6 flex items-baseline gap-1">
-                <span
-                  className={cn(
-                    "text-4xl font-semibold tracking-tight tabular-nums",
-                    tier.highlight ? "text-white" : "text-[var(--color-ink)]",
-                  )}
-                >
-                  {tier.price}
-                </span>
-                {tier.period ? (
-                  <span
-                    className={cn(
-                      "text-sm",
-                      tier.highlight
-                        ? "text-white/50"
-                        : "text-[var(--color-ink-subtle)]",
-                    )}
-                  >
-                    {tier.period}
-                  </span>
-                ) : null}
-              </div>
-
-              <ul className="mt-7 flex-1 space-y-3">
-                {tier.features.map((f) => (
-                  <li
-                    key={f}
-                    className={cn(
-                      "flex items-start gap-2.5 text-sm",
-                      tier.highlight
-                        ? "text-white/85"
-                        : "text-[var(--color-ink-muted)]",
-                    )}
-                  >
-                    <Check
-                      className={cn(
-                        "mt-0.5 h-4 w-4 shrink-0",
-                        tier.highlight
-                          ? "text-[var(--color-accent)]"
-                          : "text-[var(--color-positive)]",
-                      )}
-                    />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                to="/register"
-                className={cn(
-                  "mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-full text-sm font-semibold transition hover:-translate-y-0.5",
-                  tier.highlight
-                    ? "bg-[var(--color-accent)] text-[var(--color-accent-foreground)] hover:brightness-105"
-                    : "border border-[var(--color-border-strong)] bg-white text-[var(--color-ink)] hover:border-[var(--color-ink)]",
-                )}
-              >
-                {tier.cta}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+          {/* Two tenants */}
+          <div className="grid w-full max-w-3xl gap-6 sm:grid-cols-2">
+            <div className="relative pt-4">
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-0 h-4 w-px -translate-x-1/2 bg-[var(--color-border-strong)]"
+              />
+              <BusinessCard name="Business A" />
             </div>
-          </Reveal>
-        ))}
-      </div>
+            <div className="relative pt-4">
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-0 h-4 w-px -translate-x-1/2 bg-[var(--color-border-strong)]"
+              />
+              <BusinessCard name="Business B" />
+            </div>
+          </div>
+
+          <p className="mt-8 max-w-xl text-center text-sm leading-6 text-[var(--color-ink-muted)]">
+            Each business is scoped to its own data. Customers, invoices, and
+            credit ledgers never cross tenants.
+          </p>
+        </div>
+      </Reveal>
     </section>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Testimonial (placeholder)
-   ───────────────────────────────────────────────────────────── */
-
-function Testimonial() {
-  return (
-    <section className="border-y border-[var(--color-border-soft)] bg-white">
-      <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
-        {/* TODO: replace with a real customer quote */}
-        <Reveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
-            Early adopters
-          </p>
-          <blockquote className="font-display mt-6 text-2xl font-medium leading-snug tracking-tight text-[var(--color-ink)] sm:text-3xl">
-            “Proration and idempotency alone saved us weeks of engineering.
-            We stopped building billing and started shipping the product.”
-          </blockquote>
-          <p className="mt-6 text-sm text-[var(--color-ink-muted)]">
-            — Placeholder quote · replace with a real customer
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Final CTA
+   Section 8 — Final CTA
    ───────────────────────────────────────────────────────────── */
 
 function FinalCta() {
@@ -1290,38 +1136,33 @@ function FinalCta() {
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
-                "radial-gradient(ellipse 700px 500px at 15% 0%, rgba(215, 242, 76, 0.22), transparent 60%), radial-gradient(ellipse 700px 500px at 90% 100%, rgba(129, 140, 248, 0.18), transparent 60%)",
+                "radial-gradient(ellipse 700px 500px at 15% 0%, rgba(215, 242, 76, 0.14), transparent 60%), radial-gradient(ellipse 700px 500px at 90% 100%, rgba(129, 140, 248, 0.14), transparent 60%)",
             }}
           />
 
           <div className="relative mx-auto max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">
-              <Sparkles className="h-3.5 w-3.5" />
-              Free tier available
-            </span>
-
-            <h2 className="font-display mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Ship your first subscription today.
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              Ready to simplify subscription billing?
             </h2>
             <p className="mt-4 text-base leading-7 text-white/60">
-              Create a business, publish a plan, and watch invoices generate
-              themselves.
+              Create plans, manage subscriptions and keep the billing
+              lifecycle in sync.
             </p>
 
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 to="/register"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--color-accent)] px-6 text-sm font-semibold text-[var(--color-accent-foreground)] transition hover:-translate-y-0.5 hover:brightness-105"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[var(--color-surface-dark)] transition hover:-translate-y-0.5"
               >
-                Get started free
+                Get started
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link
-                to="/login"
+              <a
+                href="#product"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/20 px-6 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/5"
               >
-                Log in
-              </Link>
+                View product
+              </a>
             </div>
           </div>
         </div>
@@ -1338,9 +1179,9 @@ const FOOTER_COLUMNS = [
   {
     heading: "Product",
     links: [
-      { label: "Features", href: "#product" },
-      { label: "How it works", href: "#how-it-works" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "Catalog", href: "#product" },
+      { label: "Lifecycle", href: "#lifecycle" },
+      { label: "Platform", href: "#platform" },
     ],
   },
   {
@@ -1369,7 +1210,10 @@ function Footer() {
           <div className="max-w-xs">
             <Wordmark />
             <p className="mt-4 text-sm leading-6 text-[var(--color-ink-muted)]">
-              Subscription billing infrastructure for modern businesses.
+              Subscriptions. Simplified.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[var(--color-ink-subtle)]">
+              A multi-tenant subscription and billing platform.
             </p>
           </div>
 
@@ -1412,7 +1256,7 @@ function Footer() {
             © {new Date().getFullYear()} Subvia. All rights reserved.
           </p>
           <p className="text-xs text-[var(--color-ink-subtle)]">
-            Built with React, TanStack Query, and Tailwind.
+            Built with React, Express, PostgreSQL, and Prisma.
           </p>
         </div>
       </div>
@@ -1427,7 +1271,6 @@ function Footer() {
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-[var(--color-ink)]">
-      {/* Continuous float keyframe for the hero mock cards */}
       <style>{`
         @keyframes subvia-float {
           0%, 100% { transform: translateY(0px); }
@@ -1441,15 +1284,13 @@ export function LandingPage() {
       <TopNav />
       <main>
         <Hero />
-        <ProofStrip />
-        <FeaturePlans />
-        <FeatureProration />
+        <CoreValue />
+        <FeatureCatalog />
+        <FeaturePlanChanges />
         <FeatureInvoicing />
-        <FeatureIntegrations />
-        <TwoSurfaces />
+        <BillingReliability />
         <HowItWorks />
-        <Pricing />
-        <Testimonial />
+        <MultiTenancy />
         <FinalCta />
       </main>
       <Footer />

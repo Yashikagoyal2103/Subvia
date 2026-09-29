@@ -1,24 +1,52 @@
-
-import { Hexagon } from "lucide-react";
-import { cn } from "cn";
+import { cn } from "@/lib/utils";
 
 interface AppLogoProps {
   className?: string;
-  variant?: "full" | "compact";
+  /**
+   * mark         → square icon only (for compact navs / avatars)
+   * wordmark     → icon + "Subvia" text (default, for light bg)
+   * full         → full lockup with tagline
+   * wordmark-light → icon + "Subvia" text, for dark backgrounds
+   */
+  variant?: "mark" | "wordmark" | "wordmark-light" | "full";
+  alt?: string;
 }
 
-export function AppLogo({ className, variant = "full" }: AppLogoProps) {
+const SRC: Record<NonNullable<AppLogoProps["variant"]>, string> = {
+  mark: "/branding/subvia-mark.png",
+  wordmark: "/branding/subvia-logo.png",
+  "wordmark-light": "/branding/subvia-logo-light.png",
+  full: "/branding/subvia-logo-full.png",
+};
+
+const ALT: Record<NonNullable<AppLogoProps["variant"]>, string> = {
+  mark: "Subvia",
+  wordmark: "Subvia",
+  "wordmark-light": "Subvia",
+  full: "Subvia — Subscriptions. Simplified.",
+};
+
+export function AppLogo({
+  className,
+  variant = "wordmark",
+  alt,
+}: AppLogoProps) {
   return (
-    <div className={cn("flex items-center gap-2.5", className)}>
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-sm">
-        <Hexagon className="h-5 w-5" />
-      </div>
-      {variant === "full" && (
-        <span className="text-lg font-semibold tracking-tight text-gray-900">
-          Subvia
-        </span>
+    <img
+      src={SRC[variant]}
+      alt={alt ?? ALT[variant]}
+      // Prevent layout shift — real aspect ratio comes from the file.
+      width={variant === "mark" ? 32 : 132}
+      height={variant === "mark" ? 32 : 32}
+      decoding="async"
+      className={cn(
+        "block w-auto object-contain select-none",
+        variant === "mark" && "h-8",
+        variant === "wordmark" && "h-8",
+        variant === "wordmark-light" && "h-8",
+        variant === "full" && "h-auto max-w-full",
+        className,
       )}
-    </div>
+    />
   );
 }
-

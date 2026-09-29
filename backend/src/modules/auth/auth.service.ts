@@ -1,5 +1,3 @@
-
-
 import bcrypt from "bcrypt";
 import type { SignOptions } from "jsonwebtoken";
 import jwt from "jsonwebtoken";
@@ -13,6 +11,8 @@ import type {
   RegisterInput,
   UpdateProfileInput,
 } from "./auth.schema.js";
+
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("subvia-invalid-password", 12);
 
 function createRefreshToken() {
   return crypto.randomBytes(64).toString("hex");
@@ -75,16 +75,12 @@ export async function loginUser(input: LoginInput) {
     where: { email },
   });
 
-  if (!user) {
-    throw new Error("INVALID_CREDENTIALS");
-  }
-
   const passwordMatches = await bcrypt.compare(
     input.password,
-    user.passwordHash
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
   );
 
-  if (!passwordMatches) {
+  if (!user || !passwordMatches) {
     throw new Error("INVALID_CREDENTIALS");
   }
 
@@ -219,4 +215,5 @@ export async function updateUserProfile(
 
   return user;
 }
+
 

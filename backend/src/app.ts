@@ -18,6 +18,9 @@ import apiKeyRoutes from "./modules/api-keys/api-key.routes.js";
 import publicApiRoutes from "./modules/public-api/public-api.routes.js";
 import catalogRoutes from "./modules/catalog/catalog.routes.js";
 import customerPortalRoutes from "./modules/customer-portal/customer-portal.routes.js";
+import { prisma } from "./config/prisma.js";
+import { env } from "./config/env.js";
+import { apiRateLimiter } from "./middleware/rate-limit.middleware.js";
 
 const app = express();
 
@@ -25,7 +28,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+    origin: env.FRONTEND_URL,
     credentials: true,
   })
 );
@@ -36,14 +39,29 @@ app.use(
   })
 );
 
-app.get("/api/v1/health", (_req, res) => {
-  res.json({
-    success: true,
-    data: {
-      message: "API is running",
-    },
-  });
+app.get("/api/v1/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: "API is running",
+        database: "connected",
+      },
+    });
+  } catch {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Database is unavailable.",
+      },
+    });
+  }
 });
+
+app.use(apiRateLimiter);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/businesses", businessRoutes);

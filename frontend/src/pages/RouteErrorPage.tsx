@@ -1,5 +1,6 @@
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
+import { AppLogo } from "@/components/app-logo"; 
 
 export function RouteErrorPage() {
   const error = useRouteError();
@@ -8,6 +9,7 @@ export function RouteErrorPage() {
   return (
     <div className="min-h-screen bg-[var(--color-canvas)] px-6 py-16 text-[var(--color-ink)]">
       <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center text-center">
+         <AppLogo className="mb-6 h-8" />
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-surface)] text-[var(--color-ink-muted)] shadow-sm ring-1 ring-black/5">
           <AlertTriangle className="h-6 w-6" />
         </span>

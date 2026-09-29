@@ -11,7 +11,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-
+import { AppLogo } from "@/components/app-logo";
 import { authApi } from "@/api/auth";
 import { queryClient } from "@/lib/query-client";
 import { useAuthStore } from "@/stores/auth.store";
@@ -151,17 +151,11 @@ export function CustomerTopNav() {
       <nav className="glass mx-auto grid max-w-7xl grid-cols-[auto_1fr_auto] items-center gap-3 rounded-full px-3 py-2">
         <Link
           to="/customer"
-          className="flex items-center gap-2.5 rounded-full px-2 py-1 transition hover:bg-white/40"
+          aria-label="Subvia home"
+          className="flex items-center rounded-full px-2 py-1 transition hover:bg-white/40"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-charcoal)] text-[11px] font-bold text-[var(--color-accent)]">
-            B
-          </span>
-
-          <span className="hidden text-sm font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
-            Subvia
-          </span>
+          <AppLogo className="h-8" />
         </Link>
-
         <div className="hidden justify-center gap-1 md:flex">
           {LINKS.map(({ to, label, icon: Icon, match }) => {
             const active = isActive(match);

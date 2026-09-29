@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateWebhookEndpointInput, UpdateWebhookEndpointInput } from "./webhook.schema.js";
+import { validateWebhookUrl } from "./webhook-url.js";
 
 async function requireAdmin(userId: string, businessId: string) {
   const member = await prisma.businessMember.findFirst({
@@ -22,6 +23,7 @@ export async function createWebhookEndpoint(
   secret: string
 ) {
   await requireAdmin(userId, businessId);
+  await validateWebhookUrl(input.url);
 
   const endpoint = await prisma.webhookEndpoint.create({
     data: {
@@ -82,6 +84,10 @@ export async function updateWebhookEndpoint(
 
   if (!endpoint) {
     throw new Error("WEBHOOK_ENDPOINT_NOT_FOUND");
+  }
+
+  if (input.url !== undefined) {
+    await validateWebhookUrl(input.url);
   }
 
   return prisma.webhookEndpoint.update({

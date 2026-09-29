@@ -1,10 +1,8 @@
-
-
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-
+import { AppLogo } from "../../components/app-logo";
 import { authApi } from "../../api/auth";
 import { useAuthStore } from "../../stores/auth.store";
 import { AuthBrandPanel } from "../../components/auth/AuthBrandPanel";
@@ -102,13 +100,8 @@ export function LoginPage() {
 
       <main className="app-canvas flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20">
         <div className="mx-auto w-full max-w-[400px]">
-          <div className="mb-10 flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-ink)] text-[13px] font-bold text-[var(--color-accent)]">
-              B
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-              Subvia
-            </span>
+          <div className="mb-8 lg:hidden">
+            <AppLogo className="h-9" />
           </div>
 
           <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-7 shadow-[var(--shadow-card)] sm:p-8">

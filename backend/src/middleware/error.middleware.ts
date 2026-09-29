@@ -1,4 +1,3 @@
-
 import { Prisma } from "../generated/prisma/client.js";
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
@@ -407,6 +406,16 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
     });
   }
 
+  if (error.message === "WEBHOOK_URL_NOT_ALLOWED") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "WEBHOOK_URL_NOT_ALLOWED",
+        message: "Webhook URL must resolve to a public HTTP or HTTPS address.",
+      },
+    });
+  }
+
   // ─── Fallback ───
   console.error(error);
 
@@ -418,5 +427,6 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
     },
   });
 };
+
 
 

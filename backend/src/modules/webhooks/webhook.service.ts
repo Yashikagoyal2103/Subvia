@@ -4,6 +4,7 @@ import type {
   Prisma,
   SubscriptionEventType,
 } from "../../generated/prisma/client.js";
+import { postWebhook } from "./webhook-url.js";
 
 const MAX_ATTEMPTS = 5;
 const CLAIM_LEASE_MS = 60_000;
@@ -119,6 +120,9 @@ export async function processWebhookDeliveries(
       nextAttemptAt: {
         lte: now,
       },
+      endpoint: {
+        status: "ACTIVE",
+      },
     },
     include: {
       endpoint: true,
@@ -165,7 +169,11 @@ export async function processWebhookDeliveries(
       include: { endpoint: true },
     });
 
-    if (!current || current.status !== "PENDING") {
+    if (
+      !current ||
+      current.status !== "PENDING" ||
+      current.endpoint.status !== "ACTIVE"
+    ) {
       continue;
     }
 
@@ -174,28 +182,24 @@ export async function processWebhookDeliveries(
     ).toString();
 
     try {
-      const response = await fetch(
+      const status = await postWebhook(
         current.endpoint.url,
         {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-webhook-event": current.eventType,
-            "x-webhook-delivery-id": current.id,
-            "x-webhook-timestamp": timestamp,
-            "x-webhook-signature": `t=${timestamp},v1=${signWebhookPayload(
-              current.payload,
-              current.endpoint.secret,
-              timestamp
-            )}`,
-          },
-          body: JSON.stringify(current.payload),
-          signal: AbortSignal.timeout(10_000),
-        }
+          "content-type": "application/json",
+          "x-webhook-event": current.eventType,
+          "x-webhook-delivery-id": current.id,
+          "x-webhook-timestamp": timestamp,
+          "x-webhook-signature": `t=${timestamp},v1=${signWebhookPayload(
+            current.payload,
+            current.endpoint.secret,
+            timestamp
+          )}`,
+        },
+        JSON.stringify(current.payload),
       );
 
-      if (!response.ok) {
-        throw new Error(`HTTP_${response.status}`);
+      if (status < 200 || status >= 300) {
+        throw new Error(`HTTP_${status}`);
       }
 
       await prisma.webhookDelivery.update({

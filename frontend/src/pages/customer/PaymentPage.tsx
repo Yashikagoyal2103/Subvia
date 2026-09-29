@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, FileText, XCircle } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-
+import { AppLogo } from "@/components/app-logo";
 import { invoicesApi } from "@/api/invoices";
 import { paymentsApi } from "@/api/payments";
 import { DemoPaymentPanel } from "@/components/customer/DemoPaymentPanel";
@@ -110,6 +110,9 @@ export function CustomerPaymentPage() {
               <XCircle className="h-8 w-8" />
             )}
           </div>
+          <div className="mb-4 flex justify-center">
+            <AppLogo className="h-8" />
+          </div>
           <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
             Subvia Payment
           </p>
@@ -153,6 +156,7 @@ export function CustomerPaymentPage() {
       </Link>
 
       <div>
+        <AppLogo variant="mark" className="mb-4 h-8" />
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
           Payment
         </p>

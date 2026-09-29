@@ -9,7 +9,7 @@ import {
   formatDateTime,
   formatInvoiceDate,
 } from "@/lib/customer-utils";
-
+import { AppLogo } from "@/components/app-logo";
 import { CustomerErrorState } from "@/components/customer/CustomerErrorState";
 import { CustomerLoadingState } from "@/components/customer/CustomerLoadingState";
 import { GlassPanel } from "@/components/customer/GlassPanel";
@@ -119,9 +119,7 @@ export function CustomerInvoiceDetailsPage() {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--color-charcoal)] text-[11px] font-bold text-[var(--color-accent)]">
-                    S
-                  </span>
+                  <AppLogo variant="mark" className="h-7" alt="" />
                   <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-ink-subtle)]">
                     Subvia Invoice
                   </span>

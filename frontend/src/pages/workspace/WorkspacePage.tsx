@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-
+import { AppLogo } from "../../components/app-logo";
 import { businessesApi, type MyBusiness } from "../../api/businesses";
 import { useAuthStore } from "../../stores/auth.store";
 import { LogoutButton } from "../../components/auth/LogoutButton";
@@ -36,14 +36,7 @@ export function WorkspacePage() {
     <div className="app-canvas min-h-screen">
       {/* Top bar */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6 sm:px-10">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-ink)] text-[13px] font-bold text-[var(--color-accent)]">
-            B
-          </span>
-          <span className="text-sm font-semibold tracking-tight text-[var(--color-ink)]">
-            Subvia
-          </span>
-        </div>
+        <AppLogo className="h-8" />
 
         <div className="flex items-center gap-3">
           {user ? (
