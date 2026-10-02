@@ -22,22 +22,21 @@ failures and concurrent requests do not create inconsistent billing records.
 <table>
   <tr>
     <td width="50%">
-      <img src="CUSTOMER_URL" alt="Customer dashboard" width="100%" />
+      <img src="https://github.com/user-attachments/assets/47dc89e5-f837-4f28-991d-093d619c46a1" alt="Customer dashboard" width="100%" />
     </td>
     <td width="50%">
-      <img src="ADMIN_URL" alt="Admin dashboard" width="100%" />
+      <img src="https://github.com/user-attachments/assets/9f632208-3a73-403d-b904-664b80080810" alt="Subscription detail" width="100%" />
     </td>
-  </tr>
-  <tr>
+     </tr>
     <td width="50%">
-      <img src="INVOICE_URL" alt="Invoice detail" width="100%" />
+      <img src="https://github.com/user-attachments/assets/af8b7765-040b-44dc-9b94-eda6f4e910f2"alt="Admin dashboard" width="100%" />
     </td>
     <td width="50%">
-      <img src="SUBSCRIPTION_URL" alt="Subscription detail" width="100%" />
+      <img src="https://github.com/user-attachments/assets/5afde8cf-5e9a-4de4-8cd6-41d70ba25886" alt="Invoice detail" width="100%" />
     </td>
+    
   </tr>
 </table>
----
 
 ## Table of contents
 
@@ -524,14 +523,12 @@ Versions below are the ranges declared in the `package.json` files.
 ### 1. Clone and install
 
 ```bash
-git clone <your-repo-url>
-cd <repo>
+git clone https://github.com/Yashikagoyal2103/Subvia.git
+cd Subvia
 
 cd backend && npm install
 cd ../frontend && npm install
 ```
-
-<!-- TODO: Replace <your-repo-url> with the final repository URL -->
 
 ### 2. Configure the backend
 

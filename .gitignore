@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+backend/dist/
+frontend/dist/
+
+# Generated Prisma client
+backend/src/generated/prisma/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+backend/coverage/
+frontend/coverage/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# AI agent tooling
+.agents/
+.claude/
+.windsurf/
+
+# Temporary files
+*.tmp
+*.temp
+test-output.txt
