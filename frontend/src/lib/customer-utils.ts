@@ -49,41 +49,16 @@ export function groupBy<T, K extends string | number>(
   items: T[],
   keyFn: (item: T) => K,
 ): Array<[K, T[]]> {
-  const map = new Map<K, T[]>();
+  const groups = new Map<K, T[]>();
   for (const item of items) {
     const key = keyFn(item);
-    const bucket = map.get(key);
-    if (bucket) bucket.push(item);
-    else map.set(key, [item]);
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
   }
-  return Array.from(map.entries());
+  return Array.from(groups.entries());
 }
 
-export function formatInvoiceDate(
-  iso: string | null | undefined,
-): string {
-  if (!iso) return "—";
-
-  const date = new Date(iso);
-
-  return `${String(date.getDate()).padStart(2, "0")}/${String(
-    date.getMonth() + 1,
-  ).padStart(2, "0")}/${String(date.getFullYear()).slice(-2)}`;
-}
-
-export function formatInvoiceDateTime(
-  iso: string | null | undefined,
-): string {
-  if (!iso) return "—";
-
-  const date = new Date(iso);
-
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear()).slice(-2);
-
-  return `${day}/${month}/${year}, ${date.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
+export function formatInvoiceDate(iso: string | null | undefined): string {
+  return formatDate(iso);
 }

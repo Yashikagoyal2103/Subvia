@@ -20,6 +20,8 @@ import {
   Repeat,
   ShieldCheck,
   Users,
+  Webhook,
+  KeyRound,
   X,
 } from "lucide-react";
 import { cn } from "cn";
@@ -94,7 +96,7 @@ function Reveal({
    ───────────────────────────────────────────────────────────── */
 
 function Wordmark({ className }: { className?: string }) {
-  return <AppLogo className={cn("h-8", className)} />;
+  return <AppLogo variant="wordmark" className={cn("h-8", className)} />;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -105,6 +107,7 @@ const NAV_LINKS = [
   { label: "Product", href: "#product" },
   { label: "Lifecycle", href: "#lifecycle" },
   { label: "Platform", href: "#platform" },
+  { label: "Integrations", href: "#integrations" },
 ];
 
 function TopNav() {
@@ -1122,6 +1125,77 @@ function MultiTenancy() {
   );
 }
 
+
+function DeveloperIntegrations() {
+  return (
+    <section
+      id="integrations"
+      className="border-y border-[var(--color-border-soft)] bg-[var(--color-surface)]"
+    >
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink-subtle)]">
+              Developer-ready
+            </p>
+            <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-[var(--color-ink)] sm:text-4xl">
+              Keep your billing system connected.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-[var(--color-ink-muted)]">
+              Subvia can send signed subscription lifecycle events to your
+              application and gives each business API keys for controlled
+              programmatic access.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2">
+          <Reveal>
+            <div className="h-full rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-surface)] text-[var(--color-ink)]">
+                <Webhook className="h-5 w-5" />
+              </span>
+              <h3 className="mt-5 text-lg font-semibold text-[var(--color-ink)]">
+                Signed webhooks
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-ink-muted)]">
+                Subscription events are delivered with HMAC signatures, a
+                delivery identifier and timestamp headers so your service can
+                verify the source and process events safely.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {['HMAC-SHA256', 'Retry delivery', 'Event headers'].map((item) => (
+                  <span key={item} className="rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-ink-muted)]">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={80}>
+            <div className="h-full rounded-3xl border border-[var(--color-border-soft)] bg-white p-6 shadow-[var(--shadow-soft)]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-surface)] text-[var(--color-ink)]">
+                <KeyRound className="h-5 w-5" />
+              </span>
+              <h3 className="mt-5 text-lg font-semibold text-[var(--color-ink)]">
+                Business API keys
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-ink-muted)]">
+                Create, manage and revoke business-scoped API keys for the
+                platform's authenticated public catalog endpoint.
+              </p>
+              <div className="mt-5 rounded-2xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-4 py-3 font-mono text-[11px] text-[var(--color-ink-muted)]">
+                GET /api/v1/public/catalog
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─────────────────────────────────────────────────────────────
    Section 8 — Final CTA
    ───────────────────────────────────────────────────────────── */
@@ -1208,7 +1282,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-10 sm:flex-row">
           <div className="max-w-xs">
-            <Wordmark />
+            <AppLogo variant="full" className="h-10" />
             <p className="mt-4 text-sm leading-6 text-[var(--color-ink-muted)]">
               Subscriptions. Simplified.
             </p>
@@ -1291,6 +1365,7 @@ export function LandingPage() {
         <BillingReliability />
         <HowItWorks />
         <MultiTenancy />
+        <DeveloperIntegrations />
         <FinalCta />
       </main>
       <Footer />

@@ -213,19 +213,21 @@ export function AdminApiKeysPage() {
           <ul className="divide-y divide-[var(--a-border)] px-4 py-2">
             {keys.map((key) => {
               const revoked = Boolean(key.revokedAt);
+              const expired = Boolean(key.expiresAt && new Date(key.expiresAt).getTime() <= Date.now());
+              const inactive = revoked || expired;
               return (
                 <li key={key.id}>
                   <ListRow
                     icon={<KeyRound className="h-4 w-4" />}
-                    leadingBadgeTone={revoked ? "rose" : "indigo"}
+                    leadingBadgeTone={inactive ? "rose" : "indigo"}
                     title={key.name}
                     subtitle={`Created ${date(key.createdAt)} · Last used ${date(
                       key.lastUsedAt,
                     )}${key.expiresAt ? ` · Expires ${date(key.expiresAt)}` : ""}`}
                     trailing={
                       <>
-                        <StatusBadge status={revoked ? "CANCELLED" : "ACTIVE"} />
-                        {!revoked ? (
+                        <StatusBadge status={revoked ? "CANCELLED" : expired ? "EXPIRED" : "ACTIVE"} />
+                        {!inactive ? (
                           <button
                             type="button"
                             disabled={revokeMutation.isPending}

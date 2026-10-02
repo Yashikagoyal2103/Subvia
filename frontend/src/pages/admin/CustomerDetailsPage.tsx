@@ -2,7 +2,7 @@
 import { FileText, Mail, Receipt, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-
+import { StatusBadge } from "@/components/status-badge";
 import { adminApi } from "../../api/admin";
 import { useCurrentBusinessName } from "@/hooks/useCurrentBusinessName";
 
@@ -100,35 +100,49 @@ export function AdminCustomerDetailsPage() {
           <Field label="Created" value={date(customer.createdAt)} />
         </dl>
       </AdminCard>
-
       <AdminCard variant="flush">
         <div className="border-b border-[var(--a-border)] px-6 py-5">
           <h2 className="text-sm font-semibold text-[var(--a-ink)]">
             Related records
           </h2>
           <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-            Jump into this customer&apos;s subscriptions and invoices.
+            Records belonging to this customer.
           </p>
         </div>
-        <ul className="px-4 py-2">
-          <li>
-            <ListRow
-              icon={<Users className="h-4 w-4" />}
-              leadingBadgeTone="indigo"
-              title="View this customer's subscriptions"
-              subtitle={`Filter subscriptions by ${customer.user.email}`}
-              href={`/admin/${businessId}/subscriptions`}
-            />
-          </li>
-          <li>
-            <ListRow
-              icon={<FileText className="h-4 w-4" />}
-              leadingBadgeTone="violet"
-              title="View this customer's invoices"
-              subtitle={`Filter invoices by ${customer.user.email}`}
-              href={`/admin/${businessId}/invoices`}
-            />
-          </li>
+
+        <ul className="divide-y divide-[var(--a-border)] px-4 py-2">
+          {customer.subscriptions.map((subscription) => (
+            <li key={subscription.id}>
+              <ListRow
+                icon={<Users className="h-4 w-4" />}
+                leadingBadgeTone="indigo"
+                title={subscription.plan.name}
+                subtitle={`${subscription.plan.service.name} · ${subscription.status}`}
+                trailing={
+                  <span className="text-xs text-[var(--a-ink-3)]">
+                    Subscription
+                  </span>
+                }
+                href={`/admin/${businessId}/subscriptions/${subscription.id}`}
+              />
+            </li>
+          ))}
+
+          {customer.invoices.map((invoice) => (
+            <li key={invoice.id}>
+              <ListRow
+                icon={<FileText className="h-4 w-4" />}
+                leadingBadgeTone="violet"
+                title={invoice.invoiceNumber}
+                subtitle={`Issued ${date(invoice.issuedAt)}`}
+                trailing={
+                  <StatusBadge status={invoice.status} />
+                }
+                href={`/admin/${businessId}/invoices/${invoice.id}`}
+              />
+            </li>
+          ))}
+
           <li>
             <ListRow
               icon={<Mail className="h-4 w-4" />}

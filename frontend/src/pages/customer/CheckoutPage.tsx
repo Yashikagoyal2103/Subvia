@@ -1,6 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { ArrowLeft, Check, FileText } from "lucide-react";
 
 import { catalogApi } from "@/api/catalog";
@@ -13,11 +13,35 @@ import { CustomerLoadingState } from "@/components/customer/CustomerLoadingState
 import { GlassPanel } from "@/components/customer/GlassPanel";
 import { MoneyText } from "@/components/customer/MoneyText";
 import { formatMoney } from "@/lib/format";
+import { createIdempotencyKey } from "@/lib/idempotency";
+import { PaymentResultCard } from "@/components/payment-result-card";
 
 export function CheckoutPage() {
   const { planId = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [paymentResult, setPaymentResult] = useState<{
+    success: boolean;
+    subscriptionId: string;
+    invoiceId: string;
+    amount: number;
+    currency: "INR" | "USD";
+  } | null>(null);
+
+  useEffect(() => {
+    if (!paymentResult) return;
+
+    const timer = window.setTimeout(() => {
+      navigate(
+        paymentResult.success
+          ? `/customer/subscriptions/${paymentResult.subscriptionId}`
+          : `/customer/invoices/${paymentResult.invoiceId}`,
+        { replace: true },
+      );
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [navigate, paymentResult]);
 
   const planQuery = useQuery({
     queryKey: ["checkout-plan", planId],
@@ -42,15 +66,19 @@ export function CheckoutPage() {
   const mutation = useMutation({
     mutationFn: async (result: "SUCCESS" | "FAILED") => {
       if (!planQuery.data) throw new Error("Plan not found.");
-      const created = await subscriptionsApi.create({
-        planId: planQuery.data.plan.id,
-        currency: planQuery.data.plan.currency,
-      });
+      const created = await subscriptionsApi.create(
+        {
+          planId: planQuery.data.plan.id,
+          currency: planQuery.data.plan.currency,
+        },
+        createIdempotencyKey(),
+      );
       if (created.invoice.total > 0) {
-        const payment = await paymentsApi.createForCustomer(created.invoice.id, {
-          paymentMethod: "DEMO",
-          result,
-        });
+        const payment = await paymentsApi.createForCustomer(
+          created.invoice.id,
+          { paymentMethod: "DEMO", result },
+          createIdempotencyKey(),
+        );
         return { created, success: payment.success };
       }
       return { created, success: true };
@@ -59,20 +87,42 @@ export function CheckoutPage() {
       qc.invalidateQueries({ queryKey: ["customer-subscriptions"] });
       qc.invalidateQueries({ queryKey: ["customer-invoices"] });
       qc.invalidateQueries({ queryKey: ["customer-credits"] });
-      if (data.success) {
-        toast.success("Payment successful. Subscription activated.");
-        navigate(`/customer/subscriptions/${data.created.subscription.id}`);
-      } else {
-        toast.error("Payment failed. The invoice remains open for retry.");
-        navigate(`/customer/invoices/${data.created.invoice.id}`);
-      }
+      setPaymentResult({
+        success: data.success,
+        subscriptionId: data.created.subscription.id,
+        invoiceId: data.created.invoice.id,
+        amount: data.created.invoice.total,
+        currency: data.created.invoice.currency,
+      });
     },
-    onError: (error: unknown) => toast.error(error instanceof Error ? error.message : "Checkout failed."),
   });
 
   if (!planId) return <CustomerErrorState description="Plan context is missing." />;
   if (planQuery.isPending) return <CustomerLoadingState message="Preparing checkout…" />;
   if (planQuery.isError || !planQuery.data) return <CustomerErrorState description="This plan is no longer available." retryAction={() => planQuery.refetch()} />;
+
+  if (paymentResult) {
+    return (
+      <div className="flex min-h-[65vh] items-center justify-center py-10">
+        <PaymentResultCard
+          status={paymentResult.success ? "SUCCESS" : "FAILED"}
+          title={paymentResult.success ? "Payment successful" : "Payment failed"}
+          description={
+            paymentResult.success
+              ? "Your subscription is active and your payment has been recorded."
+              : "Your subscription was created, but the invoice remains open so you can retry the payment."
+          }
+          amount={formatMoney(paymentResult.amount, paymentResult.currency)}
+          action={
+            <p className="text-xs text-[var(--color-ink-subtle)]">
+              Returning to your account…
+            </p>
+          }
+          className="w-full max-w-xl"
+        />
+      </div>
+    );
+  }
 
   const { business, service, plan } = planQuery.data;
   const credit = creditQuery.data?.[plan.currency] ?? 0;
@@ -153,4 +203,3 @@ function InvoicePreview({ business, customer, service, plan, subtotal, tax, taxR
     </GlassPanel>
   );
 }
-

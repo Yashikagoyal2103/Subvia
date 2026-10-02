@@ -13,7 +13,7 @@ export async function create(req: AuthenticatedRequest, res: Response) {
 
   return res.status(201).json({
     success: true,
-    data: endpoint,
+    data: { ...endpoint, secret },
   });
 }
 

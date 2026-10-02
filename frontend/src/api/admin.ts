@@ -22,8 +22,37 @@ export interface AdminCustomer {
     invoices: number;
     creditLedger: number;
   };
+  subscriptions: {
+    id: string;
+    status: "PENDING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
+    price: number;
+    currency: "INR" | "USD";
+    billingInterval: "MONTHLY" | "YEARLY";
+    billingPeriodEnd: string;
+    cancelAtPeriodEnd: boolean;
+    plan: {
+      id: string;
+      name: string;
+      service: {
+        id: string;
+        name: string;
+      };
+    };
+    pendingPlan: {
+      id: string;
+      name: string;
+    } | null;
+  }[];
+  invoices: {
+    id: string;
+    invoiceNumber: string;
+    status: "DRAFT" | "OPEN" | "PAID" | "VOID";
+    currency: "INR" | "USD";
+    total: number;
+    issuedAt: string;
+    paidAt: string | null;
+  }[];
 }
-
 export interface AdminSubscription {
   id: string;
   status: "PENDING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
@@ -67,8 +96,26 @@ export interface AdminSubscription {
     invoices: number;
     events: number;
   };
-}
 
+  invoices: {
+    id: string;
+    invoiceNumber: string;
+    status: "DRAFT" | "OPEN" | "PAID" | "VOID";
+    currency: "INR" | "USD";
+    total: number;
+    issuedAt: string;
+    dueAt: string | null;
+    paidAt: string | null;
+    payments: {
+      id: string;
+      amount: number;
+      currency: "INR" | "USD";
+      status: "SUCCESS" | "FAILED";
+      paymentMethod: string;
+      createdAt: string;
+    }[];
+  }[];
+}
 export interface AdminInvoice {
   id: string;
   invoiceNumber: string;

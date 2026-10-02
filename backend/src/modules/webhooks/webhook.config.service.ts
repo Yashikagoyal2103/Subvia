@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import type { CreateWebhookEndpointInput, UpdateWebhookEndpointInput } from "./webhook.schema.js";
 import { validateWebhookUrl } from "./webhook-url.js";
+import { encryptWebhookSecret } from "./webhook-secret.js";
 
 async function requireAdmin(userId: string, businessId: string) {
   const member = await prisma.businessMember.findFirst({
@@ -29,14 +30,14 @@ export async function createWebhookEndpoint(
     data: {
       businessId,
       url: input.url,
-      secret,
+      secret: encryptWebhookSecret(secret),
     },
     select: {
       id: true,
       url: true,
-      secret: true,
       status: true,
       createdAt: true,
+      updatedAt: true,
     },
   });
 

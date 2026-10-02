@@ -231,33 +231,64 @@ export function AdminSubscriptionDetailsPage() {
             Billing information
           </h2>
           <p className="mt-0.5 text-xs text-[var(--a-ink-3)]">
-            Invoices related to this subscription.
+            Invoices and payments related to this subscription.
           </p>
         </div>
-        <ul className="px-4 py-2">
-          <li>
-            <ListRow
-              icon={<FileText className="h-4 w-4" />}
-              leadingBadgeTone="indigo"
-              title="View invoices for this subscription"
-              subtitle={`${sub._count.invoices} invoice${
-                sub._count.invoices === 1 ? "" : "s"
-              } recorded`}
-              href={`/admin/${businessId}/invoices`}
-            />
-          </li>
-          <li>
-            <ListRow
-              icon={<CreditCard className="h-4 w-4" />}
-              leadingBadgeTone="emerald"
-              title="Inspect payments for this business"
-              subtitle="Cross-reference settlement activity"
-              href={`/admin/${businessId}/payments`}
-            />
-          </li>
-        </ul>
-      </AdminCard>
 
+        {sub.invoices.length === 0 ? (
+          <p className="px-6 py-10 text-center text-sm text-[var(--a-ink-2)]">
+            No invoices recorded for this subscription.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[var(--a-border)] px-4 py-2">
+            {sub.invoices.map((invoice) => (
+              <li key={invoice.id}>
+                <ListRow
+                  icon={<FileText className="h-4 w-4" />}
+                  leadingBadgeTone="indigo"
+                  title={invoice.invoiceNumber}
+                  subtitle={`Issued ${date(invoice.issuedAt)}`}
+                  trailing={
+                    <>
+                      <span className="text-sm font-semibold tabular-nums text-[var(--a-ink)]">
+                        {formatMoney(invoice.total, invoice.currency)}
+                      </span>
+                      <StatusBadge status={invoice.status} />
+                    </>
+                  }
+                  href={`/admin/${businessId}/invoices/${invoice.id}`}
+                />
+
+                {invoice.payments.length > 0 ? (
+                  <ul className="ml-12 border-l border-[var(--a-border)] pl-4">
+                    {invoice.payments.map((payment) => (
+                      <li key={payment.id}>
+                        <ListRow
+                          icon={<CreditCard className="h-4 w-4" />}
+                          leadingBadgeTone={
+                            payment.status === "SUCCESS" ? "emerald" : "rose"
+                          }
+                          title={`${payment.paymentMethod} payment`}
+                          subtitle={date(payment.createdAt)}
+                          trailing={
+                            <>
+                              <span className="text-xs font-semibold tabular-nums text-[var(--a-ink)]">
+                                {formatMoney(payment.amount, payment.currency)}
+                              </span>
+                              <StatusBadge status={payment.status} />
+                            </>
+                          }
+                          href={`/admin/${businessId}/payments/${payment.id}`}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminCard>
       <AdminCard variant="flush">
         <div className="border-b border-[var(--a-border)] px-6 py-5">
           <h2 className="text-sm font-semibold text-[var(--a-ink)]">

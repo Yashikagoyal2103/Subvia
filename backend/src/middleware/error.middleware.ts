@@ -353,6 +353,16 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
     });
   }
 
+  if (error.message === "API_KEY_EXPIRATION_TOO_LONG") {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "API_KEY_EXPIRATION_TOO_LONG",
+        message: "API key expiration exceeds the maximum allowed lifetime.",
+      },
+    });
+  }
+
   if (error.message === "API_KEY_NOT_FOUND") {
     return res.status(404).json({
       success: false,
@@ -427,6 +437,3 @@ if (error.message === "ACCOUNT_TYPE_NOT_ALLOWED") {
     },
   });
 };
-
-
-

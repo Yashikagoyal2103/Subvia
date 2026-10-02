@@ -101,7 +101,13 @@ export function LoginPage() {
       <main className="app-canvas flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-20">
         <div className="mx-auto w-full max-w-[400px]">
           <div className="mb-8 lg:hidden">
-            <AppLogo className="h-9" />
+            <div className="mb-8 lg:hidden">
+              <AppLogo
+                variant="wordmark"
+                className="h-9"
+                alt="Subvia"
+              />
+            </div>
           </div>
 
           <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-7 shadow-[var(--shadow-card)] sm:p-8">

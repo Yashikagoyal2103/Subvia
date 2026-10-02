@@ -193,6 +193,7 @@ export function AdminInvoiceDetailsPage() {
                       <StatusBadge status={payment.status} />
                     </>
                   }
+                  href={`/admin/${businessId}/payments/${payment.id}`}
                 />
               </li>
             ))}

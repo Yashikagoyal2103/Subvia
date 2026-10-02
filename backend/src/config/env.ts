@@ -28,6 +28,16 @@ if (!frontendUrl) {
   throw new Error("FRONTEND_URL is not configured");
 }
 
+const webhookSecretEncryptionKey = process.env.WEBHOOK_SECRET_ENCRYPTION_KEY ?? (process.env.NODE_ENV === "test" ? "0".repeat(64) : undefined);
+if (!webhookSecretEncryptionKey || !/^[0-9a-fA-F]{64}$/.test(webhookSecretEncryptionKey)) {
+  throw new Error("WEBHOOK_SECRET_ENCRYPTION_KEY must be a 32-byte hex key");
+}
+
+const apiKeyMaxLifetimeDays = Number(process.env.API_KEY_MAX_LIFETIME_DAYS ?? 365);
+if (!Number.isInteger(apiKeyMaxLifetimeDays) || apiKeyMaxLifetimeDays < 1 || apiKeyMaxLifetimeDays > 3650) {
+  throw new Error("API_KEY_MAX_LIFETIME_DAYS must be an integer between 1 and 3650");
+}
+
 const port = Number(process.env.PORT ?? 3000);
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -49,5 +59,8 @@ export const env = {
   PORT: port,
 
   FRONTEND_URL: frontendUrl,
+  API_KEY_MAX_LIFETIME_DAYS: apiKeyMaxLifetimeDays,
+  WEBHOOK_SECRET_ENCRYPTION_KEY: webhookSecretEncryptionKey,
 };
+
 

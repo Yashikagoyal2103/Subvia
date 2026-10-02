@@ -3,7 +3,7 @@ import { cn } from "cn";
 export type StatusType = 
   | "ACTIVE" | "PENDING" | "PAST_DUE" 
   | "CANCELLED" | "OPEN" | "PAID" 
-  | "FAILED" | "SUCCESS" | "INACTIVE";
+  | "FAILED" | "SUCCESS" | "INACTIVE" | "EXPIRED";
 
 interface StatusBadgeProps {
   status: StatusType | string;
@@ -28,6 +28,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     case "PAST_DUE":
     case "FAILED":
     case "CANCELLED":
+    case "EXPIRED":
       styles = "bg-red-50 text-red-700 border-red-200";
       break;
     case "INACTIVE":
@@ -47,3 +48,4 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     </span>
   );
 }
+

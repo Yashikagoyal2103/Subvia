@@ -52,7 +52,13 @@ export function DemoPaymentPanel({
         </div>
       </div>
 
-      <div className="p-6">
+      <form
+        className="p-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onPay(result);
+        }}
+      >
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[rgba(20,22,26,0.04)] p-1">
           <button
             type="button"
@@ -85,27 +91,41 @@ export function DemoPaymentPanel({
 
         {method === "CARD" ? (
           <div className="mt-5 space-y-3">
-            <Field
+            <DemoField
               label="Card number"
               placeholder="1234 5678 9012 3456"
+              inputMode="numeric"
+              autoComplete="new-password"
             />
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Expiry" placeholder="MM / YY" />
-              <Field label="CVC" placeholder="•••" />
+              <DemoField
+                label="Expiry"
+                placeholder="MM / YY"
+                inputMode="numeric"
+                autoComplete="new-password"
+              />
+
+              <DemoField
+                label="CVC"
+                placeholder="•••"
+                inputMode="numeric"
+                autoComplete="new-password"
+              />
             </div>
 
-            <Field label="Cardholder name" placeholder="Your name" />
+            <DemoField
+              label="Cardholder name"
+              placeholder="Your name"
+              autoComplete="new-password"
+            />
           </div>
         ) : (
-          <div className="mt-5 rounded-2xl border border-[rgba(20,22,26,0.08)] bg-white/70 p-4">
-            <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-              UPI ID
-            </label>
-
-            <input
+          <div className="mt-5">
+            <DemoField
+              label="UPI ID"
               placeholder="name@upi"
-              className="mt-2 h-11 w-full rounded-xl border border-[rgba(20,22,26,0.08)] bg-white px-3.5 text-sm outline-none focus:ring-2 focus:ring-[var(--color-charcoal)]/10"
+              autoComplete="new-password"
             />
           </div>
         )}
@@ -116,6 +136,7 @@ export function DemoPaymentPanel({
               <p className="text-xs font-semibold text-[var(--color-ink)]">
                 Payment outcome
               </p>
+
               <p className="mt-0.5 text-[11px] text-[var(--color-ink-subtle)]">
                 Demo environment · no real money is moved.
               </p>
@@ -152,9 +173,8 @@ export function DemoPaymentPanel({
         </div>
 
         <button
-          type="button"
+          type="submit"
           disabled={isPending}
-          onClick={() => onPay(result)}
           className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-charcoal)] text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending
@@ -168,26 +188,37 @@ export function DemoPaymentPanel({
           Subvia demo environment. Payment details are not stored or sent to a
           real payment provider.
         </p>
-      </div>
+      </form>
     </section>
   );
 }
 
-function Field({
+function DemoField({
   label,
   placeholder,
+  inputMode,
+  autoComplete = "new-password",
 }: {
   label: string;
   placeholder: string;
+  inputMode?: "text" | "numeric";
+  autoComplete?: string;
 }) {
   return (
     <label className="block">
       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-ink-subtle)]">
-        {label}
+        {label} *
       </span>
 
       <input
+        required
+        type="text"
         placeholder={placeholder}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        spellCheck={false}
+        data-lpignore="true"
+        data-1p-ignore="true"
         className="mt-2 h-11 w-full rounded-xl border border-[rgba(20,22,26,0.08)] bg-white/80 px-3.5 text-sm text-[var(--color-ink)] outline-none focus:ring-2 focus:ring-[var(--color-charcoal)]/10"
       />
     </label>

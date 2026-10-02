@@ -103,8 +103,8 @@ describe("Cancellation and credit ledger", () => {
       plan.id
     );
 
-    const start = new Date("2026-09-01T00:00:00Z");
-    const end = new Date("2026-10-01T00:00:00Z");
+    const start = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    const end = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
 
     await prisma.subscription.update({
       where: { id: active.subscription.id },

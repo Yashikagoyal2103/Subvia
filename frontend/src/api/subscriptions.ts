@@ -105,10 +105,6 @@ export interface UpgradeSubscriptionResult {
   proration: ProrationResult;
 }
 
-function createIdempotencyKey() {
-  return crypto.randomUUID();
-}
-
 export const subscriptionsApi = {
   async list(page = 1, limit = 20): Promise<Subscription[]> {
     const response = await apiClient.get<{
@@ -146,14 +142,13 @@ export const subscriptionsApi = {
 
   async create(
     input: CreateSubscriptionInput,
+    idempotencyKey: string,
   ): Promise<CreateSubscriptionResult> {
     const response = await apiClient.post<{
       success: true;
       data: CreateSubscriptionResult;
     }>("/subscriptions", input, {
-      headers: {
-        "Idempotency-Key": createIdempotencyKey(),
-      },
+      headers: { "Idempotency-Key": idempotencyKey },
     });
 
     return response.data.data;
@@ -162,6 +157,7 @@ export const subscriptionsApi = {
   async upgrade(
     subscriptionId: string,
     planId: string,
+    idempotencyKey: string,
   ): Promise<UpgradeSubscriptionResult> {
     const response = await apiClient.post<{
       success: true;
@@ -171,7 +167,7 @@ export const subscriptionsApi = {
       { planId },
       {
         headers: {
-          "Idempotency-Key": createIdempotencyKey(),
+          "Idempotency-Key": idempotencyKey,
         },
       },
     );
@@ -182,6 +178,7 @@ export const subscriptionsApi = {
   async downgrade(
     subscriptionId: string,
     planId: string,
+    idempotencyKey: string,
   ): Promise<Subscription> {
     const response = await apiClient.post<{
       success: true;
@@ -191,7 +188,7 @@ export const subscriptionsApi = {
       { planId },
       {
         headers: {
-          "Idempotency-Key": createIdempotencyKey(),
+          "Idempotency-Key": idempotencyKey,
         },
       },
     );
@@ -202,6 +199,7 @@ export const subscriptionsApi = {
   async cancel(
     subscriptionId: string,
     input: CancelSubscriptionInput,
+    idempotencyKey: string,
   ): Promise<Subscription> {
     const response = await apiClient.post<{
       success: true;
@@ -211,7 +209,7 @@ export const subscriptionsApi = {
       input,
       {
         headers: {
-          "Idempotency-Key": createIdempotencyKey(),
+          "Idempotency-Key": idempotencyKey,
         },
       },
     );

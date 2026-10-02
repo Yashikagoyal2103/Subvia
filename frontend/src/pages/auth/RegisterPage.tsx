@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -7,6 +6,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Webhook,
 } from "lucide-react";
 import { AppLogo } from "../../components/app-logo";
 import { authApi, type RegistrationIntent } from "../../api/auth";
@@ -146,39 +146,18 @@ export function RegisterPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* <AuthBrandPanel
-        headline={
-          <>
-            Run subscriptions without the{" "}
-            <span className="text-[var(--color-accent)]">busywork.</span>
-          </>
-        }
-        supporting="Services, pricing plans, invoicing, proration, a credit ledger and webhook delivery — the billing engine is already built. You focus on the business."
-        bullets={[
-          {
-            icon: RefreshCw,
-            title: "Automatic proration",
-            description: "Upgrades and downgrades recalculate on the fly.",
-          },
-          {
-            icon: ShieldCheck,
-            title: "Idempotent operations",
-            description: "Every mutation is safe to retry.",
-          },
-          {
-            icon: Receipt,
-            title: "Tax-aware invoicing",
-            description: "Multi-currency invoices with line items.",
-          },
-        ]}
-      /> */}
-      
       <AuthBrandPanel intent={intent} />
 
       <main className="app-canvas flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-20">
         <div className="mx-auto w-full max-w-[440px]">
           <div className="mb-8 lg:hidden">
-            <AppLogo className="h-9" />
+            <div className="mb-8 lg:hidden">
+              <AppLogo
+                variant="wordmark"
+                className="h-9"
+                alt="Subvia"
+              />
+            </div>
           </div>
 
           <div className="rounded-3xl border border-[var(--color-border-soft)] bg-white p-7 shadow-[var(--shadow-card)] sm:p-8">
@@ -253,6 +232,15 @@ export function RegisterPage() {
                     disabled={isLoading}
                   />
                 </div>
+
+                {intent === "ADMIN" ? (
+                  <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-3.5 py-3">
+                    <Webhook className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-muted)]" />
+                    <p className="text-[11px] leading-5 text-[var(--color-ink-muted)]">
+                      Your business workspace includes signed webhook delivery with automatic retries for subscription lifecycle events.
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <PasswordField

@@ -1,4 +1,3 @@
-
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "../src/config/prisma.js";
@@ -254,6 +253,7 @@ describe("Subscription and payment lifecycle", () => {
 
   it("rejects payment attempts against an already paid invoice", async () => {
     const { auth, business, starter } = await fixture();
+
     const active = await createActiveSubscription(
       auth.accessToken,
       business.id,
@@ -386,11 +386,14 @@ describe("Subscription and payment lifecycle", () => {
       starter.id
     );
 
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
     const updated = await prisma.subscription.update({
       where: { id: active.subscription.id },
       data: {
-        billingPeriodStart: new Date("2026-09-01T00:00:00Z"),
-        billingPeriodEnd: new Date("2026-10-01T00:00:00Z"),
+        billingPeriodStart: new Date(now - 15 * day),
+        billingPeriodEnd: new Date(now + 15 * day),
       },
     });
 
@@ -433,11 +436,14 @@ describe("Subscription and payment lifecycle", () => {
       starter.id
     );
 
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+
     await prisma.subscription.update({
       where: { id: active.subscription.id },
       data: {
-        billingPeriodStart: new Date("2026-09-01T00:00:00Z"),
-        billingPeriodEnd: new Date("2026-10-01T00:00:00Z"),
+        billingPeriodStart: new Date(now - 15 * day),
+        billingPeriodEnd: new Date(now + 15 * day),
       },
     });
 
@@ -483,6 +489,7 @@ describe("Subscription and payment lifecycle", () => {
     const failedPayment = await prisma.payment.findFirstOrThrow({
       where: { invoiceId: data.invoice.id, status: "FAILED" },
     });
+
     expect(failedPayment.status).toBe("FAILED");
 
     const success = await request(
@@ -624,6 +631,7 @@ describe("Subscription and payment lifecycle", () => {
       business.id,
       "Reporting"
     );
+
     const secondPlan = await createPlan(
       auth.accessToken,
       business.id,
@@ -636,6 +644,7 @@ describe("Subscription and payment lifecycle", () => {
       business.id,
       starter.id
     );
+
     await createActiveSubscription(
       auth.accessToken,
       business.id,
@@ -647,7 +656,10 @@ describe("Subscription and payment lifecycle", () => {
     });
 
     expect(invoices).toHaveLength(2);
-    expect(new Set(invoices.map((invoice) => invoice.invoiceNumber)).size).toBe(2);
+    expect(
+      new Set(invoices.map((invoice) => invoice.invoiceNumber)).size
+    ).toBe(2);
+
     for (const invoice of invoices) {
       expect(invoice.invoiceNumber).toMatch(/^INV-\d{4}-\d{6}$/);
     }
@@ -682,7 +694,6 @@ describe("Subscription and payment lifecycle", () => {
     expect(item.amount).toBe(3000);
   });
 
-
   it("prevents two concurrent successful payments from charging one invoice twice", async () => {
     const { auth, business, starter } = await fixture();
 
@@ -702,6 +713,7 @@ describe("Subscription and payment lifecycle", () => {
     );
 
     expect(pending.status).toBe(201);
+
     const data = (await pending.json()).data;
 
     const payload = JSON.stringify({
@@ -730,6 +742,7 @@ describe("Subscription and payment lifecycle", () => {
     ]);
 
     expect([first.status, second.status].sort()).toEqual([201, 409]);
+
     expect(
       await prisma.payment.count({
         where: { invoiceId: data.invoice.id },
@@ -742,6 +755,4 @@ describe("Subscription and payment lifecycle", () => {
 
     expect(invoice.status).toBe("PAID");
   });
-
 });
-

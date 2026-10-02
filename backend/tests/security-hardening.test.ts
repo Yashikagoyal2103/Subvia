@@ -4,6 +4,7 @@ import { prisma } from "../src/config/prisma.js";
 import { cleanupExpiredRefreshTokens } from "../src/shared/utils/maintenance.worker.js";
 import { cleanupExpiredIdempotencyRecords } from "../src/shared/utils/idempotency-cleanup.js";
 import { registerAndLogin, createBusiness, request } from "./helpers.js";
+import { decryptWebhookSecret, encryptWebhookSecret } from "../src/modules/webhooks/webhook-secret.js";
 
 describe("security and reliability hardening", () => {
   it("returns database-aware health status", async () => {
@@ -27,6 +28,48 @@ describe("security and reliability hardening", () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error.code).toBe("WEBHOOK_URL_NOT_ALLOWED");
+  });
+
+  it("rejects IPv4-compatible, transition and reserved IPv6 targets", async () => {
+    const { accessToken } = await registerAndLogin();
+    const business = await createBusiness(accessToken);
+    const blockedUrls = [
+      "http://[::127.0.0.1]:3000",
+      "http://[::ffff:127.0.0.1]:3000",
+      "http://[2002:7f00:1::1]:3000",
+      "http://[2001:db8::1]:3000",
+    ];
+
+    for (const url of blockedUrls) {
+      const response = await request(`/api/v1/businesses/${business.id}/webhooks`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ url }),
+      });
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it("rejects reserved IPv4 targets", async () => {
+    const { accessToken } = await registerAndLogin();
+    const business = await createBusiness(accessToken);
+
+    for (const url of ["http://240.0.0.1:3000", "http://192.88.99.1:3000", "http://255.255.255.255:3000", "http://198.18.0.1:3000"]) {
+      const response = await request(`/api/v1/businesses/${business.id}/webhooks`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ url }),
+      });
+      expect(response.status).toBe(400);
+    }
+  });
+
+  it("encrypts webhook secrets at rest and decrypts them for signing", () => {
+    const secret = `whsec_${crypto.randomUUID()}`;
+    const encrypted = encryptWebhookSecret(secret);
+    expect(encrypted).toMatch(/^enc:v1:/);
+    expect(encrypted).not.toContain(secret);
+    expect(decryptWebhookSecret(encrypted)).toBe(secret);
   });
 
   it("rejects webhook URLs that target private hostnames", async () => {
@@ -111,3 +154,4 @@ describe("security and reliability hardening", () => {
     expect(await prisma.idempotencyRecord.count({ where: { businessId: business.id } })).toBe(1);
   });
 });
+

@@ -13,6 +13,7 @@ import { GlassPanel } from "@/components/customer/GlassPanel";
 import { MoneyText } from "@/components/customer/MoneyText";
 import { formatMoney } from "@/lib/format";
 import { formatInvoiceDate } from "@/lib/customer-utils";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 export function CustomerPaymentPage() {
   const { invoiceId = "" } = useParams();
@@ -38,10 +39,11 @@ export function CustomerPaymentPage() {
 
   const paymentMutation = useMutation({
     mutationFn: (result: "SUCCESS" | "FAILED") =>
-      paymentsApi.createForCustomer(invoiceId, {
-        paymentMethod: "DEMO",
-        result,
-      }),
+      paymentsApi.createForCustomer(
+        invoiceId,
+        { paymentMethod: "DEMO", result },
+        createIdempotencyKey(),
+      ),
     onSuccess: (result) => {
       for (const key of [
         ["customer-payment-invoice", invoiceId],

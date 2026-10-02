@@ -7,6 +7,7 @@ import {
   Receipt,
   Repeat,
   ShieldCheck,
+  Webhook,
   Wallet,
 } from "lucide-react";
 import { cn } from "cn";
@@ -56,11 +57,11 @@ const ADMIN_COPY: { headline: ReactNode; supporting: string; bullets: Bullet[] }
       title: "Tax-aware invoicing",
       description: "Multi-currency invoices with line items.",
     },
-    // {
-    //   icon: Webhook,
-    //   title: "Signed webhooks",
-    //   description: "Every lifecycle event delivered, retried until it lands.",
-    // },
+    {
+      icon: Webhook,
+      title: "Signed webhook delivery",
+      description: "Lifecycle events are signed and retried automatically.",
+    },
   ],
 };
 
@@ -182,12 +183,12 @@ export function AuthBrandPanel({
       {/* Brand */}
       {/* Brand */}
       {/* Brand */}
-      <div className="relative flex items-center gap-3">
-        <AppLogo variant="mark" className="h-9 w-9" />
-
-        <span className="text-base font-semibold tracking-tight text-white">
-          Subvia
-        </span>
+      <div className="relative">
+        <AppLogo
+          variant="wordmark"
+          className="h-9 brightness-0 invert"
+          alt="Subvia"
+        />
       </div>
 
       {/* Middle — copy + bullets + mock card */}

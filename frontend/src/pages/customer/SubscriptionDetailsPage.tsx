@@ -1,5 +1,3 @@
-
-
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -18,7 +16,7 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-
+import { createIdempotencyKey } from "@/lib/idempotency";
 import {
   subscriptionsApi,
   type Subscription,
@@ -95,7 +93,7 @@ export function SubscriptionDetailsPage() {
 
   const upgradeMutation = useMutation({
     mutationFn: (planId: string) =>
-      subscriptionsApi.upgrade(subscriptionId, planId),
+      subscriptionsApi.upgrade(subscriptionId, planId, createIdempotencyKey()),
     onSuccess: (result) => {
       toast.success("Upgrade created. Review the invoice to complete payment.");
       qc.invalidateQueries({ queryKey: ["customer-subscription", subscriptionId] });
@@ -108,7 +106,7 @@ export function SubscriptionDetailsPage() {
 
   const downgradeMutation = useMutation({
     mutationFn: (planId: string) =>
-      subscriptionsApi.downgrade(subscriptionId, planId),
+      subscriptionsApi.downgrade(subscriptionId, planId, createIdempotencyKey()),
     onSuccess: () => {
       toast.success("Downgrade scheduled for the next billing boundary.");
       qc.invalidateQueries({ queryKey: ["customer-subscription", subscriptionId] });
@@ -120,7 +118,7 @@ export function SubscriptionDetailsPage() {
 
   const cancelMutation = useMutation({
     mutationFn: (mode: CancelMode) =>
-      subscriptionsApi.cancel(subscriptionId, { mode }),
+      subscriptionsApi.cancel(subscriptionId, { mode }, createIdempotencyKey()),
     onSuccess: () => {
       toast.success(
         cancelMode === "IMMEDIATE"
@@ -538,10 +536,20 @@ function NoticeBanners({
       tone: "amber",
       text: pendingName ? (
         <>
-          {isUpgrade ? "Upgrade awaiting payment — " : "Downgrade scheduled — "}
-          {isUpgrade ? <>complete the open invoice to move to </> : <>you&apos;ll move to </>}
-          <span className="font-semibold">{pendingName}</span>
-          {!isUpgrade ? " at the next renewal." : "."}
+          {isUpgrade ? (
+            <>
+              Your upgrade to{" "}
+              <span className="font-semibold">{pendingName}</span>{" "}
+              is scheduled for your next billing cycle. To apply it immediately,
+              complete the open prorated invoice.
+            </>
+          ) : (
+            <>
+              Downgrade scheduled — you&apos;ll move to{" "}
+              <span className="font-semibold">{pendingName}</span> at the next
+              renewal.
+            </>
+          )}
           {isUpgrade ? (
             <Link
               to={
@@ -794,6 +802,3 @@ function describeEvent(ev: SubscriptionEvent): {
         };
   }
 }
-
-
-

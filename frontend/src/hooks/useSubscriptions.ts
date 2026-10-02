@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { subscriptionsApi } from "@/api/subscriptions";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 export function useSubscriptions() {
   const queryClient = useQueryClient();
@@ -16,7 +17,11 @@ export function useSubscriptions() {
     }: {
       subscriptionId: string;
       mode: "PERIOD_END" | "IMMEDIATE";
-    }) => subscriptionsApi.cancel(subscriptionId, { mode }),
+    }) => subscriptionsApi.cancel(
+      subscriptionId,
+      { mode },
+      createIdempotencyKey(),
+    ),
 
     onSuccess: async (_, variables) => {
       await Promise.all([

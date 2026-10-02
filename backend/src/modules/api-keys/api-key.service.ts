@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "../../config/prisma.js";
+import { env } from "../../config/env.js";
 import type { CreateApiKeyInput } from "./api-key.schema.js";
 
 function hashApiKey(key: string) {
@@ -33,8 +34,17 @@ export async function createApiKey(
 ) {
   await requireAdmin(userId, businessId);
 
-  if (input.expiresAt && input.expiresAt <= new Date()) {
+  const now = new Date();
+  const maxExpiry = new Date(
+    now.getTime() + env.API_KEY_MAX_LIFETIME_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  if (input.expiresAt && input.expiresAt <= now) {
     throw new Error("API_KEY_EXPIRATION_INVALID");
+  }
+
+  if (input.expiresAt && input.expiresAt > maxExpiry) {
+    throw new Error("API_KEY_EXPIRATION_TOO_LONG");
   }
 
   const rawKey = generateApiKey();
