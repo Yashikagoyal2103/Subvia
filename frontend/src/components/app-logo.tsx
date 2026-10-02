@@ -31,7 +31,7 @@ export function AppLogo({
       className={cn(
         "block w-auto select-none object-contain",
         variant === "mark" && "h-8 w-8",
-        variant === "wordmark" && "h-8",
+        variant === "wordmark" && "h-10",
         variant === "full" && "h-auto max-w-full",
         className,
       )}

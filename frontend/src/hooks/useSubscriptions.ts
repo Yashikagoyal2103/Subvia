@@ -34,6 +34,9 @@ export function useSubscriptions() {
         queryClient.invalidateQueries({
           queryKey: ["customer-subscription-events", variables.subscriptionId],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer-credits"],
+        }),
       ]);
     },
   });

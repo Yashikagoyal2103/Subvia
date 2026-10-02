@@ -92,6 +92,14 @@ export async function applyCredit(
     };
   }
 
+  // Serialize credit consumption for this customer/currency so concurrent
+  // billing transactions cannot both spend the same balance.
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(
+      hashtext(${`credit:${input.customerProfileId}:${input.currency}`})
+    )
+  `;
+
   const entries = await tx.creditLedger.findMany({
     where: {
       customerProfileId: input.customerProfileId,

@@ -281,6 +281,199 @@ describe("Cancellation and credit ledger", () => {
     expect(debits[0].invoiceId).toBe(invoice.id);
   });
 
+  it("exhausts a credit after it is applied and does not reuse it on another subscription", async () => {
+    const { auth, business, plan } = await fixture();
+
+    // Create two additional subscriptions BEFORE the cancellation credit exists.
+    // This prevents the credit from being consumed by their initial invoices.
+    const secondService = await createService(
+      auth.accessToken,
+      business.id,
+      "Second Service",
+    );
+
+    const secondPlan = await createPlan(
+      auth.accessToken,
+      business.id,
+      secondService.id,
+      {
+        name: "Second Monthly",
+        price: 3000,
+      },
+    );
+
+    const thirdService = await createService(
+      auth.accessToken,
+      business.id,
+      "Third Service",
+    );
+
+    const thirdPlan = await createPlan(
+      auth.accessToken,
+      business.id,
+      thirdService.id,
+      {
+        name: "Third Monthly",
+        price: 3000,
+      },
+    );
+
+    // Original subscription. Cancelling this will create the reusable credit.
+    const original = await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      plan.id,
+    );
+
+    const second = await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      secondPlan.id,
+    );
+
+    const third = await createActiveSubscription(
+      auth.accessToken,
+      business.id,
+      thirdPlan.id,
+    );
+
+    // Give the original subscription a deterministic unused period.
+    const start = new Date(
+      Date.now() - 15 * 24 * 60 * 60 * 1000,
+    );
+
+    const end = new Date(
+      Date.now() + 15 * 24 * 60 * 60 * 1000,
+    );
+
+    await prisma.subscription.update({
+      where: { id: original.subscription.id },
+      data: {
+        billingPeriodStart: start,
+        billingPeriodEnd: end,
+      },
+    });
+
+    // Cancel the original subscription and create a cancellation credit.
+    const cancelResponse = await request(
+      `/api/v1/businesses/${business.id}/subscriptions/${original.subscription.id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${auth.accessToken}`,
+          "Idempotency-Key": `cancel-credit-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ mode: "IMMEDIATE" }),
+      },
+    );
+
+    expect(cancelResponse.status).toBe(200);
+
+    const profile = await prisma.customerProfile.findUniqueOrThrow({
+      where: {
+        userId_businessId: {
+          userId: auth.userId,
+          businessId: business.id,
+        },
+      },
+    });
+
+    const credit = await prisma.creditLedger.findFirstOrThrow({
+      where: {
+        customerProfileId: profile.id,
+        type: "CREDIT",
+        currency: "INR",
+      },
+    });
+
+    // Make the available cancellation credit deterministic.
+    await prisma.creditLedger.update({
+      where: { id: credit.id },
+      data: { amount: 1000 },
+    });
+
+    // First recurring renewal consumes the ₹1000 credit.
+    await prisma.subscription.update({
+      where: { id: second.subscription.id },
+      data: {
+        billingPeriodEnd: new Date("2020-01-01T00:00:00Z"),
+      },
+    });
+
+    const firstRun = await request("/api/v1/internal/billing/run", {
+      method: "POST",
+      headers: {
+        "X-Internal-Token": INTERNAL_BILLING_SECRET,
+      },
+      body: JSON.stringify({ result: "SUCCESS" }),
+    });
+
+    expect(firstRun.status).toBe(200);
+
+    const firstInvoice = await prisma.invoice.findFirstOrThrow({
+      where: {
+        subscriptionId: second.subscription.id,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // ₹3000 renewal - ₹1000 credit = ₹2000.
+    expect(firstInvoice.total).toBe(2000);
+    expect(firstInvoice.status).toBe("PAID");
+
+    const firstDebit = await prisma.creditLedger.findFirstOrThrow({
+      where: {
+        customerProfileId: profile.id,
+        type: "DEBIT",
+        invoiceId: firstInvoice.id,
+      },
+    });
+
+    expect(firstDebit.amount).toBe(1000);
+
+    // Second subscription renewal happens after the credit has been exhausted.
+    await prisma.subscription.update({
+      where: { id: third.subscription.id },
+      data: {
+        billingPeriodEnd: new Date("2020-01-01T00:00:00Z"),
+      },
+    });
+
+    const secondRun = await request("/api/v1/internal/billing/run", {
+      method: "POST",
+      headers: {
+        "X-Internal-Token": INTERNAL_BILLING_SECRET,
+      },
+      body: JSON.stringify({ result: "SUCCESS" }),
+    });
+
+    expect(secondRun.status).toBe(200);
+
+    const secondInvoice = await prisma.invoice.findFirstOrThrow({
+      where: {
+        subscriptionId: third.subscription.id,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // No credit remains, so the second renewal must be charged in full.
+    expect(secondInvoice.total).toBe(3000);
+    expect(secondInvoice.status).toBe("PAID");
+
+    const debits = await prisma.creditLedger.findMany({
+      where: {
+        customerProfileId: profile.id,
+        type: "DEBIT",
+        currency: "INR",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    expect(debits).toHaveLength(1);
+    expect(debits[0].amount).toBe(1000);
+  });
+
+
   it("does not apply credit from a different currency to a renewal", async () => {
     const { auth, business, plan } = await fixture();
 
