@@ -27,7 +27,7 @@ export async function createSubscription(
   userId: string,
   businessId: string,
   input: CreateSubscriptionInput,
-  idempotencyKey: string
+  idempotencyKey: string,
 ) {
   const requestHash = createRequestHash({
     planId: input.planId,
@@ -75,6 +75,15 @@ export async function createSubscription(
       throw new Error("CURRENCY_NOT_SUPPORTED");
     }
 
+    // Serialize customer-profile creation for this user/business pair.
+    // The lock must happen BEFORE the upsert because the unique
+    // [userId, businessId] constraint can otherwise race.
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${`customer-profile:${userId}:${businessId}`})
+      )
+    `;
+
     const customer = await tx.customerProfile.upsert({
       where: {
         userId_businessId: {
@@ -89,24 +98,26 @@ export async function createSubscription(
       },
     });
 
+    // Serialize subscription creation for this customer and service.
+    // This prevents two concurrent requests from both passing the
+    // "existing subscription" check.
     await tx.$executeRaw`
       SELECT pg_advisory_xact_lock(
         hashtext(${`subscription-create:${customer.id}:${plan.serviceId}`})
       )
     `;
 
-    const existingSubscription =
-      await tx.subscription.findFirst({
-        where: {
-          customerProfileId: customer.id,
-          status: {
-            in: ["PENDING", "ACTIVE"],
-          },
-          plan: {
-            serviceId: plan.serviceId,
-          },
+    const existingSubscription = await tx.subscription.findFirst({
+      where: {
+        customerProfileId: customer.id,
+        status: {
+          in: ["PENDING", "ACTIVE"],
         },
-      });
+        plan: {
+          serviceId: plan.serviceId,
+        },
+      },
+    });
 
     if (existingSubscription) {
       throw new Error("ACTIVE_SUBSCRIPTION_EXISTS");
@@ -114,24 +125,20 @@ export async function createSubscription(
 
     const start = new Date();
 
-    const end = getBillingPeriod(
-      plan.interval,
-      start
-    );
+    const end = getBillingPeriod(plan.interval, start);
 
-    const subscription =
-      await tx.subscription.create({
-        data: {
-          customerProfileId: customer.id,
-          planId: plan.id,
-          status: "PENDING",
-          currency: plan.currency,
-          price: plan.price,
-          billingInterval: plan.interval,
-          billingPeriodStart: start,
-          billingPeriodEnd: end,
-        },
-      });
+    const subscription = await tx.subscription.create({
+      data: {
+        customerProfileId: customer.id,
+        planId: plan.id,
+        status: "PENDING",
+        currency: plan.currency,
+        price: plan.price,
+        billingInterval: plan.interval,
+        billingPeriodStart: start,
+        billingPeriodEnd: end,
+      },
+    });
 
     await createSubscriptionEvent(tx, {
       subscriptionId: subscription.id,
@@ -158,43 +165,34 @@ export async function createSubscription(
       throw new Error("BUSINESS_NOT_FOUND");
     }
 
-    const tax = calculateTax(
-      plan.price,
-      business.taxRate
-    );
+    const tax = calculateTax(plan.price, business.taxRate);
 
-    const invoiceNumber =
-      await generateInvoiceNumber(
-        tx,
-        start
-      );
+    const invoiceNumber = await generateInvoiceNumber(tx, start);
 
-    const invoice =
-      await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          customerProfileId: customer.id,
-          subscriptionId: subscription.id,
-          status: "OPEN",
-          currency: plan.currency,
-          subtotal: plan.price,
-          taxRate: tax.taxRate,
-          taxAmount: tax.taxAmount,
-          total: tax.total,
-          items: {
-            create: {
-              description:
-                `${plan.name} subscription`,
-              quantity: 1,
-              unitPrice: plan.price,
-              amount: plan.price,
-            },
+    const invoice = await tx.invoice.create({
+      data: {
+        invoiceNumber,
+        customerProfileId: customer.id,
+        subscriptionId: subscription.id,
+        status: "OPEN",
+        currency: plan.currency,
+        subtotal: plan.price,
+        taxRate: tax.taxRate,
+        taxAmount: tax.taxAmount,
+        total: tax.total,
+        items: {
+          create: {
+            description: `${plan.name} subscription`,
+            quantity: 1,
+            unitPrice: plan.price,
+            amount: plan.price,
           },
         },
-        include: {
-          items: true,
-        },
-      });
+      },
+      include: {
+        items: true,
+      },
+    });
 
     const creditResult = await applyCredit(tx, {
       customerProfileId: customer.id,
@@ -221,8 +219,15 @@ export async function createSubscription(
         paymentMethod: "CREDIT",
         result: "SUCCESS",
       });
-      finalSubscription = await tx.subscription.findUniqueOrThrow({ where: { id: subscription.id } });
-      finalInvoice = await tx.invoice.findUniqueOrThrow({ where: { id: adjustedInvoice.id }, include: { items: true } });
+
+      finalSubscription = await tx.subscription.findUniqueOrThrow({
+        where: { id: subscription.id },
+      });
+
+      finalInvoice = await tx.invoice.findUniqueOrThrow({
+        where: { id: adjustedInvoice.id },
+        include: { items: true },
+      });
     }
 
     const response = {
@@ -234,7 +239,7 @@ export async function createSubscription(
       tx,
       idempotency.record.id,
       201,
-      response
+      response,
     );
 
     return response;
